@@ -134,4 +134,51 @@ class ListManagerTest extends TestCase
         DB::table('voice_workspaces')->insert(['id'=>2,'name'=>'Outro']);$this->user->forceFill(['voice_role'=>'admin','voice_workspace_id'=>2])->save();
         $this->getJson('/api/lists')->assertForbidden();$this->getJson($this->url())->assertForbidden();
     }
+    public function test_select_existing_contacts_preserves_identity_consent_and_exclusions(): void
+    {
+        $a=$this->postJson($this->url('/contacts'),['data'=>$this->contact()])->json('contact_id');
+        $b=$this->postJson($this->url('/contacts'),['data'=>$this->contact(['name'=>'Bia','email'=>'bia@example.test','phone'=>'+5511999990002'])])->json('contact_id');
+        $this->deleteJson($this->url('/contacts/'.$b))->assertOk();
+        $c=DB::table('contacts')->insertGetId(['name'=>'Carlos','email'=>'carlos@example.test','subscribed'=>false,'fields'=>'{"empresa":"Preservada"}','created_at'=>now(),'updated_at'=>now()]);
+        $before=DB::table('contacts')->orderBy('id')->get()->toJson();
+        $this->getJson($this->url('/available-contacts'))->assertOk()->assertJsonPath('contacts.total',3)->assertJsonPath('contacts.data.0.membership','active')->assertJsonPath('contacts.data.1.membership','removed')->assertJsonPath('contacts.data.2.membership',null);
+        $this->getJson($this->url('/available-contacts?search=carlos@example.test'))->assertOk()->assertJsonPath('contacts.total',1);
+        $this->postJson($this->url('/existing-contacts'),['contact_ids'=>[$a,$b,$c]])->assertOk()->assertJsonPath('added',1)->assertJsonPath('removed_preserved',1);
+        $this->postJson($this->url('/existing-contacts'),['contact_ids'=>[$c]])->assertOk()->assertJsonPath('added',0);
+        $this->assertSame($before,DB::table('contacts')->orderBy('id')->get()->toJson());$this->assertDatabaseCount('audience_contact',2);
+        Http::assertNothingSent();Queue::assertNothingPushed();
+    }
+    public function test_selection_batch_is_atomic_and_rejects_duplicates_and_unauthorized_users(): void
+    {
+        $c=DB::table('contacts')->insertGetId(['name'=>'Ana','email'=>'ana@example.test','subscribed'=>false,'created_at'=>now(),'updated_at'=>now()]);
+        foreach ([[$c,999999],[$c,$c],[]] as $ids) $this->postJson($this->url('/existing-contacts'),['contact_ids'=>$ids])->assertUnprocessable();
+        $this->assertDatabaseCount('audience_contact',0);
+        $this->getJson('/api/lists/automation/99999/available-contacts')->assertNotFound();
+        $this->user->forceFill(['voice_role'=>'agent'])->save();$this->getJson($this->url('/available-contacts'))->assertForbidden();$this->postJson($this->url('/existing-contacts'),['contact_ids'=>[$c]])->assertForbidden();
+        DB::table('voice_workspaces')->insert(['id'=>2,'name'=>'Other']);$this->user->forceFill(['voice_role'=>'admin','voice_workspace_id'=>2])->save();$this->postJson($this->url('/existing-contacts'),['contact_ids'=>[$c]])->assertForbidden();
+    }
+    public function test_existing_voice_selection_enforces_workspace_and_preserves_optout_and_campaign_history(): void
+    {
+        $preset=app(\App\Services\VoiceJourneyPreset::class)->create(1,$this->user->id,'+12025550123');$url='/api/lists/voice/'.$preset['list_id'];
+        $c=$this->postJson($url.'/contacts',['data'=>$this->contact()])->json('contact_id');DB::table('voice_contacts')->where('id',$c)->update(['suppressed_at'=>now(),'replied_at'=>now()]);
+        $this->deleteJson($url.'/contacts/'.$c)->assertOk();
+        $this->postJson($url.'/existing-contacts',['contact_ids'=>[$c]])->assertOk()->assertJsonPath('removed_preserved',1)->assertJsonPath('added',0);
+        DB::table('voice_workspaces')->insert(['id'=>2,'name'=>'Other']);$foreign=DB::table('voice_contacts')->insertGetId(['workspace_id'=>2,'name'=>'Foreign','phone'=>'+12025550124','original_phone'=>'+12025550124','source'=>'QA','consent'=>false,'fields'=>'{}','created_at'=>now(),'updated_at'=>now()]);
+        $this->getJson($url.'/available-contacts')->assertOk()->assertJsonPath('contacts.total',1);
+        $this->postJson($url.'/existing-contacts',['contact_ids'=>[$foreign]])->assertUnprocessable();
+        $this->assertNotNull(DB::table('voice_contacts')->where('id',$c)->value('suppressed_at'));$this->assertNotNull(DB::table('voice_contacts')->where('id',$c)->value('replied_at'));$this->assertDatabaseCount('voice_outbound_calls',0);$this->assertDatabaseCount('wa_messages',0);
+        Http::assertNothingSent();Queue::assertNothingPushed();
+    }
+    public function test_webhook_configuration_requires_identity_and_required_fields_and_preview_never_imports(): void
+    {
+        $this->postJson($this->url('/webhooks'),['name'=>'Invalid','active'=>true,'revision'=>0,'mapping'=>[['source'=>'nome','target'=>'name']]])->assertUnprocessable();
+        $this->putJson($this->url(),['name'=>'Clientes','revision'=>0,'fields'=>$this->fields()])->assertOk();
+        $this->postJson($this->url('/webhooks'),['name'=>'Missing field','active'=>true,'revision'=>0,'mapping'=>[['source'=>'nome','target'=>'name'],['source'=>'email','target'=>'email']]])->assertUnprocessable();
+        $mapping=[['source'=>'cliente.nome','target'=>'name'],['source'=>'cliente.email','target'=>'email'],['source'=>'cliente.empresa','target'=>'fields.empresa']];
+        $payload=['cliente'=>['nome'=>'Ana','email'=>'ana@example.test','empresa'=>'Empresa QA']];
+        $this->postJson($this->url('/webhook-preview'),['mapping'=>$mapping,'payload'=>$payload])->assertOk()->assertJsonPath('saved',false)->assertJsonPath('contact.fields.empresa','Empresa QA');
+        $payload['cliente']['email']='invalid';$this->postJson($this->url('/webhook-preview'),['mapping'=>$mapping,'payload'=>$payload])->assertUnprocessable();
+        $this->assertDatabaseCount('contacts',0);$this->assertDatabaseCount('ma_list_webhook_receipts',0);$this->assertDatabaseCount('ma_list_webhooks',0);Http::assertNothingSent();Queue::assertNothingPushed();
+    }
+
 }

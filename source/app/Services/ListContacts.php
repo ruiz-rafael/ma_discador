@@ -133,6 +133,11 @@ class ListContacts
                 $id = DB::table('contacts')->insertGetId(['name' => $data['name'], 'email' => $data['email'] ?? null, 'phone' => $data['phone'] ?? null, 'subscribed' => $data['consent'], 'fields' => json_encode($fields), 'created_at' => now(), 'updated_at' => now()]);
             }
         }
+        return $this->link($w, $kind, $list, $id) + ['created' => ! $old, 'preserved' => (bool) $old];
+    }
+    /** Caller holds runtime lock; linking never edits a contact or restores an exclusion. */
+    public function link(int $w, string $kind, int $list, int $id): array
+    {
         if ($kind === 'voice') {
             $member = DB::table('voice_list_members')->where('list_id', $list)->where('contact_id', $id)->first();
             if (! $member) DB::table('voice_list_members')->insert(['list_id' => $list, 'contact_id' => $id, 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
@@ -145,7 +150,18 @@ class ListContacts
             $removed = DB::table('ma_list_membership_exclusions')->where('audience_id', $list)->where('contact_id', $id)->exists();
             $added = ! $removed && DB::table('audience_contact')->insertOrIgnore(['audience_id' => $list, 'contact_id' => $id]);
         }
-        return ['contact_id' => $id, 'created' => ! $old, 'added' => (bool) $added, 'preserved' => (bool) $old, 'membership_removed' => (bool) $removed];
+        return ['contact_id' => $id, 'added' => (bool) $added, 'membership_removed' => (bool) $removed];
+    }
+    public function existing(int $w, string $kind, int $list, array $ids): array
+    {
+        return DB::transaction(function () use ($w, $kind, $list, $ids) {
+            $this->lock(); $this->list($w, $kind, $list);
+            $query = DB::table($kind === 'voice' ? 'voice_contacts' : 'contacts')->whereIn('id', $ids);
+            if ($kind === 'voice') $query->where('workspace_id', $w);
+            abort_unless($query->count() === count($ids), 422, 'Um contato selecionado não está mais disponível neste cadastro. Atualize a busca.');
+            $results = array_map(fn ($id) => $this->link($w, $kind, $list, $id), $ids);
+            return ['selected' => count($ids), 'added' => count(array_filter($results, fn ($r) => $r['added'])), 'removed_preserved' => count(array_filter($results, fn ($r) => $r['membership_removed']))];
+        });
     }
     public function remove(int $w, string $kind, int $list, int $contact): void
     {

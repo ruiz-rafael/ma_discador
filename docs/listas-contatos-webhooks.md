@@ -2,9 +2,19 @@
 
 Publicado no MA em 04/10/2026. Acesse **Listas de contatos → Editar lista** (ou clique no nome). A tela reúne listas de **Automação MA** e **Voz e WhatsApp**, com identificação do uso; os cadastros dos dois motores continuam separados. Nenhum dado foi migrado na publicação. Uma lista do MA pode ser vinculada a uma jornada de voz pelo cartão Público da jornada, conforme descrito abaixo.
 
+## Organização da tela — 05/10/2026
+
+Lista é um público escolhido explicitamente. Segmento dinâmico seleciona pessoas por regras; o gerenciador atual organiza listas e não executa filtros dinâmicos de segmentação.
+
+A lista mantém seus contatos visíveis na tela principal. Quatro cartões abrem painéis laterais sobrepostos: **Cadastro manual**, **Contatos existentes**, **Importar planilha** e **Receber por webhook**. **Lista e campos** também abre um painel. Os painéis têm navegação por teclado, fechamento por Escape e confirmação de alterações não salvas. O token do webhook exige confirmação antes de fechar.
+
+Em **Contatos existentes**, busque e selecione até 100 cadastros por inclusão, com páginas de 20 resultados. A busca usa o cadastro do mesmo tipo da lista: listas MA consultam os contatos do MA; listas de voz consultam os contatos do discador. Use uma lista MA como público da cadência quando quiser aproveitar o cadastro central de contatos. Participações existentes ficam identificadas; retiradas exigem a ação explícita **Reincluir**. A inclusão é atômica e idempotente, preserva dados e autorizações e não aciona chamadas/mensagens.
+
+O teste do webhook valida o mapeamento e os dados do JSON no servidor, exibindo o contato normalizado. Ele não cria contatos, não grava recebimentos e não testa a conectividade de um sistema externo. Para testar a entrega externa, o integrador pode enviar uma requisição autenticada à URL; esse envio real cadastra/vincula o contato conforme as regras da lista.
+
 ## Contatos
 
-- Cadastre nome, telefone/e-mail, origem, ID no CRM e campos adicionais na aba **Contatos**.
+- Cadastre nome, telefone/e-mail, origem, ID no CRM e campos adicionais no cartão **Cadastro manual**.
 - Nas listas de voz o telefone é obrigatório. Na automação, informe telefone ou e-mail.
 - Informe autorização e sua evidência quando disponíveis; o padrão é sem autorização.
 - Um contato existente é vinculado sem sobrescrever nome, dados, autorização, bloqueios ou histórico. Conflitos em que e-mail e telefone identificam pessoas diferentes são rejeitados.
@@ -33,7 +43,7 @@ Os campos ficam armazenados no contato. Isso não adiciona automaticamente novas
 
 ## CSV
 
-1. Abra **Importar CSV**. **Baixar modelo CSV** gera o cabeçalho com nome, telefone, e-mail e os campos adicionais da lista.
+1. Abra **Importar planilha**. **Baixar modelo CSV** gera o cabeçalho com nome, telefone, e-mail e os campos adicionais da lista.
 2. Envie CSV UTF-8 de até 2 MB, com até 1.000 contatos e 50 colunas. Escolha ponto e vírgula, vírgula ou tabulação.
 3. Relacione as colunas aos campos. Nomes diferentes de cabeçalho são aceitos pelo mapeamento.
 4. Informe origem e, quando aplicável, autorização/evidência comum. Colunas de autorização/evidência mapeadas prevalecem sobre os valores comuns.
@@ -44,10 +54,10 @@ Prévia não cria contatos. Mostra até 20 registros e 100 erros. Confirmação 
 
 ## Webhook de entrada
 
-1. Em **Webhooks → Novo webhook**, dê um nome e configure o recebimento ativo/desativado.
-2. Mapeie **Caminho no JSON** para **Salvar em**. Exemplo: `cliente.nome` → Nome, `cliente.telefone` → Telefone, `cliente.empresa` → Empresa.
-3. Cole um exemplo de JSON e clique em **Validar exemplo sem cadastrar**. Essa ação mostra os valores normalizados e não grava contatos.
-4. **Salvar webhook** gera a URL e um token. Copie o token nessa ocasião; o servidor guarda apenas seu hash, e não o exibe novamente. Gerar novo token ao salvar invalida o anterior.
+1. Em **Receber por webhook → Novo webhook** (ou o formulário aberto na primeira configuração), dê um nome e configure o recebimento ativo/desativado.
+2. Marque os campos que farão parte do payload. Mapeie **Caminho no JSON** para **Salvar em**. Exemplo: `cliente.nome` → Nome, `cliente.telefone` → Telefone, `cliente.empresa` → Empresa.
+3. Clique em **Gerar exemplo com estes campos**, ou cole um exemplo de JSON e clique em **Testar payload sem cadastrar**. Essa ação mostra os valores normalizados e não grava contatos.
+4. **Gerar webhook** gera a URL e um token. Copie o token nessa ocasião; o servidor guarda apenas seu hash, e não o exibe novamente. Gerar novo token ao salvar invalida o anterior.
 5. Envie um objeto JSON por requisição `POST` para a URL gerada, com:
    - `Authorization: Bearer SEU_TOKEN`
    - `Content-Type: application/json`
@@ -73,6 +83,7 @@ A mesma chave com o mesmo corpo retorna o resultado anterior; chave repetida com
 ## API e implementação
 
 - Gerenciamento autenticado: `/api/lists`, `/api/lists/{automation|voice}/{id}`; edição reservada a administrador/supervisor do workspace principal.
+- Seleção existente: `GET .../available-contacts?search=...&page=1`; `POST .../existing-contacts` com `contact_ids` (até 100 IDs distintos).
 - Contatos: `POST .../contacts`; retirada `DELETE .../contacts/{id}`; reinclusão `POST .../contacts/{id}/restore`.
 - CSV: `POST .../csv/inspect`, `.../csv/preview`, `.../imports/{uuid}/commit`.
 - Webhooks: `POST .../webhooks`, `PUT .../webhooks/{uuid}`, `POST .../webhook-preview`.
@@ -88,3 +99,5 @@ Validação HTTP pelo domínio público com `curl`: token inválido devolveu `40
 Backup de código e banco antes da migração aditiva. Sem chamadas, mensagens, alterações de campanhas ou reinícios de serviços. Evidências em `evidence/list-manager-20261004/`.
 
 Correção do seletor de público em 04/10/2026: 187 testes / 1.457 asserções aprovados em SQLite e PostgreSQL isolados. Testes incluem vínculo MA, IDs coincidentes entre tipos, sincronização na reserva, exclusões, autorização, telefone alterado, bloqueio de WhatsApp e isolamento de workspace. Evidências em `evidence/audience-link-20261004/`.
+
+Atualização de 05/10/2026: painel lateral e seleção de contatos existentes validados com **289 testes / 2.343 asserções** em SQLite e PostgreSQL isolados. A conferência de navegador cobre cadastro, seleção, CSV, campos do payload, exemplo gerado, validação válida/inválida e geração de URL/token com respostas simuladas. Sem importações, criação de webhooks ou contatos, chamadas ou mensagens em produção durante os testes. Evidências privadas em `evidence/list-intake-20261005/`.

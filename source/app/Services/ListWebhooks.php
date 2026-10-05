@@ -14,7 +14,11 @@ class ListWebhooks
     {
         return DB::transaction(function () use ($w, $kind, $list, $d, $id) {
             $s = app(ListContacts::class); $s->lock(); $s->list($w, $kind, $list);
-            $mapping = $s->mapping($d['mapping'], $s->settings($w, $kind, $list)['fields'], true);
+            $schema = $s->settings($w, $kind, $list)['fields'];
+            $mapping = $s->mapping($d['mapping'], $schema, true);
+            $targets = array_column($mapping, 'target');
+            abort_unless(in_array('phone', $targets) || ($kind === 'automation' && in_array('email', $targets)), 422, 'Selecione telefone para listas de voz, ou telefone/e-mail para listas de automação.');
+            foreach ($schema as $field) if ($field['required']) abort_unless(in_array('fields.'.$field['key'], $targets), 422, 'Inclua o campo obrigatório '.$field['label'].' no payload.');
             $old = $id ? DB::table('ma_list_webhooks')->where('workspace_id', $w)->where('kind', $kind)->where('list_id', $list)->where('id', $id)->firstOrFail() : null;
             abort_unless(($old?->revision ?? 0) === $d['revision'], 409, 'O webhook mudou. Atualize antes de salvar.');
             abort_if(! $old && DB::table('ma_list_webhooks')->where('workspace_id', $w)->where('kind', $kind)->where('list_id', $list)->count() >= 10, 422, 'Limite de 10 webhooks por lista.');

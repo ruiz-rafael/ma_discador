@@ -5,6 +5,7 @@ Route::middleware(['auth', 'throttle:120,1'])->prefix('api/lists')->group(functi
     Route::get('/', [L::class, 'index']); Route::post('/', [L::class, 'create']);
     Route::prefix('{kind}/{id}')->where(['kind' => 'automation|voice', 'id' => '[0-9]+'])->group(function () {
         Route::get('/', [L::class, 'show']); Route::put('/', [L::class, 'configure']);
+        Route::get('/available-contacts', [L::class, 'candidates']); Route::post('/existing-contacts', [L::class, 'attach']);
         Route::post('/contacts', [L::class, 'contact']);
         Route::delete('/contacts/{contact}', [L::class, 'remove'])->whereNumber('contact');
         Route::post('/contacts/{contact}/restore', [L::class, 'restore'])->whereNumber('contact');

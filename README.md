@@ -9,6 +9,7 @@ Projeto independente de Marketing Automation com editor visual de cadências, di
 - Voz: Twilio Programmable Voice pelo navegador e integração Asterisk/SIP; limites, filas preview/progressivas, disponibilidade e tabulação.
 - Jornada de retorno: tentativas configuráveis, saída ao atender/responder e mensagem personalizada após o limite de não atendimentos.
 - WhatsApp: API Twilio e conector QR, templates com variáveis e botões QR experimentais, entregas, leituras, respostas e opções escolhidas.
+- Listas: painéis laterais para cadastro manual, seleção de contatos existentes, CSV e webhooks com campos selecionáveis, exemplo de payload e validação sem importação.
 - Atendimento: headset no topo com status global ou por fila, disponibilidade mantida entre telas e teclado para ligações manuais, sem iniciar cadência ou WhatsApp automático.
 - Equipe e receptivo: perfis, filas, distribuição, transferência e relatórios com gráficos e detalhe por atendimento.
 - Integrações: API v1, escopos, idempotência, eventos assinados, discador incorporável e triagem de leads.
@@ -48,7 +49,7 @@ Os canais dependem de credenciais e arquivos privados de configuração. Consult
 
 ## Verificação
 
-A versão de aplicação importada foi validada em 05/10/2026: **285 testes e 2.293 asserções**, tanto em SQLite quanto em PostgreSQL isolado; seis testes das estatísticas WebRTC e da verificação de microfone; compilação Vite e validação visual em desktop/celular. Para reprodução local, instale as dependências e use banco de testes separado:
+A versão de aplicação importada foi validada em 05/10/2026: **289 testes e 2.343 asserções**, tanto em SQLite quanto em PostgreSQL isolado; seis testes das estatísticas WebRTC e da verificação de microfone; compilação Vite e validação visual em desktop/celular. Para reprodução local, instale as dependências e use banco de testes separado:
 
 ```sh
 cd source

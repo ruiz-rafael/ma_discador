@@ -54,6 +54,30 @@ class ListManagerController extends Controller
         $w = $this->workspace($r, true); $d = $r->validate(['data' => 'required|array:name,email,phone,source,crm_contact_id,consent,consent_evidence,fields']);
         return $this->safe(DB::transaction(function () use ($w, $kind, $id, $d) { $s = app(ListContacts::class); $s->lock(); $s->list($w, $kind, $id); return $s->ingest($w, $kind, $id, $s->normalize($kind, $s->settings($w, $kind, $id)['fields'], $d['data'])); }));
     }
+    public function candidates(Request $r, string $kind, int $id)
+    {
+        $w = $this->workspace($r, true); app(ListContacts::class)->list($w, $kind, $id);
+        $d = $r->validate(['search' => 'nullable|string|max:160', 'page' => 'sometimes|integer|between:1,100000']);
+        $q = DB::table($kind === 'voice' ? 'voice_contacts' : 'contacts');
+        if ($kind === 'voice') $q->where('workspace_id', $w);
+        if (! empty($d['search'])) $q->where(function ($q) use ($d, $kind) {
+            $q->where('name', 'like', '%'.$d['search'].'%')->orWhere('phone', 'like', '%'.$d['search'].'%');
+            if ($kind === 'automation') $q->orWhere('email', 'like', '%'.$d['search'].'%');
+        });
+        $rows = $q->orderBy('name')->orderBy('id')->paginate(20, $kind === 'voice' ? ['id','name','phone','consent','suppressed_at'] : ['id','name','phone','email','subscribed as consent']);
+        $ids = $rows->pluck('id');
+        $members = $kind === 'voice' ? DB::table('voice_list_members')->where('list_id', $id)->whereIn('contact_id', $ids)->pluck('status','contact_id') : DB::table('audience_contact')->where('audience_id', $id)->whereIn('contact_id', $ids)->pluck('contact_id');
+        $removed = $kind === 'automation' ? DB::table('ma_list_membership_exclusions')->where('audience_id', $id)->whereIn('contact_id', $ids)->pluck('contact_id') : collect();
+        $rows->through(function ($c) use ($kind, $members, $removed) {
+            $c->membership = $kind === 'voice' ? ($members[$c->id] ?? null) : ($removed->contains($c->id) ? 'removed' : ($members->contains($c->id) ? 'active' : null)); return $c;
+        });
+        return $this->safe(['contacts' => $rows]);
+    }
+    public function attach(Request $r, string $kind, int $id)
+    {
+        $w = $this->workspace($r, true); $d = $r->validate(['contact_ids' => 'required|array|min:1|max:100', 'contact_ids.*' => 'required|integer|distinct|min:1']);
+        return $this->safe(app(ListContacts::class)->existing($w, $kind, $id, $d['contact_ids']));
+    }
     public function remove(Request $r, string $kind, int $id, int $contact)
     {
         app(ListContacts::class)->remove($this->workspace($r, true), $kind, $id, $contact); return $this->safe(['removed' => true]);
