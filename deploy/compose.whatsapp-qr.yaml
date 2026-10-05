@@ -1,0 +1,18 @@
+services:
+  whatsapp-qr:
+    image: zyrex-ma-whatsapp-qr:buttons-20261004
+    build: ./whatsapp-qr
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs: ['/tmp:size=32m']
+    volumes:
+      - ./private/whatsapp-qr/config.json:/run/qr-config.json:ro
+      - ./private/whatsapp-qr/data:/data
+    mem_limit: 384m
+    cpus: 0.50
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: '2'}

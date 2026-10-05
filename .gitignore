@@ -1,0 +1,44 @@
+# Credenciais e dados privados
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+.secrets/
+private/
+voice-runtime/
+**/auth.json
+**/*.pem
+**/*.key
+**/id_rsa*
+**/id_ed25519*
+# Operação e evidências privadas
+.publication/
+inventory/
+evidence/
+backups/
+*.tar.gz
+*.zip
+*.sql
+*.sql.gz
+*.sqlite
+*.sqlite3
+*.db
+# Dependências, artefatos e caches
+**/vendor/
+**/node_modules/
+source/public/build/
+source/public/hot
+source/public/storage
+source/bootstrap/cache/*
+!source/bootstrap/cache/.gitignore
+**/.phpunit.result.cache
+**/.phpunit.cache/
+**/__pycache__/
+*.pyc
+*.log
+*.swp
+.DS_Store
+.idea/
+.vscode/

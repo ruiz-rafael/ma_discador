@@ -1,0 +1,1132 @@
+{
+  "list_added": {
+    "description": "Inicia quando um contato é adicionado à lista selecionada.",
+    "fields": [
+      {
+        "key": "list_source",
+        "label": "Origem da lista",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "journey",
+            "label": "Listas definidas na jornada"
+          },
+          {
+            "value": "local",
+            "label": "Uma lista deste módulo"
+          },
+          {
+            "value": "crm",
+            "label": "Lista do CRM"
+          }
+        ],
+        "default": "journey"
+      },
+      {
+        "key": "audience_id",
+        "label": "Lista deste módulo",
+        "type": "local_list",
+        "required": true,
+        "when": {
+          "list_source": "local"
+        }
+      },
+      {
+        "key": "list_id",
+        "label": "Lista do CRM",
+        "type": "resource",
+        "required": true,
+        "resource": "list",
+        "when": {
+          "list_source": "crm"
+        }
+      }
+    ],
+    "help": null
+  },
+  "list_removed": {
+    "description": "Inicia quando um contato é removido da lista selecionada.",
+    "fields": [
+      {
+        "key": "list_source",
+        "label": "Origem da lista",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "journey",
+            "label": "Listas definidas na jornada"
+          },
+          {
+            "value": "local",
+            "label": "Uma lista deste módulo"
+          },
+          {
+            "value": "crm",
+            "label": "Lista do CRM"
+          }
+        ],
+        "default": "journey"
+      },
+      {
+        "key": "audience_id",
+        "label": "Lista deste módulo",
+        "type": "local_list",
+        "required": true,
+        "when": {
+          "list_source": "local"
+        }
+      },
+      {
+        "key": "list_id",
+        "label": "Lista do CRM",
+        "type": "resource",
+        "required": true,
+        "resource": "list",
+        "when": {
+          "list_source": "crm"
+        }
+      }
+    ],
+    "help": null
+  },
+  "segment_added": {
+    "description": "Inicia somente quando o contato entra no segmento escolhido.",
+    "fields": [
+      {
+        "key": "segment_id",
+        "label": "Segmento do CRM",
+        "type": "resource",
+        "required": true,
+        "resource": "segment"
+      }
+    ],
+    "help": "A composição do segmento será informada pelo CRM. O módulo guarda a referência e filtra os eventos pelo ID escolhido."
+  },
+  "segment_removed": {
+    "description": "Inicia somente quando o contato sai do segmento escolhido.",
+    "fields": [
+      {
+        "key": "segment_id",
+        "label": "Segmento do CRM",
+        "type": "resource",
+        "required": true,
+        "resource": "segment"
+      }
+    ],
+    "help": null
+  },
+  "form_submitted": {
+    "description": "Recebe o envio do formulário escolhido.",
+    "fields": [
+      {
+        "key": "form_id",
+        "label": "Formulário do CRM",
+        "type": "resource",
+        "required": true,
+        "resource": "form"
+      }
+    ],
+    "help": null
+  },
+  "email_event": {
+    "description": "Acompanha uma atividade de uma campanha de e-mail.",
+    "fields": [
+      {
+        "key": "campaign_id",
+        "label": "Campanha",
+        "type": "resource",
+        "required": true,
+        "resource": "campaign",
+        "channel": "email"
+      },
+      {
+        "key": "event",
+        "label": "Atividade da mensagem",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "opened",
+            "label": "Abriu o e-mail"
+          },
+          {
+            "value": "clicked",
+            "label": "Clicou no e-mail"
+          },
+          {
+            "value": "replied",
+            "label": "Respondeu ao e-mail"
+          }
+        ]
+      }
+    ],
+    "help": null
+  },
+  "whatsapp_event": {
+    "description": "Acompanha a campanha e a resposta esperada no WhatsApp.",
+    "fields": [
+      {
+        "key": "campaign_id",
+        "label": "Campanha",
+        "type": "resource",
+        "required": true,
+        "resource": "campaign",
+        "channel": "whatsapp"
+      },
+      {
+        "key": "event",
+        "label": "Atividade da mensagem",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "replied",
+            "label": "Respondeu à mensagem"
+          },
+          {
+            "value": "clicked",
+            "label": "Clicou em um botão"
+          },
+          {
+            "value": "read",
+            "label": "Leu a mensagem"
+          },
+          {
+            "value": "delivered",
+            "label": "Mensagem entregue"
+          }
+        ]
+      },
+      {
+        "key": "button_key",
+        "label": "Identificador do botão",
+        "type": "text",
+        "required": false,
+        "when": {
+          "event": "clicked"
+        },
+        "help": "Opcional. Deixe vazio para aceitar qualquer botão da campanha."
+      }
+    ],
+    "help": null
+  },
+  "date_field": {
+    "description": "Inicia quando o campo de data coincide com o dia atual.",
+    "fields": [
+      {
+        "key": "field",
+        "label": "Campo de data",
+        "type": "field",
+        "required": true,
+        "data_type": "date"
+      }
+    ],
+    "help": "Comparação por dia em UTC, com valor AAAA-MM-DD. Não há deslocamento de dias nesta versão."
+  },
+  "criteria": {
+    "description": "Inicia quando um evento do CRM atende à regra do contato.",
+    "fields": [
+      {
+        "key": "field",
+        "label": "Campo do contato",
+        "type": "field",
+        "required": true
+      },
+      {
+        "key": "operator",
+        "label": "Operador",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "eq",
+            "label": "Igual a"
+          },
+          {
+            "value": "neq",
+            "label": "Diferente de"
+          },
+          {
+            "value": "gt",
+            "label": "Maior que"
+          },
+          {
+            "value": "lt",
+            "label": "Menor que"
+          },
+          {
+            "value": "contains",
+            "label": "Contém"
+          }
+        ]
+      },
+      {
+        "key": "value",
+        "label": "Valor da condição",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "help": null
+  },
+  "tag_added": {
+    "description": "Inicia quando a tag escolhida é atribuída ao contato.",
+    "fields": [
+      {
+        "key": "tag",
+        "label": "Tag",
+        "type": "combo",
+        "required": true,
+        "resource": "tag",
+        "help": "Selecione uma referência do CRM ou informe a chave da tag."
+      }
+    ],
+    "help": null
+  },
+  "tag_removed": {
+    "description": "Inicia quando a tag escolhida é removida do contato.",
+    "fields": [
+      {
+        "key": "tag",
+        "label": "Tag",
+        "type": "combo",
+        "required": true,
+        "resource": "tag",
+        "help": "Selecione uma referência do CRM ou informe a chave da tag."
+      }
+    ],
+    "help": null
+  },
+  "stage_changed": {
+    "description": "Inicia quando o lead chega ao estágio escolhido.",
+    "fields": [
+      {
+        "key": "stage",
+        "label": "Estágio do lead",
+        "type": "combo",
+        "required": true,
+        "resource": "stage"
+      }
+    ],
+    "help": null
+  },
+  "score_changed": {
+    "description": "Inicia quando a pontuação do lead atende à regra.",
+    "fields": [
+      {
+        "key": "operator",
+        "label": "Operador",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "eq",
+            "label": "Igual a"
+          },
+          {
+            "value": "gt",
+            "label": "Maior que"
+          },
+          {
+            "value": "lt",
+            "label": "Menor que"
+          }
+        ]
+      },
+      {
+        "key": "value",
+        "label": "Pontuação",
+        "type": "number",
+        "required": true,
+        "min": 0
+      }
+    ],
+    "help": null
+  },
+  "goal": {
+    "description": "Inicia quando o contato atinge a meta escolhida.",
+    "fields": [
+      {
+        "key": "goal_id",
+        "label": "Meta do CRM",
+        "type": "resource",
+        "required": true,
+        "resource": "goal"
+      }
+    ],
+    "help": null
+  },
+  "page_visit": {
+    "description": "Inicia quando o CRM informa uma visita à URL definida.",
+    "fields": [
+      {
+        "key": "url",
+        "label": "URL da página",
+        "type": "text",
+        "required": true,
+        "format": "url"
+      }
+    ],
+    "help": "A URL é comparada exatamente, incluindo parâmetros. O rastreamento será fornecido pelo CRM."
+  },
+  "open_trigger": {
+    "description": "Permite iniciar a jornada por um evento autenticado da API.",
+    "fields": [
+      {
+        "key": "event_name",
+        "label": "Nome do evento",
+        "type": "text",
+        "required": false,
+        "help": "Opcional. Ex.: lead_qualificado. Vazio aceita qualquer evento open_trigger."
+      }
+    ],
+    "help": null
+  },
+  "cart_abandoned": {
+    "description": "Recebe o abandono de checkout informado pelo CRM.",
+    "fields": [
+      {
+        "key": "store_id",
+        "label": "Loja / e-commerce",
+        "type": "resource",
+        "required": false,
+        "resource": "store"
+      }
+    ],
+    "help": null
+  },
+  "purchase": {
+    "description": "Recebe uma atualização de compra do CRM.",
+    "fields": [
+      {
+        "key": "store_id",
+        "label": "Loja / e-commerce",
+        "type": "resource",
+        "required": false,
+        "resource": "store"
+      },
+      {
+        "key": "order_status",
+        "label": "Status da compra",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "placed",
+            "label": "Pedido efetuado"
+          },
+          {
+            "value": "paid",
+            "label": "Pagamento confirmado"
+          },
+          {
+            "value": "invoiced",
+            "label": "Pedido faturado"
+          }
+        ]
+      }
+    ],
+    "help": null
+  },
+  "cyclic": {
+    "description": "Repete a entrada dos contatos no intervalo escolhido.",
+    "fields": [
+      {
+        "key": "minutes",
+        "label": "Repetir a cada",
+        "type": "duration",
+        "required": true,
+        "min": 1,
+        "max": 525600
+      }
+    ],
+    "help": "Intervalo alinhado ao relógio UTC; o público da jornada define os contatos elegíveis."
+  },
+  "if_else": {
+    "description": "Escolhe o caminho Sim ou Não pela condição do contato.",
+    "fields": [
+      {
+        "key": "field",
+        "label": "Campo do contato",
+        "type": "field",
+        "required": true
+      },
+      {
+        "key": "operator",
+        "label": "Operador",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "eq",
+            "label": "Igual a"
+          },
+          {
+            "value": "neq",
+            "label": "Diferente de"
+          },
+          {
+            "value": "gt",
+            "label": "Maior que"
+          },
+          {
+            "value": "lt",
+            "label": "Menor que"
+          },
+          {
+            "value": "contains",
+            "label": "Contém"
+          }
+        ]
+      },
+      {
+        "key": "value",
+        "label": "Valor da condição",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "help": null
+  },
+  "multi_branch": {
+    "description": "Avalia as regras em ordem e segue o primeiro caminho correspondente.",
+    "fields": [
+      {
+        "key": "branches",
+        "label": "Regras dos caminhos",
+        "type": "rules",
+        "required": true
+      }
+    ],
+    "help": "Dois caminhos com regra e uma saída Outros. Cada caminho possui uma condição."
+  },
+  "check_activity": {
+    "description": "Aguarda a atividade da campanha ou segue pelo tempo esgotado.",
+    "fields": [
+      {
+        "key": "channel",
+        "label": "Canal",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "email",
+            "label": "E-mail"
+          },
+          {
+            "value": "sms",
+            "label": "SMS"
+          },
+          {
+            "value": "whatsapp",
+            "label": "WhatsApp"
+          }
+        ],
+        "default": "email"
+      },
+      {
+        "key": "campaign_id",
+        "label": "Campanha",
+        "type": "resource",
+        "required": false,
+        "resource": "campaign",
+        "channel_field": "channel"
+      },
+      {
+        "key": "event",
+        "label": "Atividade esperada",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "sent",
+            "label": "Enviada"
+          },
+          {
+            "value": "delivered",
+            "label": "Entregue"
+          },
+          {
+            "value": "opened",
+            "label": "Aberta"
+          },
+          {
+            "value": "read",
+            "label": "Lida"
+          },
+          {
+            "value": "clicked",
+            "label": "Clique"
+          },
+          {
+            "value": "replied",
+            "label": "Resposta"
+          }
+        ]
+      },
+      {
+        "key": "minutes",
+        "label": "Tempo de espera",
+        "type": "duration",
+        "required": true,
+        "min": 1,
+        "max": 525600
+      }
+    ],
+    "help": "O callback do CRM deve correlacionar o token desta espera com a mensagem e a campanha."
+  },
+  "ab_split": {
+    "description": "Distribui contatos de forma estável entre os caminhos A e B.",
+    "fields": [
+      {
+        "key": "percentage",
+        "label": "Percentual do caminho A",
+        "type": "number",
+        "required": true,
+        "min": 0,
+        "max": 100,
+        "default": 50
+      }
+    ],
+    "help": "O caminho B recebe o percentual restante."
+  },
+  "merge": {
+    "description": "Consolida os caminhos em um próximo passo.",
+    "fields": [
+      {
+        "key": "mode",
+        "label": "Comportamento",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "each",
+            "label": "Continuar cada ramo ao chegar"
+          }
+        ],
+        "default": "each"
+      }
+    ],
+    "help": "Cada chegada continua uma vez. Este nó não aguarda os demais ramos."
+  },
+  "send_email": {
+    "description": "Seleciona a campanha e o template de e-mail que o CRM deverá enviar.",
+    "fields": [
+      {
+        "key": "campaign_id",
+        "label": "Campanha",
+        "type": "resource",
+        "required": false,
+        "resource": "campaign",
+        "channel": "email"
+      },
+      {
+        "key": "template",
+        "label": "Template de mensagem",
+        "type": "resource",
+        "required": true,
+        "resource": "template",
+        "channel": "email"
+      },
+      {
+        "key": "subject",
+        "label": "Assunto",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "sender_id",
+        "label": "Remetente",
+        "type": "resource",
+        "required": false,
+        "resource": "sender",
+        "channel": "email"
+      },
+      {
+        "key": "parameters",
+        "label": "Parâmetros do template",
+        "type": "pairs",
+        "required": false,
+        "help": "Associe cada parâmetro a um campo, por exemplo {{contact.name}}, ou a um valor fixo."
+      }
+    ],
+    "help": "Você pode salvar e validar esta configuração antes de conectar o CRM. Nenhum envio é realizado nesta etapa."
+  },
+  "send_sms": {
+    "description": "Seleciona a campanha e o template de SMS que o CRM deverá enviar.",
+    "fields": [
+      {
+        "key": "campaign_id",
+        "label": "Campanha",
+        "type": "resource",
+        "required": false,
+        "resource": "campaign",
+        "channel": "sms"
+      },
+      {
+        "key": "template",
+        "label": "Template de mensagem",
+        "type": "resource",
+        "required": true,
+        "resource": "template",
+        "channel": "sms"
+      },
+      {
+        "key": "parameters",
+        "label": "Parâmetros do template",
+        "type": "pairs",
+        "required": false,
+        "help": "Associe cada parâmetro a um campo, por exemplo {{contact.name}}, ou a um valor fixo."
+      }
+    ],
+    "help": "Você pode salvar e validar esta configuração antes de conectar o CRM. Nenhum envio é realizado nesta etapa."
+  },
+  "send_whatsapp": {
+    "description": "Seleciona a campanha e o template de WhatsApp que o CRM deverá enviar.",
+    "fields": [
+      {
+        "key": "campaign_id",
+        "label": "Campanha",
+        "type": "resource",
+        "required": false,
+        "resource": "campaign",
+        "channel": "whatsapp"
+      },
+      {
+        "key": "template",
+        "label": "Template de mensagem",
+        "type": "resource",
+        "required": true,
+        "resource": "template",
+        "channel": "whatsapp"
+      },
+      {
+        "key": "language",
+        "label": "Idioma do template",
+        "type": "text",
+        "required": false,
+        "default": "pt_BR"
+      },
+      {
+        "key": "buttons",
+        "label": "Saídas dos botões de resposta",
+        "type": "buttons",
+        "required": false,
+        "help": "Use os mesmos identificadores enviados no callback do CRM. Eles aparecerão como portas no nó."
+      },
+      {
+        "key": "parameters",
+        "label": "Parâmetros do template",
+        "type": "pairs",
+        "required": false,
+        "help": "Associe cada parâmetro a um campo, por exemplo {{contact.name}}, ou a um valor fixo."
+      }
+    ],
+    "help": "Você pode salvar e validar esta configuração antes de conectar o CRM. Nenhum envio é realizado nesta etapa."
+  },
+  "add_list": {
+    "description": "Adiciona o contato a uma lista.",
+    "fields": [
+      {
+        "key": "list_source",
+        "label": "Origem da lista",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "local",
+            "label": "Lista deste módulo"
+          },
+          {
+            "value": "crm",
+            "label": "Lista do CRM"
+          }
+        ],
+        "default": "local"
+      },
+      {
+        "key": "audience_id",
+        "label": "Lista deste módulo",
+        "type": "local_list",
+        "required": true,
+        "when": {
+          "list_source": "local"
+        }
+      },
+      {
+        "key": "list_id",
+        "label": "Lista do CRM",
+        "type": "resource",
+        "required": true,
+        "resource": "list",
+        "when": {
+          "list_source": "crm"
+        }
+      }
+    ],
+    "help": null
+  },
+  "remove_list": {
+    "description": "Remove o contato de uma lista.",
+    "fields": [
+      {
+        "key": "list_source",
+        "label": "Origem da lista",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "local",
+            "label": "Lista deste módulo"
+          },
+          {
+            "value": "crm",
+            "label": "Lista do CRM"
+          }
+        ],
+        "default": "local"
+      },
+      {
+        "key": "audience_id",
+        "label": "Lista deste módulo",
+        "type": "local_list",
+        "required": true,
+        "when": {
+          "list_source": "local"
+        }
+      },
+      {
+        "key": "list_id",
+        "label": "Lista do CRM",
+        "type": "resource",
+        "required": true,
+        "resource": "list",
+        "when": {
+          "list_source": "crm"
+        }
+      }
+    ],
+    "help": null
+  },
+  "add_tag": {
+    "description": "Atribui uma tag ao contato.",
+    "fields": [
+      {
+        "key": "tag",
+        "label": "Tag",
+        "type": "combo",
+        "required": true,
+        "resource": "tag"
+      }
+    ],
+    "help": null
+  },
+  "remove_tag": {
+    "description": "Remove uma tag do contato.",
+    "fields": [
+      {
+        "key": "tag",
+        "label": "Tag",
+        "type": "combo",
+        "required": true,
+        "resource": "tag"
+      }
+    ],
+    "help": null
+  },
+  "update_field": {
+    "description": "Atualiza um campo do contato.",
+    "fields": [
+      {
+        "key": "field",
+        "label": "Campo do contato",
+        "type": "field",
+        "required": true
+      },
+      {
+        "key": "value",
+        "label": "Novo valor",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "help": null
+  },
+  "update_score": {
+    "description": "Define a nova pontuação do lead.",
+    "fields": [
+      {
+        "key": "score",
+        "label": "Nova pontuação",
+        "type": "number",
+        "required": true,
+        "min": 0
+      }
+    ],
+    "help": null
+  },
+  "update_stage": {
+    "description": "Move o lead para o estágio escolhido.",
+    "fields": [
+      {
+        "key": "stage",
+        "label": "Estágio do lead",
+        "type": "combo",
+        "required": true,
+        "resource": "stage"
+      }
+    ],
+    "help": null
+  },
+  "internal_email": {
+    "description": "Configura uma notificação para a equipe do CRM.",
+    "fields": [
+      {
+        "key": "recipient",
+        "label": "E-mail do destinatário",
+        "type": "text",
+        "required": true,
+        "format": "email"
+      },
+      {
+        "key": "template",
+        "label": "Template interno",
+        "type": "resource",
+        "required": true,
+        "resource": "template",
+        "channel": "email"
+      },
+      {
+        "key": "subject",
+        "label": "Assunto",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "help": null
+  },
+  "subscription": {
+    "description": "Atualiza a preferência de comunicações do contato.",
+    "fields": [
+      {
+        "key": "subscribed",
+        "label": "Assinatura ativa",
+        "type": "boolean",
+        "required": true
+      }
+    ],
+    "help": "Ative a assinatura apenas quando houver consentimento registrado para o contato."
+  },
+  "delay": {
+    "description": "Mantém o contato em espera pelo período escolhido.",
+    "fields": [
+      {
+        "key": "minutes",
+        "label": "Tempo de espera",
+        "type": "duration",
+        "required": true,
+        "min": 1,
+        "max": 525600
+      }
+    ],
+    "help": null
+  },
+  "wait_until": {
+    "description": "Espera uma condição ser atendida, até o prazo máximo.",
+    "fields": [
+      {
+        "key": "field",
+        "label": "Campo do contato",
+        "type": "field",
+        "required": true
+      },
+      {
+        "key": "operator",
+        "label": "Operador",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "eq",
+            "label": "Igual a"
+          },
+          {
+            "value": "neq",
+            "label": "Diferente de"
+          },
+          {
+            "value": "gt",
+            "label": "Maior que"
+          },
+          {
+            "value": "lt",
+            "label": "Menor que"
+          },
+          {
+            "value": "contains",
+            "label": "Contém"
+          }
+        ]
+      },
+      {
+        "key": "value",
+        "label": "Valor da condição",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "minutes",
+        "label": "Prazo máximo",
+        "type": "duration",
+        "required": true,
+        "min": 1,
+        "max": 525600
+      }
+    ],
+    "help": null
+  },
+  "webhook": {
+    "description": "Envia uma requisição HTTP a um serviço autorizado.",
+    "fields": [
+      {
+        "key": "url",
+        "label": "URL HTTPS",
+        "type": "text",
+        "required": true,
+        "format": "https"
+      },
+      {
+        "key": "method",
+        "label": "Método HTTP",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "GET",
+            "label": "GET"
+          },
+          {
+            "value": "POST",
+            "label": "POST"
+          },
+          {
+            "value": "PUT",
+            "label": "PUT"
+          }
+        ],
+        "default": "POST"
+      },
+      {
+        "key": "payload",
+        "label": "Corpo da requisição",
+        "type": "json",
+        "required": false
+      }
+    ],
+    "help": "A autorização do destino será verificada na ativação. Segredos são configurados fora dos nós."
+  },
+  "move_journey": {
+    "description": "Encaminha o contato para outra jornada ativa.",
+    "fields": [
+      {
+        "key": "journey_id",
+        "label": "Jornada de destino",
+        "type": "journey",
+        "required": true
+      }
+    ],
+    "help": null
+  },
+  "remove_journey": {
+    "description": "Encerra a participação do contato nesta jornada.",
+    "fields": [
+      {
+        "key": "mode",
+        "label": "Escopo",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "value": "current",
+            "label": "Somente esta jornada"
+          }
+        ],
+        "default": "current"
+      }
+    ],
+    "help": null
+  },
+  "sync_crm": {
+    "description": "Prepara os dados que serão encaminhados ao CRM.",
+    "fields": [
+      {
+        "key": "payload",
+        "label": "Dados para sincronização",
+        "type": "json",
+        "required": false
+      }
+    ],
+    "help": null
+  },
+  "create_task": {
+    "description": "Cria uma tarefa associada ao contato.",
+    "fields": [
+      {
+        "key": "title",
+        "label": "Título da tarefa",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "assignee",
+        "label": "Responsável",
+        "type": "resource",
+        "required": false,
+        "resource": "user"
+      }
+    ],
+    "help": null
+  },
+  "create_deal": {
+    "description": "Cria um negócio associado ao contato.",
+    "fields": [
+      {
+        "key": "title",
+        "label": "Título do negócio",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "amount",
+        "label": "Valor do negócio",
+        "type": "number",
+        "required": true,
+        "min": 0
+      },
+      {
+        "key": "pipeline_id",
+        "label": "Funil",
+        "type": "resource",
+        "required": false,
+        "resource": "pipeline"
+      },
+      {
+        "key": "stage_id",
+        "label": "Etapa do funil",
+        "type": "resource",
+        "required": false,
+        "resource": "stage"
+      },
+      {
+        "key": "assignee",
+        "label": "Responsável",
+        "type": "resource",
+        "required": false,
+        "resource": "user"
+      }
+    ],
+    "help": null
+  }
+}

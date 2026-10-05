@@ -1,0 +1,583 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Zyrex MA · Integrações",
+    "version": "1.0.0",
+    "description": "API autenticada do MA. Token mai_ mantido exclusivamente no servidor integrador. Limite: 120 requisições/minuto por credencial. Contatos importados não iniciam discagem; a operação depende de fila habilitada, agente disponível, consentimento e limites. O CRM existente não é modificado."
+  },
+  "servers": [
+    {
+      "url": "https://ma.zyrex.ia.br/api/v1"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "integrationToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Credencial mai_ criada em Integrações. Escopo exigido documentado em x-required-scope."
+      }
+    }
+  },
+  "paths": {
+    "/lists": {
+      "get": {
+        "summary": "Listas explicitamente permitidas, com esquema de campos",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "x-required-scope": "lists:read",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Sucesso. Coleções retornam paginação ou cursor."
+          },
+          "401": {
+            "description": "Credencial ausente, revogada ou expirada"
+          },
+          "403": {
+            "description": "Escopo, lista ou atendente não permitido"
+          },
+          "409": {
+            "description": "Conflito de idempotência ou revisão"
+          },
+          "422": {
+            "description": "Dados inválidos; nenhuma importação parcial"
+          },
+          "429": {
+            "description": "Limite de requisições atingido"
+          }
+        }
+      }
+    },
+    "/contacts/import": {
+      "post": {
+        "summary": "Inclusão incremental de até 100 contatos; preserva exclusões e autorização existente",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "x-required-scope": "lists:write",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Repetir o mesmo UUID e corpo retorna o resultado original. Outro corpo com o mesmo UUID retorna 409."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucesso. Coleções retornam paginação ou cursor."
+          },
+          "401": {
+            "description": "Credencial ausente, revogada ou expirada"
+          },
+          "403": {
+            "description": "Escopo, lista ou atendente não permitido"
+          },
+          "409": {
+            "description": "Conflito de idempotência ou revisão"
+          },
+          "422": {
+            "description": "Dados inválidos; nenhuma importação parcial"
+          },
+          "429": {
+            "description": "Limite de requisições atingido"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "automation",
+                      "voice"
+                    ]
+                  },
+                  "list_id": {
+                    "type": "integer"
+                  },
+                  "contacts": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "phone": {
+                          "type": "string",
+                          "description": "E.164 recomendado; DDI e DDD obrigatórios"
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email"
+                        },
+                        "source": {
+                          "type": "string"
+                        },
+                        "crm_contact_id": {
+                          "type": "string"
+                        },
+                        "consent": {
+                          "type": "boolean"
+                        },
+                        "consent_evidence": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "object",
+                          "additionalProperties": true
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "consent"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1,
+                    "maxItems": 100
+                  }
+                },
+                "required": [
+                  "kind",
+                  "list_id",
+                  "contacts"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/calls": {
+      "get": {
+        "summary": "Histórico de chamadas de saída, resultado técnico e tabulação",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "x-required-scope": "calls:read",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "campaign_id",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucesso. Coleções retornam paginação ou cursor."
+          },
+          "401": {
+            "description": "Credencial ausente, revogada ou expirada"
+          },
+          "403": {
+            "description": "Escopo, lista ou atendente não permitido"
+          },
+          "409": {
+            "description": "Conflito de idempotência ou revisão"
+          },
+          "422": {
+            "description": "Dados inválidos; nenhuma importação parcial"
+          },
+          "429": {
+            "description": "Limite de requisições atingido"
+          }
+        }
+      }
+    },
+    "/reports/journeys": {
+      "get": {
+        "summary": "Indicadores de jornadas; período de até 366 dias",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "x-required-scope": "reports:read",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "campaign_id",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucesso. Coleções retornam paginação ou cursor."
+          },
+          "401": {
+            "description": "Credencial ausente, revogada ou expirada"
+          },
+          "403": {
+            "description": "Escopo, lista ou atendente não permitido"
+          },
+          "409": {
+            "description": "Conflito de idempotência ou revisão"
+          },
+          "422": {
+            "description": "Dados inválidos; nenhuma importação parcial"
+          },
+          "429": {
+            "description": "Limite de requisições atingido"
+          }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "summary": "Eventos com cursor crescente; até 100 por página",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "x-required-scope": "events:read",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucesso. Coleções retornam paginação ou cursor.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "next_cursor": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sequence": {
+                            "type": "integer"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "const": 1
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "subject_id": {
+                            "type": "string"
+                          },
+                          "occurred_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "data": {
+                            "type": "object",
+                            "additionalProperties": true
+                          }
+                        },
+                        "required": [],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "next_cursor",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credencial ausente, revogada ou expirada"
+          },
+          "403": {
+            "description": "Escopo, lista ou atendente não permitido"
+          },
+          "409": {
+            "description": "Conflito de idempotência ou revisão"
+          },
+          "422": {
+            "description": "Dados inválidos; nenhuma importação parcial"
+          },
+          "429": {
+            "description": "Limite de requisições atingido"
+          }
+        }
+      }
+    },
+    "/embed-sessions": {
+      "post": {
+        "summary": "Sessão temporária de 10 minutos para um atendente permitido; não inicia chamadas",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "x-required-scope": "voice:embed",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Sucesso. Coleções retornam paginação ou cursor.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "access_token": {
+                      "type": "string"
+                    },
+                    "expires_in": {
+                      "type": "integer",
+                      "const": 600
+                    },
+                    "origin": {
+                      "type": "string"
+                    },
+                    "iframe_url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "access_token",
+                    "expires_in",
+                    "origin",
+                    "iframe_url"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credencial ausente, revogada ou expirada"
+          },
+          "403": {
+            "description": "Escopo, lista ou atendente não permitido"
+          },
+          "409": {
+            "description": "Conflito de idempotência ou revisão"
+          },
+          "422": {
+            "description": "Dados inválidos; nenhuma importação parcial"
+          },
+          "429": {
+            "description": "Limite de requisições atingido"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "user_id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/leads": {
+      "post": {
+        "summary": "Lead de formulário ou CRM para revisão; não cria mensagem nem abre janela WhatsApp",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "x-required-scope": "leads:write",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Repetir o mesmo UUID e corpo retorna o resultado original. Outro corpo com o mesmo UUID retorna 409."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucesso. Coleções retornam paginação ou cursor."
+          },
+          "401": {
+            "description": "Credencial ausente, revogada ou expirada"
+          },
+          "403": {
+            "description": "Escopo, lista ou atendente não permitido"
+          },
+          "409": {
+            "description": "Conflito de idempotência ou revisão"
+          },
+          "422": {
+            "description": "Dados inválidos; nenhuma importação parcial"
+          },
+          "429": {
+            "description": "Limite de requisições atingido"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "instagram",
+                      "crm"
+                    ]
+                  },
+                  "external_id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "pattern": "^\\+[1-9][0-9]{7,14}$"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "consent": {
+                    "type": "boolean"
+                  },
+                  "consent_evidence": {
+                    "type": "string"
+                  },
+                  "attribution": {
+                    "type": "object",
+                    "properties": {
+                      "ad_id": {
+                        "type": "string"
+                      },
+                      "campaign_id": {
+                        "type": "string"
+                      },
+                      "form_id": {
+                        "type": "string"
+                      },
+                      "lead_id": {
+                        "type": "string"
+                      },
+                      "source_url": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "source",
+                  "external_id",
+                  "consent",
+                  "attribution"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {
+    "event": {
+      "post": {
+        "summary": "Entrega de evento assinado",
+        "description": "X-MA-Event-Id UUID; X-MA-Timestamp Unix segundos; X-MA-Signature = HMAC-SHA256(timestamp + ponto + corpo bruto, segredo do webhook). Rejeite timestamp com diferença >300s, compare assinatura em tempo constante e deduplique pelo ID. Até seis tentativas com espera exponencial; reprocessamento explícito preserva ID. Responder 2xx após persistir o evento. Redirecionamentos não são seguidos.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Evento persistido pelo consumidor"
+          }
+        }
+      }
+    }
+  }
+}

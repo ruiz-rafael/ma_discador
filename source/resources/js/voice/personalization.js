@@ -1,0 +1,3 @@
+export const personalizationFields={nome:'Nome completo',primeiro_nome:'Primeiro nome',telefone:'Telefone',campanha:'Campanha',id_crm:'ID no CRM',origem:'Origem'}
+export const exampleContact={id:'example',name:'Ana Souza',phone:'+5511999990000',crm_contact_id:'CRM-1042',source:'Lista de demonstração'}
+export function personalize(text,contact,campaign){const values={nome:contact?.name,primeiro_nome:contact?.name?.trim().split(/\s+/)[0],telefone:contact?.phone,campanha:campaign,id_crm:contact?.crm_contact_id,origem:contact?.source};return (text||'').replace(/\{([^{}]+)\}/g,(_,key)=>values[key]||`[${personalizationFields[key]||key}: dado ausente]`)}

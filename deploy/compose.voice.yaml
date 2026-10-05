@@ -1,0 +1,27 @@
+# Use alongside compose.yaml. Only start/recreate the pbx service.
+services:
+  pbx:
+    image: zyrex-ma-pbx:22.9.0-1
+    build: ./voice-pbx
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: 0.35
+    pids_limit: 96
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - '127.0.0.1:18488:8088'
+      - '20000-20019:20000-20019/udp'
+    volumes:
+      - ./voice-runtime/asterisk:/etc/asterisk:ro
+    networks:
+      default:
+        ipv4_address: 10.241.50.10
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+    healthcheck:
+      test: ['CMD', 'asterisk', '-rx', 'core show uptime']
+      interval: 20s
+      timeout: 5s
+      retries: 3

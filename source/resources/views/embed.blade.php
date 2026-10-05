@@ -1,0 +1,1 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="ma-embed-origin" content="{{ $origin }}"><meta name="csrf-token" content=""><title>Zyrex · Discador incorporável</title>@vite('resources/js/app.js')</head><body><div id="app"></div></body></html>
