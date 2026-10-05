@@ -84,3 +84,11 @@ Chamadas manuais guardam fila, atendente e contato, com `manual=true` e `campaig
 A seleção de filas é validada no servidor, inclusive imediatamente antes da discagem. Uma sessão de navegador identifica o controlador da presença: outra aba não pode renovar ou encerrar a sessão ativa. Se a conexão receptiva cair, a interface pausa novas distribuições e orienta a reconexão. Os vínculos e conversas existentes não são alterados na implantação.
 
 Validação: **285 testes / 2.293 asserções** em SQLite e PostgreSQL isolados, seis testes de áudio/microfone, compilação e testes do navegador com telefonia simulada. Evidências privadas em `evidence/agent-console-20261005/`. A validação não telefona para contatos nem envia WhatsApp.
+
+## Discagem manual e permissões por destino — 05/10/2026
+
+A pausa da fila controla as cadências automáticas. Uma ligação manual exige agente online na fila e a opção **Permitir discagem manual pelos atendentes**; não exige habilitar as cadências. Isso corrige a mensagem de indisponibilidade que aparecia mesmo com o agente online. Erros de discagem ficam no teclado, sem abrir o seletor de status.
+
+Na configuração da fila, a supervisão escolhe **Permitir telefones fixos · qualquer DDD** e **Permitir celulares**. Os agentes herdam a configuração. A política é aplicada na reserva manual, na escolha progressiva, na concessão da chamada e imediatamente antes da discagem pelo provedor. Desabilitar uma categoria após a reserva impede a discagem dessa chamada. Valores iniciais preservam as categorias anteriormente permitidas; não foram habilitadas cadências nem feitas chamadas na publicação.
+
+A classificação brasileira segue os indicadores publicados pela [Anatel](https://www.gov.br/anatel/pt-br/regulado/numeracao/perguntas-frequentes). Números brasileiros fora das categorias reconhecidas são recusados pela fila. Destinos internacionais continuam sujeitos às autorizações existentes na configuração da telefonia. Consentimento, opt-out, lista privada de homologação e limites permanecem aplicados.

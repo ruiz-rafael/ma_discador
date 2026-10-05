@@ -56,6 +56,7 @@ class VoiceFollowups
         $sourceReason = app(VoiceAudience::class)->reason($f->workspace_id, $policy, $c);
         abort_if($sourceReason, 422, $sourceReason);
         abort_if($policy?->expires_at && now()->gte($policy->expires_at),422,'Prazo da campanha encerrado.');
+        if($policy?->list_id)app(Segments::class)->refresh($f->workspace_id,'voice',$policy->list_id);
         abort_if($policy?->list_id && !DB::table('voice_list_members')->where('list_id',$policy->list_id)->where('contact_id',$c->id)->where('status','active')->exists(),422,'Contato retirado da lista.');
         $s = app(WhatsAppNumbers::class)->normalize($f->workspace_id, $s);
         $sender = app(WhatsAppMessages::class)->sender($f->workspace_id, (int) ($s['whatsapp_sender_id'] ?? 0));

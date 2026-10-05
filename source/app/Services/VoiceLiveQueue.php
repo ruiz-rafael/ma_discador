@@ -71,6 +71,7 @@ class VoiceLiveQueue
             usort($campaignIds,fn($a,$b)=>strcmp($last[$a]??'',$last[$b]??'')?:($a<=>$b));
             $reasons=[];
             foreach($campaignIds as $campaignId){
+            $list=DB::table('voice_campaign_policies')->where('campaign_id',$campaignId)->value('list_id');if($list)app(Segments::class)->refresh($w,'voice',$list);
             app(VoiceAudience::class)->sync($w, $campaignId);
             $campaign=DB::table('voice_campaigns')->where('workspace_id',$w)->find($campaignId);if(!$campaign)continue;
             $contacts = DB::table('voice_contacts')->where('workspace_id', $w)->whereIn('id', DB::table('voice_members')->where('campaign_id', $campaign->id)->select('contact_id'))->get();
@@ -82,7 +83,7 @@ class VoiceLiveQueue
                     ?: strcmp($aa->last_attempt ?? '', $bb->last_attempt ?? '') ?: ($a->id <=> $b->id);
             });
             foreach ($contacts as $c) {
-                $reason = app(VoiceEligibility::class)->reason($w, $campaign, $c);
+                $reason = QueueDestinations::reason($q,$c->phone) ?? app(VoiceEligibility::class)->reason($w, $campaign, $c);
                 if ($reason) {
                     $reasons[$reason] = ($reasons[$reason] ?? 0) + 1;
 
@@ -114,8 +115,9 @@ return ['reservation' => null, 'retry_after' => 15, 'reasons' => $reasons, 'mess
         }
         $r = DB::table('voice_live_reservations')->where('workspace_id', $w)->where('id', $id)->where('user_id', $u)->firstOrFail();
         $q = DB::table('voice_live_queues')->find($r->queue_id);
-        abort_unless($r->status === 'reserved' && ! $r->call_id && now()->lt($r->expires_at) && $r->contact_id === $d['contact_id'] && ($r->kind==='manual'?($q->manual_enabled&&empty($d['campaign_id'])):(($r->campaign_id??$q->campaign_id) === ($d['campaign_id'] ?? null) && in_array($d['campaign_id'],QueueRouting::campaigns($q),true))) && in_array($u,json_decode($q->agent_ids,true),true) && AgentAvailability::available($w,$u,$q->id) && $q->direction!=='inbound' && ($d['method']??'sip_trunk')===$q->calling_method && $q->status === 'running', 409, 'Reserva expirada, utilizada ou diferente da chamada.');
+        abort_unless($r->status === 'reserved' && ! $r->call_id && now()->lt($r->expires_at) && $r->contact_id === $d['contact_id'] && ($r->kind==='manual'?($q->manual_enabled&&empty($d['campaign_id'])):(($r->campaign_id??$q->campaign_id) === ($d['campaign_id'] ?? null) && in_array($d['campaign_id'],QueueRouting::campaigns($q),true))) && in_array($u,json_decode($q->agent_ids,true),true) && AgentAvailability::available($w,$u,$q->id) && $q->direction!=='inbound' && ($d['method']??'sip_trunk')===$q->calling_method && ($r->kind==='manual'||$q->status === 'running'), 409, 'Reserva expirada, utilizada ou diferente da chamada.');
 
+        QueueDestinations::check($q,DB::table('voice_contacts')->where('id',$r->contact_id)->value('phone'));
         return $r;
     }
 
@@ -124,7 +126,8 @@ return ['reservation' => null, 'retry_after' => 15, 'reasons' => $reasons, 'mess
         $q = DB::table('voice_live_queues')->find($call->queue_id);
         $r = DB::table('voice_live_reservations')->where('call_id', $call->id)->first();
         $p = DB::table('voice_agent_presence')->where('user_id', $call->user_id)->first();
-        abort_unless(DB::table('users')->where('id',$call->user_id)->where('voice_enabled',true)->exists() && $q && $q->direction!=='inbound' && $call->method===$q->calling_method && ($call->manual?($q->manual_enabled&&!$call->campaign_id):in_array($call->campaign_id,QueueRouting::campaigns($q),true)) && AgentAvailability::selected($p,$q->id) && $q->status === 'running' && in_array($call->user_id, json_decode($q->agent_ids, true), true) && $r && $r->status === 'calling' && $p && $p->status === 'available' && CarbonImmutable::parse($p->last_seen_at)->gt(now()->subSeconds(90)), 422, 'Fila ou atendente indisponível antes da discagem.');
+        abort_unless(DB::table('users')->where('id',$call->user_id)->where('voice_enabled',true)->exists() && $q && $q->direction!=='inbound' && $call->method===$q->calling_method && ($call->manual?($q->manual_enabled&&!$call->campaign_id):in_array($call->campaign_id,QueueRouting::campaigns($q),true)) && AgentAvailability::selected($p,$q->id) && ($call->manual||$q->status === 'running') && in_array($call->user_id, json_decode($q->agent_ids, true), true) && $r && $r->status === 'calling' && $p && $p->status === 'available' && CarbonImmutable::parse($p->last_seen_at)->gt(now()->subSeconds(90)), 422, 'Fila ou atendente indisponível antes da discagem.');
+        QueueDestinations::check($q,DB::table('voice_contacts')->where('id',$call->contact_id)->value('phone'));
     }
 
     public function cancel(int $w, int $u, string $id): void

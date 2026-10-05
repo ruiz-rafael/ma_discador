@@ -5,12 +5,13 @@ Projeto independente de Marketing Automation com editor visual de cadências, di
 ## Funcionalidades
 
 - Cadências Vue Flow: público, chamadas, intervalos, decisões, WhatsApp e encerramento, com configuração por cartão.
-- Listas: inclusão manual, importação CSV/XLSX e webhooks com mapeamento de campos.
+- Segmentos por inclusão ou regras dinâmicas: condições sobre campos e atendimento/resposta na cadência, com prévia e reavaliação da participação.
 - Voz: Twilio Programmable Voice pelo navegador e integração Asterisk/SIP; limites, filas preview/progressivas, disponibilidade e tabulação.
 - Jornada de retorno: tentativas configuráveis, saída ao atender/responder e mensagem personalizada após o limite de não atendimentos.
 - WhatsApp: API Twilio e conector QR, templates com variáveis e botões QR experimentais, entregas, leituras, respostas e opções escolhidas.
-- Listas: painéis laterais para cadastro manual, seleção de contatos existentes, CSV e webhooks com campos selecionáveis, exemplo de payload e validação sem importação.
+- Segmentos: painéis laterais para cadastro manual, seleção de contatos existentes, CSV e webhooks com campos selecionáveis, exemplo de payload e validação sem importação.
 - Atendimento: headset no topo com status global ou por fila, disponibilidade mantida entre telas e teclado para ligações manuais, sem iniciar cadência ou WhatsApp automático.
+- Filas: permissões herdadas para fixos de qualquer DDD e celulares; discagem manual autorizada independe da pausa das cadências.
 - Equipe e receptivo: perfis, filas, distribuição, transferência e relatórios com gráficos e detalhe por atendimento.
 - Integrações: API v1, escopos, idempotência, eventos assinados, discador incorporável e triagem de leads.
 - Supervisão: dashboards por cadência, custos conhecidos, limites e diagnóstico interno de áudio com métricas WebRTC.
@@ -49,7 +50,7 @@ Os canais dependem de credenciais e arquivos privados de configuração. Consult
 
 ## Verificação
 
-A versão de aplicação importada foi validada em 05/10/2026: **289 testes e 2.343 asserções**, tanto em SQLite quanto em PostgreSQL isolado; seis testes das estatísticas WebRTC e da verificação de microfone; compilação Vite e validação visual em desktop/celular. Para reprodução local, instale as dependências e use banco de testes separado:
+A versão de aplicação importada foi validada em 05/10/2026: **301 testes e 2.434 asserções**, tanto em SQLite quanto em PostgreSQL isolado; seis testes das estatísticas WebRTC e da verificação de microfone; compilação Vite e validação visual em desktop/celular. Para reprodução local, instale as dependências e use banco de testes separado:
 
 ```sh
 cd source

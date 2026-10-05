@@ -26,7 +26,7 @@ const outgoing=computed(()=>selectedQueues.value.filter(q=>q.direction!=='inboun
 const incoming=computed(()=>selectedQueues.value.filter(q=>q.incoming_numbers?.length))
 const previewQueues=computed(()=>outgoing.value.filter(q=>q.mode==='preview'))
 async function load(){const s=await api('/operations/queues');if(!disposed)state.value=s;inboundActive.value=!!inbound.value?.hasActive()}
-async function run(fn){if(busy.value)return;busy.value=true;error.value='';try{await fn()}catch(e){error.value=microphoneMessage(e);control.value?.open('status')}finally{busy.value=false}}
+async function run(fn,context='status'){if(busy.value)return;busy.value=true;error.value='';try{await fn()}catch(e){error.value=microphoneMessage(e);control.value?.open(context,true)}finally{busy.value=false}}
 async function availability(value,ids=null){epoch++;const version=epoch;const selected=queues.value.filter(q=>ids===null||ids.includes(q.id));if(value==='available'){
  if(!selected.length)throw Error('Solicite ao administrador um vínculo com uma fila de atendimento.');
  if(otherSession.value)throw Error('Fique offline na outra aba de atendimento antes de usar esta.');
@@ -44,7 +44,7 @@ async function failure(){epoch++;await availability('paused')}
 async function tick(){if(disposed||polling||busy.value)return;polling=true;try{if(owned)await api('/queues/heartbeat','POST',{session_id:session});await load();if(disposed||!owned||status.value!=='available'||otherSession.value||occupied.value||dialOpen.value||diagnostic.value||Date.now()<nextAt)return;
  const q=outgoing.value.filter(q=>q.status==='running'&&q.mode==='progressive');if(!q.length)return;const selected=q[cursor%q.length];cursor++;await claim(selected,true)
  }catch(e){epoch++;owned=false;error.value=microphoneMessage(e)}finally{polling=false}}
-function receptionReady(value){inboundReady.value=value;if(!value&&owned&&status.value==='available'&&incoming.value.length&&!busy.value)run(async()=>{await availability('paused');error.value='O áudio receptivo desconectou. Confira a conexão e clique em Online para reconectar.';control.value?.open('status')})}
+function receptionReady(value){inboundReady.value=value;if(!value&&owned&&status.value==='available'&&incoming.value.length&&!busy.value)run(async()=>{await availability('paused');error.value='O áudio receptivo desconectou. Confira a conexão e clique em Online para reconectar.';control.value?.open('status',true)})}
 function toggleAudio(){control.value?.close();emit('open-operation');if(diagnostic.value&&audio.value)audio.value.requestLeave(()=>diagnostic.value=false);else diagnostic.value=true}
 async function cancel(){epoch++;await api('/operations/reservations/'+state.value.current.id+'/cancel','POST',{});nextAt=Date.now()+5000;await load()}
 async function shutdown(){if(occupied.value)throw Error('Conclua a chamada e a tabulação antes de sair da conta.');if(owned)await availability('offline');else await inbound.value?.disconnect()}
@@ -55,7 +55,7 @@ onBeforeUnmount(()=>{disposed=true;epoch++;clearInterval(timer);window.removeEve
 defineExpose({requestLeave:fn=>fn(),shutdown})
 </script>
 <template><div class="agent-workspace">
- <Teleport v-if="toolbarReady" :to="toolbarTarget||'body'" :disabled="!toolbarTarget"><AgentStatusControl ref="control" :status="status" :queues="queues" :selected-ids="selection" :busy="busy" :occupied="occupied" :error="error" :other-session="otherSession" @status="v=>run(()=>availability(v))" @queues="ids=>run(()=>manage(ids))" @dial="d=>run(()=>dial(d))" @dial-open="dialOpen=$event" @diagnostic="toggleAudio"/></Teleport>
+ <Teleport v-if="toolbarReady" :to="toolbarTarget||'body'" :disabled="!toolbarTarget"><AgentStatusControl ref="control" :status="status" :queues="queues" :selected-ids="selection" :busy="busy" :occupied="occupied" :error="error" :other-session="otherSession" @status="v=>run(()=>availability(v))" @queues="ids=>run(()=>manage(ids))" @dial="d=>run(()=>dial(d),'dial')" @dial-open="dialOpen=$event" @clear-error="error=''" @diagnostic="toggleAudio"/></Teleport>
  <Teleport v-if="!visible&&occupied" to="body"><button class="active-call-notice" @click="emit('open-operation')"><Headset :size="19"/> Atendimento em andamento · abrir <ArrowRight :size="16"/></button></Teleport>
  <div class="section-heading"><div><span class="eyebrow">ATENDIMENTO</span><h1>Minha operação</h1><p>Concentre-se na conversa. Sua disponibilidade e o teclado ficam no headset, no topo.</p></div><span :class="['agent-status',status]">{{labels[status]}}</span></div>
  <p v-if="error" class="agent-error" role="alert">{{error}}</p><p v-if="notice" class="agent-notice" role="status">{{notice}}</p>

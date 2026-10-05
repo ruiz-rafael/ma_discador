@@ -47,6 +47,7 @@ class VoiceEligibility
         if ($p?->expires_at && now()->gte($p->expires_at)) {
             return 'Prazo da campanha encerrado.';
         }
+        if($p?->list_id)app(Segments::class)->refresh($w,'voice',$p->list_id);
         if ($p?->list_id && ! DB::table('voice_list_members')->where('list_id', $p->list_id)->where('contact_id', $contact->id)->where('status', 'active')->exists()) {
             return 'Contato retirado da lista.';
         }

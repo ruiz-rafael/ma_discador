@@ -23,7 +23,7 @@ class ListContacts
     public function settings(int $w, string $kind, int $id): array
     {
         $s = DB::table('ma_list_settings')->where('workspace_id', $w)->where('kind', $kind)->where('list_id', $id)->first();
-        return ['revision' => $s?->revision ?? 0, 'fields' => $s ? json_decode($s->fields, true) : []];
+        return ['mode'=>$s?->mode??'manual','rule_match'=>$s?->rule_match??'all','rules'=>$s?->rules?json_decode($s->rules,true):[], 'revision' => $s?->revision ?? 0, 'fields' => $s ? json_decode($s->fields, true) : []];
     }
     public function targets(array $schema): array
     {
@@ -35,12 +35,14 @@ class ListContacts
             $this->lock(); $this->list($w, $kind, $id); $s = $this->settings($w, $kind, $id);
             abort_unless($s['revision'] === $d['revision'], 409, 'A lista mudou. Atualize antes de salvar.');
             foreach ($d['fields'] as $field) abort_if(in_array($field['key'], array_merge(self::BASE, ['constructor', 'prototype', '__proto__'])), 422, 'Nome de campo reservado.');
+            $segment=app(Segments::class)->validate($w,['mode'=>$d['mode']??$s['mode'],'rule_match'=>$d['rule_match']??$s['rule_match'],'rules'=>$d['rules']??$s['rules']],$d['fields']);
             $targets = $this->targets($d['fields']);
             foreach (DB::table('ma_list_webhooks')->where('workspace_id', $w)->where('kind', $kind)->where('list_id', $id)->where('active', true)->get() as $hook) {
                 foreach (json_decode($hook->mapping, true) as $m) abort_unless(in_array($m['target'], $targets), 422, 'Desative ou remapeie o webhook antes de remover um campo utilizado.');
             }
             DB::table($kind === 'voice' ? 'voice_lists' : 'audiences')->where('id', $id)->update(['name' => $d['name'], 'updated_at' => now()]);
-            DB::table('ma_list_settings')->updateOrInsert(['workspace_id' => $w, 'kind' => $kind, 'list_id' => $id], ['fields' => json_encode($d['fields']), 'revision' => $s['revision'] + 1, 'updated_at' => now(), 'created_at' => now()]);
+            DB::table('ma_list_settings')->updateOrInsert(['workspace_id' => $w, 'kind' => $kind, 'list_id' => $id], ['mode'=>$segment['mode'],'rule_match'=>$segment['rule_match'],'rules'=>json_encode($segment['rules']), 'fields' => json_encode($d['fields']), 'revision' => $s['revision'] + 1, 'updated_at' => now(), 'created_at' => now()]);
+            app(Segments::class)->refresh($w,$kind,$id);
             return $this->settings($w, $kind, $id);
         });
     }
@@ -101,7 +103,7 @@ class ListContacts
         if (in_array($v, [0, '0', 'false', 'não', 'nao', '', null], true)) return false;
         throw ValidationException::withMessages([$label => 'Informe verdadeiro/falso ou 1/0 para '.$label.'.']);
     }
-    public function ingest(int $w, string $kind, int $list, array $data): array
+    public function ingest(int $w, string $kind, int $list, array $data, bool $explicit = true): array
     {
         // Caller holds the runtime lock. Existing identities, consent, opt-outs and
         // metadata are preserved; ingestion links duplicates rather than overwriting them.
@@ -133,6 +135,13 @@ class ListContacts
                 $id = DB::table('contacts')->insertGetId(['name' => $data['name'], 'email' => $data['email'] ?? null, 'phone' => $data['phone'] ?? null, 'subscribed' => $data['consent'], 'fields' => json_encode($fields), 'created_at' => now(), 'updated_at' => now()]);
             }
         }
+        if($old&&!$explicit&&$this->settings($w,$kind,$list)['mode']==='rules'){
+            $fields=array_replace(json_decode($old->fields??'{}',true)??[],$data['fields']);
+            DB::table($kind==='voice'?'voice_contacts':'contacts')->where('id',$id)->update(['fields'=>json_encode($fields),'updated_at'=>now()]);
+        }
+        if($explicit)app(Segments::class)->pin($w,$kind,$list,$id);
+        $c=DB::table($kind==='voice'?'voice_contacts':'contacts')->where('id',$id)->first();
+        if(!app(Segments::class)->eligible($w,$kind,$list,$c))return ['contact_id'=>$id,'created'=>!$old,'preserved'=>(bool)$old,'added'=>false,'membership_removed'=>false,'outside_rules'=>true];
         return $this->link($w, $kind, $list, $id) + ['created' => ! $old, 'preserved' => (bool) $old];
     }
     /** Caller holds runtime lock; linking never edits a contact or restores an exclusion. */
@@ -141,11 +150,12 @@ class ListContacts
         if ($kind === 'voice') {
             $member = DB::table('voice_list_members')->where('list_id', $list)->where('contact_id', $id)->first();
             if (! $member) DB::table('voice_list_members')->insert(['list_id' => $list, 'contact_id' => $id, 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
-            $added = ! $member;
-            if (! $member || $member->status === 'active') {
+            if($member&&$member->status==='outside_rules')DB::table('voice_list_members')->where('id',$member->id)->update(['status'=>'active','reason'=>null,'updated_at'=>now()]);
+            $added = ! $member || $member->status==='outside_rules';
+            if (! $member || in_array($member->status,['active','outside_rules'])) {
                 foreach (DB::table('voice_campaign_policies')->where('list_id', $list)->pluck('campaign_id') as $campaign) DB::table('voice_members')->insertOrIgnore(['campaign_id' => $campaign, 'contact_id' => $id]);
             }
-            $removed = $member && $member->status !== 'active';
+            $removed = $member && $member->status === 'removed';
         } else {
             $removed = DB::table('ma_list_membership_exclusions')->where('audience_id', $list)->where('contact_id', $id)->exists();
             $added = ! $removed && DB::table('audience_contact')->insertOrIgnore(['audience_id' => $list, 'contact_id' => $id]);
@@ -159,8 +169,8 @@ class ListContacts
             $query = DB::table($kind === 'voice' ? 'voice_contacts' : 'contacts')->whereIn('id', $ids);
             if ($kind === 'voice') $query->where('workspace_id', $w);
             abort_unless($query->count() === count($ids), 422, 'Um contato selecionado não está mais disponível neste cadastro. Atualize a busca.');
-            $results = array_map(fn ($id) => $this->link($w, $kind, $list, $id), $ids);
-            return ['selected' => count($ids), 'added' => count(array_filter($results, fn ($r) => $r['added'])), 'removed_preserved' => count(array_filter($results, fn ($r) => $r['membership_removed']))];
+            $results = array_map(function($id)use($w,$kind,$list){$contact=DB::table($kind==='voice'?'voice_contacts':'contacts')->where('id',$id)->first();if(!app(Segments::class)->eligible($w,$kind,$list,$contact))return ['added'=>false,'membership_removed'=>false,'outside_rules'=>true];app(Segments::class)->pin($w,$kind,$list,$id);return $this->link($w,$kind,$list,$id);}, $ids);
+            return ['outside_rules'=>count(array_filter($results,fn($r)=>$r['outside_rules']??false)),'selected' => count($ids), 'added' => count(array_filter($results, fn ($r) => $r['added'])), 'removed_preserved' => count(array_filter($results, fn ($r) => $r['membership_removed']))];
         });
     }
     public function remove(int $w, string $kind, int $list, int $contact): void

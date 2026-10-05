@@ -22,6 +22,7 @@ class VoiceAudience
 
     private function rows(int $audience)
     {
+        app(Segments::class)->refresh(1,'automation',$audience);
         return DB::table('contacts as c')->join('audience_contact as m', 'c.id', '=', 'm.contact_id')->where('m.audience_id', $audience)
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('ma_list_membership_exclusions as x')->where('x.audience_id', $audience)->whereColumn('x.contact_id', 'c.id'))->select('c.*');
     }

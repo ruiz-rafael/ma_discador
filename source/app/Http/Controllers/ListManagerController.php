@@ -17,6 +17,7 @@ class ListManagerController extends Controller
     public function index(Request $r)
     {
         $w = $this->workspace($r);
+        app(\App\Services\Segments::class)->refreshAll();
         $ma = DB::table('audiences')->get()->map(fn ($l) => ['id' => $l->id, 'kind' => 'automation', 'name' => $l->name, 'count' => DB::table('audience_contact')->where('audience_id', $l->id)->count()]);
         $voice = DB::table('voice_lists')->where('workspace_id', $w)->get()->map(fn ($l) => ['id' => $l->id, 'kind' => 'voice', 'name' => $l->name, 'count' => DB::table('voice_list_members')->where('list_id', $l->id)->where('status', 'active')->count()]);
         return $this->safe(['lists' => $ma->concat($voice)->sortBy('name')->values(), 'can_manage' => in_array($r->user()->voice_role, ['admin', 'supervisor'])]);
@@ -29,7 +30,7 @@ class ListManagerController extends Controller
     }
     public function show(Request $r, string $kind, int $id)
     {
-        $w = $this->workspace($r); $service = app(ListContacts::class); $list = $service->list($w, $kind, $id);
+        $w = $this->workspace($r); $service = app(ListContacts::class); $list = $service->list($w, $kind, $id);app(\App\Services\Segments::class)->refresh($w,$kind,$id);
         $d = $r->validate(['search' => 'nullable|string|max:160', 'page' => 'sometimes|integer|between:1,100000']);
         if ($kind === 'voice') {
             $q = DB::table('voice_contacts as c')->join('voice_list_members as m', 'c.id', '=', 'm.contact_id')->where('m.list_id', $id)->where('c.workspace_id', $w)->select('c.id', 'c.name', 'c.phone', 'c.fields', 'c.source', 'c.crm_contact_id', 'c.consent', 'c.suppressed_at', 'c.replied_at', 'm.status');
@@ -41,12 +42,15 @@ class ListManagerController extends Controller
         $members->through(function ($c) use ($kind) { $c->fields = json_decode($c->fields ?? '{}', true); $c->status ??= 'active'; if ($kind === 'voice') $c->email = $c->fields['email'] ?? null; return $c; });
         $hooks = DB::table('ma_list_webhooks')->where('workspace_id', $w)->where('kind', $kind)->where('list_id', $id)->orderBy('created_at')->get()->map(fn ($h) => app(ListWebhooks::class)->public($h));
         $removed = $kind === 'automation' ? DB::table('ma_list_membership_exclusions as x')->join('contacts as c', 'c.id', '=', 'x.contact_id')->where('x.audience_id', $id)->limit(100)->get(['c.id', 'c.name', 'c.phone', 'c.email']) : [];
-        return $this->safe(['list' => ['id' => $id, 'kind' => $kind, 'name' => $list->name] + $service->settings($w, $kind, $id), 'members' => $members, 'removed' => $removed, 'webhooks' => $hooks]);
+        return $this->safe(['list' => ['id' => $id, 'kind' => $kind, 'name' => $list->name] + $service->settings($w, $kind, $id), 'members' => $members, 'removed' => $removed, 'webhooks' => $hooks,'campaigns'=>DB::table('voice_campaigns')->where('workspace_id',$w)->get(['id','name'])]);
+    }
+    public function segmentPreview(Request $r,string $kind,int $id) {
+        $w=$this->workspace($r,true);$d=$r->validate(['mode'=>'required|in:manual,rules','rule_match'=>'required|in:all,any','rules'=>'present|array|max:20']);$result=app(\App\Services\Segments::class)->preview($w,$kind,$id,$d);unset($result['ids']);return $this->safe($result+['saved'=>false]);
     }
     public function configure(Request $r, string $kind, int $id)
     {
         $w = $this->workspace($r, true);
-        $d = $r->validate(['revision' => 'required|integer|min:0', 'name' => 'required|string|max:160', 'fields' => 'present|array|max:20', 'fields.*' => 'required|array:key,label,type,required', 'fields.*.key' => ['required', 'distinct', 'regex:/^[a-z][a-z0-9_]{0,39}$/D'], 'fields.*.label' => 'required|string|max:100', 'fields.*.type' => 'required|in:text,number,boolean,date', 'fields.*.required' => 'required|boolean']);
+        $d = $r->validate(['mode'=>'sometimes|in:manual,rules','rule_match'=>'sometimes|in:all,any','rules'=>'sometimes|array|max:20','revision' => 'required|integer|min:0', 'name' => 'required|string|max:160', 'fields' => 'present|array|max:20', 'fields.*' => 'required|array:key,label,type,required', 'fields.*.key' => ['required', 'distinct', 'regex:/^[a-z][a-z0-9_]{0,39}$/D'], 'fields.*.label' => 'required|string|max:100', 'fields.*.type' => 'required|in:text,number,boolean,date', 'fields.*.required' => 'required|boolean']);
         return $this->safe(app(ListContacts::class)->configure($w, $kind, $id, $d));
     }
     public function contact(Request $r, string $kind, int $id)
@@ -86,7 +90,7 @@ class ListManagerController extends Controller
     {
         $w = $this->workspace($r, true);
         DB::transaction(function () use ($w, $kind, $id, $contact) {
-            $s = app(ListContacts::class); $s->lock(); $s->list($w, $kind, $id);
+            $s = app(ListContacts::class); $s->lock(); $s->list($w, $kind, $id);$row=DB::table($kind==='voice'?'voice_contacts':'contacts')->where('id',$contact)->firstOrFail();abort_unless(app(\App\Services\Segments::class)->eligible($w,$kind,$id,$row),422,'O contato não corresponde às regras atuais do segmento.');app(\App\Services\Segments::class)->pin($w,$kind,$id,$contact);
             if ($kind === 'voice') {
                 $m = DB::table('voice_list_members')->where('list_id', $id)->where('contact_id', $contact)->firstOrFail();
                 DB::table('voice_list_members')->where('id', $m->id)->update(['status' => 'active', 'reason' => 'Reinclusão manual no gerenciamento de listas', 'updated_at' => now()]);

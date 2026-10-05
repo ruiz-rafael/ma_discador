@@ -207,7 +207,7 @@ return $rows;
     public function queue(Request $r, ?int $id = null)
     {
         $w = $this->workspace($r, true);
-        $d = $r->validate(['name' => 'required|string|max:160', 'campaign_id' => 'nullable|integer|min:1', 'campaign_ids'=>'sometimes|array|max:100', 'campaign_ids.*'=>'integer|min:1|distinct', 'direction'=>'sometimes|in:inbound,outbound,mixed','calling_method'=>'sometimes|in:programmable_voice,sip_trunk','manual_enabled'=>'sometimes|boolean', 'mode' => 'required|in:preview,progressive', 'strategy' => 'required|in:fifo', 'wrapup_seconds' => 'required|integer|between:0,120', 'agent_ids' => 'required|array|min:1|max:100', 'agent_ids.*' => 'required|integer|distinct', 'revision' => 'sometimes|integer|min:0']);
+        $d = $r->validate(['name' => 'required|string|max:160', 'campaign_id' => 'nullable|integer|min:1', 'campaign_ids'=>'sometimes|array|max:100', 'campaign_ids.*'=>'integer|min:1|distinct', 'direction'=>'sometimes|in:inbound,outbound,mixed','calling_method'=>'sometimes|in:programmable_voice,sip_trunk','manual_enabled'=>'sometimes|boolean','allow_landline'=>'sometimes|boolean','allow_mobile'=>'sometimes|boolean', 'mode' => 'required|in:preview,progressive', 'strategy' => 'required|in:fifo', 'wrapup_seconds' => 'required|integer|between:0,120', 'agent_ids' => 'required|array|min:1|max:100', 'agent_ids.*' => 'required|integer|distinct', 'revision' => 'sometimes|integer|min:0']);
 
         return app(VoiceLiveQueue::class)->configure($w, $r->user()->id, $d, $id);
     }

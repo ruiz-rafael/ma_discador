@@ -48,7 +48,7 @@ class ListImports
                 $errors[] = ['line' => $i + 2, 'message' => $e instanceof ValidationException ? implode(' ', $e->validator->errors()->all()) : $e->getMessage()];
             }
         }
-        $batch = (string) Str::uuid(); $summary = ['valid' => count($rows), 'invalid' => count($errors), 'created' => 0, 'preserved' => 0, 'added' => 0, 'removed_preserved' => 0];
+        $batch = (string) Str::uuid(); $summary = ['valid' => count($rows), 'invalid' => count($errors), 'created' => 0, 'preserved' => 0, 'added' => 0, 'removed_preserved' => 0,'outside_rules'=>0];
         DB::table('ma_list_imports')->insert(['id' => $batch, 'workspace_id' => $w, 'kind' => $kind, 'list_id' => $id, 'list_revision' => $schema['revision'], 'user_id' => $u, 'filename' => mb_substr(basename($file->getClientOriginalName()), 0, 200), 'rows' => json_encode($rows), 'errors' => json_encode($errors), 'summary' => json_encode($summary), 'expires_at' => now()->addDay(), 'created_at' => now(), 'updated_at' => now()]);
         return $this->public(DB::table('ma_list_imports')->find($batch));
     }
@@ -66,10 +66,12 @@ class ListImports
             abort_unless($service->settings($w, $kind, $list)['revision'] === $b->list_revision, 409, 'Os campos da lista mudaram. Gere uma nova prévia.');
             $summary = json_decode($b->summary, true); abort_unless($summary['valid'] > 0, 422, 'Não há linhas válidas para importar.');
             foreach (json_decode($b->rows, true) as $row) {
-                $result = $service->ingest($w, $kind, $list, $row);
+                $result = $service->ingest($w, $kind, $list, $row, false);
                 foreach (['created', 'preserved', 'added'] as $key) $summary[$key] += (int) $result[$key];
+                $summary['outside_rules']=($summary['outside_rules']??0)+(int)($result['outside_rules']??false);
                 $summary['removed_preserved'] += (int) $result['membership_removed'];
             }
+            app(Segments::class)->refresh($w,$kind,$list);
             DB::table('ma_list_imports')->where('id', $id)->update(['status' => 'committed', 'summary' => json_encode($summary), 'updated_at' => now()]);
             return $this->public(DB::table('ma_list_imports')->find($id));
         });

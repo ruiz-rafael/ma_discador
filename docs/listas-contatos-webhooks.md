@@ -1,12 +1,22 @@
-# Listas: edição, cadastro, CSV e webhooks
+# Segmentos: regras, cadastro, CSV e webhooks
 
-Publicado no MA em 04/10/2026. Acesse **Listas de contatos → Editar lista** (ou clique no nome). A tela reúne listas de **Automação MA** e **Voz e WhatsApp**, com identificação do uso; os cadastros dos dois motores continuam separados. Nenhum dado foi migrado na publicação. Uma lista do MA pode ser vinculada a uma jornada de voz pelo cartão Público da jornada, conforme descrito abaixo.
+Publicado no MA em 04/10/2026. Acesse **Segmentos → Configurar segmento** (ou clique no nome). A tela reúne listas de **Automação MA** e **Voz e WhatsApp**, com identificação do uso; os cadastros dos dois motores continuam separados. Nenhum dado foi migrado na publicação. Uma lista do MA pode ser vinculada a uma jornada de voz pelo cartão Público da jornada, conforme descrito abaixo.
 
 ## Organização da tela — 05/10/2026
 
-Lista é um público escolhido explicitamente. Segmento dinâmico seleciona pessoas por regras; o gerenciador atual organiza listas e não executa filtros dinâmicos de segmentação.
+O gerenciador agora se chama **Segmentos** e oferece dois modos. **Por inclusão** mantém o público escolhido manualmente, por seleção, CSV ou webhook. **Dinâmico** calcula o público pelas regras configuradas, com combinação de todas (E) ou qualquer uma (OU). Segmentos já existentes continuam por inclusão até uma alteração explícita da configuração.
 
-A lista mantém seus contatos visíveis na tela principal. Quatro cartões abrem painéis laterais sobrepostos: **Cadastro manual**, **Contatos existentes**, **Importar planilha** e **Receber por webhook**. **Lista e campos** também abre um painel. Os painéis têm navegação por teclado, fechamento por Escape e confirmação de alterações não salvas. O token do webhook exige confirmação antes de fechar.
+Em **Segmento e campos → Modo de participação**, selecione Dinâmico e adicione até 20 regras. São aceitos nome, telefone, e-mail, origem, autorização, ID no CRM, campos adicionais e **Atendeu ou respondeu na cadência**. Para esta última regra, escolha a cadência e o valor **Não** se deseja manter somente quem ainda não teve atendimento confirmado nem resposta atribuída àquela cadência. Resposta inclui cliques de botão recebidos como mensagens. Eventos sem atribuição não são presumidos como respostas de uma campanha específica.
+
+Campos de texto aceitam igualdade, diferença, contém, começa com e preenchimento; números e datas aceitam comparações de ordem; booleanos usam Sim/Não. Cadastre e salve campos adicionais antes de usá-los nas regras. A **Prévia do segmento** mostra a quantidade e até 20 exemplos sem mudar a participação. Salvar recalcula os membros; o histórico e o cadastro são preservados.
+
+Todo contato do cadastro do mesmo tipo pode corresponder a um segmento dinâmico. Inclusão manual/seleção não ignora regras nem exclusões: um contato fora das regras permanece no cadastro, mas não entra no segmento. Retirar explicitamente continua impedindo reentrada automática; Reincluir exige que o contato volte a corresponder às regras. Saídas apenas por regra permitem reentrada se os dados mudarem novamente.
+
+Webhooks e CSV podem atualizar os campos adicionais não nulos de cadastros existentes no modo dinâmico. Nome, telefone, e-mail, consentimento, bloqueios e histórico existentes são preservados. Os dados recebidos alimentam as regras definidas pela supervisão; o remetente do webhook não recebe permissão para alterar as regras.
+
+A atualização ocorre no recebimento/importação, ao abrir o segmento, no agendador a cada minuto e antes da elegibilidade de voz/WhatsApp. O avaliador aceita até 5.000 contatos por cadastro; o limite próprio de público da jornada de voz continua valendo. A saída cancela followups de voz pendentes associados ao público. A segmentação não reinicia tentativas nem reinscreve automaticamente contatos em jornadas de automação já concluídas.
+
+A lista mantém seus contatos visíveis na tela principal. Quatro cartões abrem painéis laterais sobrepostos: **Cadastro manual**, **Contatos existentes**, **Importar planilha** e **Receber por webhook**. **Segmento e campos** também abre um painel. Os painéis têm navegação por teclado, fechamento por Escape e confirmação de alterações não salvas. O token do webhook exige confirmação antes de fechar.
 
 Em **Contatos existentes**, busque e selecione até 100 cadastros por inclusão, com páginas de 20 resultados. A busca usa o cadastro do mesmo tipo da lista: listas MA consultam os contatos do MA; listas de voz consultam os contatos do discador. Use uma lista MA como público da cadência quando quiser aproveitar o cadastro central de contatos. Participações existentes ficam identificadas; retiradas exigem a ação explícita **Reincluir**. A inclusão é atômica e idempotente, preserva dados e autorizações e não aciona chamadas/mensagens.
 
@@ -37,7 +47,7 @@ As listas MA são acessíveis somente ao workspace principal. A identificação 
 
 ## Campos adicionais e nome da lista
 
-Em **Lista e campos**, altere o nome ou cadastre até 20 campos: nome exibido, chave (`empresa`, `cidade` etc.), tipo (texto, número, sim/não ou data) e obrigatoriedade. Datas usam `AAAA-MM-DD`; documentos e códigos com zeros à esquerda devem ser texto. Campos obrigatórios são validados em novos cadastros/importações/eventos; cadastros existentes não são reescritos.
+Em **Segmento e campos**, altere o nome ou cadastre até 20 campos: nome exibido, chave (`empresa`, `cidade` etc.), tipo (texto, número, sim/não ou data) e obrigatoriedade. Datas usam `AAAA-MM-DD`; documentos e códigos com zeros à esquerda devem ser texto. Campos obrigatórios são validados em novos cadastros/importações/eventos; cadastros existentes não são reescritos.
 
 Os campos ficam armazenados no contato. Isso não adiciona automaticamente novas variáveis ao catálogo de templates de voz/WhatsApp. Webhooks ativos que usam um campo precisam ser remapeados ou desativados antes de removê-lo da definição da lista.
 
@@ -83,6 +93,7 @@ A mesma chave com o mesmo corpo retorna o resultado anterior; chave repetida com
 ## API e implementação
 
 - Gerenciamento autenticado: `/api/lists`, `/api/lists/{automation|voice}/{id}`; edição reservada a administrador/supervisor do workspace principal.
+- Regras: `POST .../segment-preview` com `mode`, `rule_match` e `rules`; a prévia não grava participação. `PUT .../{id}` salva regras e campos com a revisão atual.
 - Seleção existente: `GET .../available-contacts?search=...&page=1`; `POST .../existing-contacts` com `contact_ids` (até 100 IDs distintos).
 - Contatos: `POST .../contacts`; retirada `DELETE .../contacts/{id}`; reinclusão `POST .../contacts/{id}/restore`.
 - CSV: `POST .../csv/inspect`, `.../csv/preview`, `.../imports/{uuid}/commit`.
@@ -101,3 +112,5 @@ Backup de código e banco antes da migração aditiva. Sem chamadas, mensagens, 
 Correção do seletor de público em 04/10/2026: 187 testes / 1.457 asserções aprovados em SQLite e PostgreSQL isolados. Testes incluem vínculo MA, IDs coincidentes entre tipos, sincronização na reserva, exclusões, autorização, telefone alterado, bloqueio de WhatsApp e isolamento de workspace. Evidências em `evidence/audience-link-20261004/`.
 
 Atualização de 05/10/2026: painel lateral e seleção de contatos existentes validados com **289 testes / 2.343 asserções** em SQLite e PostgreSQL isolados. A conferência de navegador cobre cadastro, seleção, CSV, campos do payload, exemplo gerado, validação válida/inválida e geração de URL/token com respostas simuladas. Sem importações, criação de webhooks ou contatos, chamadas ou mensagens em produção durante os testes. Evidências privadas em `evidence/list-intake-20261005/`.
+
+Segmentos dinâmicos e permissões de discagem (05/10/2026): **301 testes / 2.434 asserções** aprovados em cada banco isolado (SQLite e PostgreSQL). Cobertura de entrada, saída e reentrada por regras, exclusão explícita, atendimento/resposta atribuídos à cadência, ingestão por webhook, prévia sem gravação e isolamento de acesso. A participação é reavaliada também antes de admitir uma chamada ou enviar um WhatsApp pendente. As configurações anteriores continuam por inclusão até o administrador optar pelas regras.

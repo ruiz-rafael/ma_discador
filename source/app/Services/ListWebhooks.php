@@ -54,7 +54,8 @@ class ListWebhooks
             try { $payload = json_decode($raw, true, 32, JSON_THROW_ON_ERROR); } catch (\JsonException) { abort(422, 'JSON inválido.'); }
             abort_unless(is_array($payload) && ! array_is_list($payload), 422, 'Envie um objeto JSON com os dados de um contato.');
             $d = $this->preview($h->workspace_id, $h->kind, $h->list_id, json_decode($h->mapping, true), $payload);
-            $result = $s->ingest($h->workspace_id, $h->kind, $h->list_id, $d);
+            $result = $s->ingest($h->workspace_id, $h->kind, $h->list_id, $d, false);
+            app(Segments::class)->refresh($h->workspace_id,$h->kind,$h->list_id);
             DB::table('ma_list_webhook_receipts')->insert(['webhook_id' => $id, 'event_key' => $eventKey, 'request_hash' => $hash, 'result' => json_encode($result), 'created_at' => now()]);
             return ['duplicate_event' => false] + $result;
         });
