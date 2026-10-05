@@ -1,4 +1,5 @@
 <script setup>
+import {voiceFetch} from '../voice/request'
 import {checkMicrophone,microphoneMessage} from '../voice/microphone'
 import {ref,computed,onMounted,onBeforeUnmount,watch} from 'vue'
 import {voiceBase,voiceAuth,voiceCredentials} from '../voice/embed-session'
@@ -12,9 +13,9 @@ const contactId=ref(props.reservation?.contact_id||''),campaignId=ref(props.rese
 const metrics=ref({packets_sent:0,packets_received:0,audio_energy:0})
 const callLabels={pending:'Reservada',dialing:'Discando',answered:'Atendida',completed:'Encerrada',busy:'Ocupado',no_answer:'Não atendeu',failed:'Falhou',cancelled:'Cancelada',unknown:'Sem confirmação final'}
 let device=null,apiCall=null,ua=null,call=null,grantId=null,poll=null,deadline=null,statsTimer=null,closing=false,disposed=false,startKey=null,generation=0
-watch(phase,value=>emit('progress',{phase:value,reservation_id:props.reservation?.id}),{flush:'sync'})
-async function api(path='',method='GET',body){const r=await fetch(voiceBase()+'/calling'+path,{method,credentials:voiceCredentials(),signal:AbortSignal.timeout(8000),headers:{Accept:'application/json','Content-Type':'application/json',...voiceAuth()},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();if(!r.ok)throw new Error(d.message||'Não foi possível concluir a ligação.');return d}
-async function refresh(){try{state.value=await api();if(props.reservation?.contact){state.value.contacts=state.value.contacts.filter(c=>c.id!==props.reservation.contact_id);state.value.contacts.push(props.reservation.contact)}}catch(e){if(!disposed)error.value=microphoneMessage(e)}}
+watch([phase,autoplayBlocked],([value,blocked])=>emit('progress',{phase:value,audio_blocked:blocked,reservation_id:props.reservation?.id}),{flush:'sync'})
+async function api(path='',method='GET',body){const r=await voiceFetch(voiceBase()+'/calling'+path,{method,credentials:voiceCredentials(),signal:AbortSignal.timeout(8000),headers:{Accept:'application/json','Content-Type':'application/json',...voiceAuth()},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();if(!r.ok)throw new Error(d.message||'Não foi possível concluir a ligação.');return d}
+async function refresh(){try{state.value=await api();if(error.value.startsWith('A conexão com o MA falhou.')){error.value='';emit('feedback','')}if(props.reservation?.contact){state.value.contacts=state.value.contacts.filter(c=>c.id!==props.reservation.contact_id);state.value.contacts.push(props.reservation.contact)}}catch(e){if(!disposed){error.value=microphoneMessage(e);emit('feedback',error.value)}}}
 function pc(){return call?.sessionDescriptionHandler?.peerConnection}
 async function collect(){try{const reports=await pc()?.getStats();if(!reports)return;let sent=0,received=0,energy=0;reports.forEach(s=>{if(s.type==='outbound-rtp'&&s.kind==='audio')sent+=s.packetsSent||0;if(s.type==='inbound-rtp'&&s.kind==='audio'){received+=s.packetsReceived||0;energy+=s.totalAudioEnergy||0}});metrics.value={packets_sent:sent,packets_received:received,audio_energy:energy}}catch{}}
 async function stop(){generation++;if(closing)return;closing=true;clearInterval(statsTimer);clearTimeout(deadline);try{apiCall?.disconnect();apiCall=null;device?.destroy();device=null;await collect();if(call?.state==='Established')await call.bye();else if(call&&['Initial','Establishing'].includes(call.state))await call.cancel();}catch{}finally{const old=ua,connection=pc();ua=null;call=null;connection?.getSenders().forEach(s=>s.track?.stop());connection?.close();old?.stop().catch(()=>{});if(grantId)await api('/calls/'+grantId+'/cancel','POST').catch(()=>{});grantId=null;if(audio.value){audio.value.srcObject?.getTracks().forEach(t=>t.stop());audio.value.srcObject=null}phase.value='idle';closing=false;await refresh();emit('finished')}}
@@ -59,8 +60,9 @@ async function begin(){if(phase.value!=='idle')return;if(!consent.value||evidenc
  }catch(e){if(attempt!==generation||disposed)return;error.value=microphoneMessage(e);emit('feedback',error.value);emit('failed',error.value);await stop()}
 }
 async function startAuthorized(){await refresh();consent.value=true;await begin()}
-defineExpose({startAuthorized,stop})
-async function reconcile(id){try{await api('/calls/'+id+'/reconcile','POST');await refresh()}catch(e){error.value=microphoneMessage(e)}}
+async function resumeAudio(){try{await audio.value?.play();autoplayBlocked.value=false}catch{error.value='O navegador não liberou o áudio. Confira a permissão de reprodução.';emit('feedback',error.value)}}
+defineExpose({startAuthorized,stop,reconcile,resumeAudio})
+async function reconcile(id){try{await api('/calls/'+id+'/reconcile','POST');await refresh()}catch(e){error.value=microphoneMessage(e);emit('feedback',error.value)}}
 onMounted(()=>{refresh();poll=setInterval(refresh,10000)})
 onBeforeUnmount(()=>{disposed=true;clearInterval(poll);stop()})
 const date=s=>s?new Date(s.replace(' ','T')+'Z').toLocaleString('pt-BR'):'—'

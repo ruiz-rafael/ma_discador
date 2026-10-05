@@ -141,8 +141,17 @@ Homologação: **329 testes / 2.659 asserções** em cada banco isolado, testes 
 
 A caixa **Fazer uma ligação** permanece aberta depois de clicar em **Ligar**. Mostra preparação, discagem aguardando atendimento, atendimento confirmado e resultado final no mesmo lugar. A confirmação **Cliente atendeu** depende do estado registrado pela telefonia; a conexão de áudio do navegador não é usada como prova de atendimento.
 
-**Encerrar ligação** controla a chamada local em andamento. Fechar a caixa apenas a recolhe; o áudio continua no componente de atendimento e o ícone de telefone permite reabrir o acompanhamento. Uma ligação atendida e encerrada apresenta **Abrir tabulação**, que leva à ficha existente em Minha operação. Não atendimento, ocupado, falha e cancelamento permanecem visíveis como resultado da última chamada.
+**Encerrar ligação** controla a chamada local em andamento. Fechar a caixa apenas a recolhe; o áudio continua no componente de atendimento e o ícone de telefone permite reabrir o acompanhamento. Uma ligação manual atendida e encerrada apresenta a tabulação dentro do próprio teclado, sem mudar de página. As anotações são preservadas ao recolher e reabrir a caixa. Não atendimento, ocupado, falha e cancelamento permanecem visíveis como resultado da última chamada.
 
 O resultado é atualizado nas consultas periódicas ao servidor, com intervalo de aproximadamente cinco segundos. A preparação aparece imediatamente. Enquanto há uma chamada ou tabulação pendente, uma segunda discagem permanece bloqueada. A abertura ou fechamento da caixa não muda filas, disponibilidade, destino ou origem.
 
 Homologação com telefonia e APIs simuladas: permanência da caixa, estado de discagem mesmo após conexão do SDK, confirmação de atendimento pelo servidor, encerramento pelo teclado, acesso à tabulação, reabertura durante a chamada e resultado final. Conferência visual em desktop e celular, sem chamadas reais. Evidências privadas em `evidence/dial-progress-20261005/`.
+
+
+### Discagem e tabulação na mesma caixa
+
+Os controles de chamadas manuais ficam no teclado do headset. A ficha em Minha operação oferece **Acompanhar no teclado**, sem duplicar os controles de áudio. Uma reserva manual recuperada ao carregar o MA também abre essa caixa, mostrando o estado registrado; isso não reconecta nem reinicia a chamada.
+
+Quando a telefonia confirma o encerramento de uma ligação atendida, a tabulação aparece no mesmo local. O formulário permanece montado ao recolher o teclado, preservando as anotações enquanto o atendimento estiver pendente. Fechar o teclado não salva nem cancela a tabulação. **Atualizar resultado** permite consultar a ligação existente; **Permitir reprodução do áudio** continua disponível quando exigido pelo navegador para SIP.
+
+Falhas de transporte apresentam orientação em português, sem significar “não atendeu” e sem repetição automática da ação. O aviso de consulta é retirado quando os dados voltam a ser obtidos. A causa da falha de rede do navegador não pode ser determinada apenas pelo texto “Failed to fetch”. Homologação: oito testes de áudio, microfone e transporte; fluxo simulado de discagem, falha de rede, recuperação, tabulação e preservação do rascunho, em desktop e celular. Nenhuma chamada ou mensagem real enviada na validação. Evidências privadas: `evidence/dial-unified-20261005/`.

@@ -13,7 +13,7 @@ const session=crypto.randomUUID()
 const current=computed(()=>state.value?.current)
 const labels={waiting:'Em espera',ringing:'Chamando atendente',answered:'Em conversa',ending:'Encerrando',tabulation:'Tabulação pendente',completed:'Concluída',unavailable:'Sem atendente',abandoned:'Abandonada'}
 async function api(path='',method='GET',d){return voiceApi('/inbound'+path,method,d)}
-async function load(){state.value=await api();emit('active',!!call||!!current.value)}
+async function load(){state.value=await api();if(error.value.startsWith('A conexão com o MA falhou.'))error.value='';emit('active',!!call||!!current.value)}
 async function run(fn){busy.value=true;error.value='';try{await fn()}catch(e){error.value=microphoneMessage(e)}finally{busy.value=false}}
 function edit(r){form.value=r?{...r,enabled:!!r.enabled}:{number:state.value?.configured_number||'',queue_id:'',enabled:false,ring_seconds:20,wait_seconds:120}}
 async function save(){await api('/routes'+(form.value.id?'/'+form.value.id:''),form.value.id?'PUT':'POST',form.value);form.value=null;await load()}
