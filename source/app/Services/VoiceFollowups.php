@@ -43,6 +43,8 @@ class VoiceFollowups
         abort_unless($f && in_array($f->status, ['pending', 'blocked', 'dispatching']), 422, 'Passo de WhatsApp encerrado.');
         $campaign = DB::table('voice_campaigns')->where('workspace_id', $f->workspace_id)->where('id', $f->campaign_id)->firstOrFail();
         $s = json_decode($campaign->settings, true);
+        $effective=app(QueueChannels::class)->apply(QueueRouting::forCampaign($f->workspace_id,$f->campaign_id)->first(),$s);
+        abort_if(self::ruleChanged($s,$effective),422,'Os canais da fila mudaram. Revise a cadência antes de enviar.');
         abort_unless($campaign->followup_revision === $f->campaign_revision && ($s['whatsapp_delivery'] ?? '') === 'automatic' && $s['whatsapp_enabled'], 422, 'Configuração alterada ou envio automático desativado.');
         abort_unless($campaign->status === 'testing', 422, 'Campanha pausada ou encerrada.');
         abort_unless(app(VoiceLab::class)->window($s), 422, 'Fora do horário da campanha.');

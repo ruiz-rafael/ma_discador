@@ -61,16 +61,19 @@ class VoiceCalling
                 if (($settings['whatsapp_delivery'] ?? '') === 'automatic' || $reservation || DB::table('voice_campaign_policies')->where('campaign_id', $campaign->id)->exists()) {
                     $reason = app(VoiceEligibility::class)->reason($w, $campaign, $contact); abort_if($reason, 422, $reason);
                 }
-                $t['caller_id'] = app(VoiceProviderCatalog::class)->choose($w, $campaign, $contact, $t);
+                $q=QueueRouting::forCampaign($w,$campaign->id)->first();
+                if(!$q?->channels_configured)$t['caller_id'] = app(VoiceProviderCatalog::class)->choose($w, $campaign, $contact, $t);
                 abort_unless(DB::table('voice_members')->where('campaign_id', $campaign->id)->where('contact_id', $contact->id)->exists(), 422, 'Contato fora da campanha.');
             }
+            if($reservation)$q=DB::table('voice_live_queues')->find($reservation->queue_id);
+            if(isset($q)&&$q->channels_configured){abort_unless($q->calling_method===$method,422,'Use a telefonia definida na fila.');$t['caller_id']=app(QueueChannels::class)->origin($q,$t);}
             abort_if(app(VoiceAgentCapacity::class)->inboundBusy($w,$user) || DB::table('voice_inbound_calls')->whereNull('capacity_released_at')->exists() || DB::table('voice_outbound_calls')->whereNull('capacity_released_at')->exists(), 409, 'Há ligação reservada, em andamento ou sem confirmação final.');
             app(VoiceAudio::class)->expire();
             abort_if(DB::table('voice_audio_sessions')->whereIn('status', ['pending', 'connecting', 'active'])->exists(), 409, 'Finalize o teste interno de áudio antes de ligar.');
             abort_if(DB::table('voice_outbound_calls')->where('created_at', '>=', now()->startOfDay())->count() >= $p['daily_limit'], 429, 'Limite diário de tentativas atingido.');
             $policy = isset($campaign) ? DB::table('voice_campaign_policies')->where('campaign_id', $campaign->id)->first() : null;
             $profile = isset($campaign) ? app(VoiceAudience::class)->personalize($w, $campaign->id, $contact) : $contact;
-            $snapshot = ['contact_name'=>$profile->name, 'campaign_name'=>$campaign->name??null, 'agent_name'=>DB::table('users')->where('id',$user)->value('name'), 'origin_mode'=>$policy->origin_mode??'configured'];
+            $snapshot = ['queue_channels_id'=>(isset($q)&&$q->channels_configured)?$q->id:null,'contact_name'=>$profile->name, 'campaign_name'=>$campaign->name??null, 'agent_name'=>DB::table('users')->where('id',$user)->value('name'), 'origin_mode'=>$policy->origin_mode??'configured'];
             $id = (string) Str::uuid();
             $token = hash_hmac('sha256', $id, $p['event_secret']);
             DB::table('voice_outbound_calls')->insert(['id' => $id, 'list_id'=>$policy->list_id??null, 'manual'=>$manual,'queue_id'=>$reservation->queue_id??null, 'context_snapshot'=>json_encode($snapshot), 'workspace_id' => $w, 'user_id' => $user, 'contact_id' => $contact->id, 'campaign_id' => $d['campaign_id'] ?? null, 'campaign_revision' => isset($campaign) ? $campaign->followup_revision : null, 'idempotency_key' => $d['idempotency_key'], 'request_hash' => $hash, 'grant_hash' => hash('sha256', $token), 'configuration_hash' => $config->fingerprint($method), 'method' => $method, 'provider_account' => $t['account_sid'], 'destination' => $contact->phone, 'caller_id' => $t['caller_id'], 'status' => 'pending', 'max_seconds' => $p['max_seconds'], 'ring_seconds' => $p['ring_seconds'], 'consent_evidence' => $d['consent_evidence'], 'grant_expires_at' => now()->addSeconds(45), 'deadline_at' => now()->addSeconds(45 + $p['max_seconds'] + $p['ring_seconds'] + 60), 'created_at' => now(), 'updated_at' => now()]);

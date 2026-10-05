@@ -42,6 +42,7 @@ class VoiceLabController extends Controller
         $w = $this->workspace($r);
         $campaigns = $this->lab->scope('voice_campaigns', $w)->orderByDesc('id')->limit(100)->get()->map(function ($row) {
             $row = $this->decode($row);
+            $row->queue_id=\App\Services\QueueRouting::forCampaign($row->workspace_id,$row->id)->value('id');
             $row->contact_ids = DB::table('voice_members')->where('campaign_id', $row->id)->pluck('contact_id');
 
             return $row;
@@ -51,6 +52,7 @@ class VoiceLabController extends Controller
             'workspace' => DB::table('voice_workspaces')->find($w), 'user_id' => $r->user()->id, 'mode' => 'simulation', 'max_concurrency' => 2,
             'campaigns' => $campaigns,
             'can_manage_journeys' => in_array($r->user()->voice_role, ['admin', 'supervisor']),
+            'journey_queues'=>DB::table('voice_live_queues')->where('workspace_id',$w)->where('direction','!=','inbound')->get(['id','name','mode','status','calling_method','voice_number','whatsapp_sender_id','number_mode','channels_configured']),
             'journey_lists' => app(\App\Services\VoiceAudience::class)->catalog($w),
             'journeys' => app(\App\Services\VoiceJourneyOverview::class)->get($w),
             'contacts' => $this->lab->scope('voice_contacts', $w)->orderByDesc('id')->limit(500)->get(),
@@ -92,9 +94,13 @@ class VoiceLabController extends Controller
 
     public function campaign(Request $r, ?int $id = null): object
     {
+        return DB::transaction(function()use($r,$id){DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();return $this->saveCampaign($r,$id);});
+    }
+    private function saveCampaign(Request $r, ?int $id = null): object
+    {
         $w = $this->workspace($r);
         $d = $r->validate([
-            'name' => 'required|string|max:160', 'revision' => 'sometimes|integer|min:0',
+            'queue_id'=>'sometimes|nullable|integer|min:1','name' => 'required|string|max:160', 'revision' => 'sometimes|integer|min:0',
             'contact_ids' => 'present|array|max:500', 'contact_ids.*' => 'integer|distinct',
             'settings' => 'required|array:mode,crm_campaign_id,segment_id,business_number,number_mode,whatsapp_number,whatsapp_sender_id,timezone,days,start_time,end_time,max_attempts,retry_minutes,concurrency,script,whatsapp_enabled,whatsapp_after,whatsapp_delay,whatsapp_template_id,whatsapp_delivery,whatsapp_text,whatsapp_real_template_id,whatsapp_variables,whatsapp_qr_template_id,whatsapp_qr_buttons_confirmed',
             'settings.mode' => 'required|in:preview,progressive',
@@ -117,6 +123,12 @@ class VoiceLabController extends Controller
             'settings.whatsapp_variables' => 'sometimes|array|max:10',
             'settings.whatsapp_variables.*' => 'required|string|max:500',
         ]);
+        $currentQueue=$id?\App\Services\QueueRouting::forCampaign($w,$id)->first():null;
+        $chosenQueue=$currentQueue;
+        if(array_key_exists('queue_id',$d))$chosenQueue=$d['queue_id']?DB::table('voice_live_queues')->where('workspace_id',$w)->where('direction','!=','inbound')->where('id',$d['queue_id'])->firstOrFail():null;
+        if(array_key_exists('queue_id',$d)&&$chosenQueue)abort_unless($chosenQueue->channels_configured,422,'Configure os números desta fila antes de vinculá-la à cadência.');
+        $queueChanged=($currentQueue?->id)!==($chosenQueue?->id);
+        $d['settings']=app(\App\Services\QueueChannels::class)->apply($chosenQueue,$d['settings']);
         app(\App\Services\VoicePersonalization::class)->validate($d['settings']['whatsapp_text'] ?? '');
         foreach ($d['settings']['whatsapp_variables'] ?? [] as $value) app(\App\Services\VoicePersonalization::class)->validate($value);
         $d['settings'] = app(WhatsAppNumbers::class)->normalize($w, $d['settings']);
@@ -149,7 +161,7 @@ class VoiceLabController extends Controller
             abort_unless($w === 1 && $q->exists(), 422, 'Referência ausente, inativa ou de outro workspace: '.$field);
         }
 
-        return DB::transaction(function () use ($r, $w, $d, $id) {
+        return DB::transaction(function () use ($r, $w, $d, $id, $queueChanged) {
             DB::table('voice_runtime')->where('id', 1)->lockForUpdate()->firstOrFail();
             $count = $this->lab->scope('voice_contacts', $w)->whereIn('id', $d['contact_ids'])->count();
             abort_unless($count === count($d['contact_ids']), 422, 'Selecione somente contatos deste workspace.');
@@ -160,7 +172,7 @@ class VoiceLabController extends Controller
                 abort_unless(in_array($old->status, ['draft', 'paused']), 409, 'Pause a campanha antes de alterar a configuração.');
                 abort_if($this->lab->scope('voice_attempts', $w)->where('campaign_id', $id)->where('status', 'ringing')->where('expires_at', '>', now())->exists(), 409, 'Conclua as tentativas abertas antes de alterar a configuração.');
                 abort_unless(isset($d['revision']) && $d['revision'] === $old->revision, 409, 'A campanha mudou. Atualize a página antes de salvar.');
-                $ruleChanged = \App\Services\VoiceFollowups::ruleChanged(json_decode($old->settings, true), $d['settings']);
+                $ruleChanged = $queueChanged || \App\Services\VoiceFollowups::ruleChanged(json_decode($old->settings, true), $d['settings']);
                 $this->lab->scope('voice_campaigns', $w)->where('id', $id)->update($row + ['revision' => $old->revision + 1, 'followup_revision' => $old->followup_revision + ($ruleChanged ? 1 : 0)]);
                 $this->lab->scope('voice_followups', $w)->where('campaign_id', $id)->whereIn('status', ['pending', 'blocked'])->when(! $ruleChanged, fn ($q) => $q->whereNotIn('contact_id', $d['contact_ids']))->update(['status' => 'cancelled', 'reason' => 'Configuração da campanha alterada.', 'updated_at' => now()]);
                 // Pending steps preserve their settings snapshot and are cancelled on configuration edits.
@@ -169,6 +181,7 @@ class VoiceLabController extends Controller
             } else {
                 $id = DB::table('voice_campaigns')->insertGetId($row + ['workspace_id' => $w, 'created_at' => now()]);
             }
+            if(array_key_exists('queue_id',$d))app(\App\Services\QueueChannels::class)->bind($w,$id,$d['queue_id']);
             foreach ($d['contact_ids'] as $contact) {
                 DB::table('voice_members')->insert(['campaign_id' => $id, 'contact_id' => $contact]);
             }

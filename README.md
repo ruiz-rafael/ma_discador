@@ -11,7 +11,7 @@ Projeto independente de Marketing Automation com editor visual de cadências, di
 - WhatsApp: API Twilio e conector QR, templates com variáveis e botões QR experimentais, entregas, leituras, respostas e opções escolhidas.
 - Segmentos: painéis laterais para cadastro manual, seleção de contatos existentes, CSV e webhooks com campos selecionáveis, exemplo de payload e validação sem importação.
 - Atendimento: headset no topo com status global ou por fila, disponibilidade mantida entre telas e teclado para ligações manuais, sem iniciar cadência ou WhatsApp automático.
-- Filas: permissões herdadas para fixos de qualquer DDD e celulares; discagem manual autorizada independe da pausa das cadências.
+- Filas: origem de voz e remetente WhatsApp centralizados, telefonia API/SIP, equipe e permissões herdadas para fixos/celulares. A cadência seleciona a fila; a discagem manual autorizada independe da pausa das cadências.
 - Equipe e receptivo: perfis, filas, distribuição, transferência e relatórios com gráficos e detalhe por atendimento.
 - Integrações: API v1, escopos, idempotência, eventos assinados, discador incorporável e triagem de leads.
 - Supervisão: dashboards por cadência, custos conhecidos, limites e diagnóstico interno de áudio com métricas WebRTC.
@@ -50,7 +50,7 @@ Os canais dependem de credenciais e arquivos privados de configuração. Consult
 
 ## Verificação
 
-A versão de aplicação importada foi validada em 05/10/2026: **301 testes e 2.434 asserções**, tanto em SQLite quanto em PostgreSQL isolado; seis testes das estatísticas WebRTC e da verificação de microfone; compilação Vite e validação visual em desktop/celular. Para reprodução local, instale as dependências e use banco de testes separado:
+A versão de aplicação importada foi validada em 05/10/2026: **312 testes e 2.500 asserções**, tanto em SQLite quanto em PostgreSQL isolado; seis testes das estatísticas WebRTC e da verificação de microfone; compilação Vite e validação visual em desktop/celular. Para reprodução local, instale as dependências e use banco de testes separado:
 
 ```sh
 cd source

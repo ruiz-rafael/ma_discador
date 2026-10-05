@@ -4,7 +4,7 @@ A partir dos ajustes de 04/10/2026, o atendimento e a gestão têm telas e permi
 
 ## Supervisor / administrador
 
-Em **Cadências**, configura público, horários, tentativas, mensagem e remetente e habilita a cadência. Em **Filas de atendimento**, cria filas receptivas, de saída ou de entrada e saída, vincula campanhas e atendentes, define Twilio API ou SIP para a saída e acompanha a equipe. Entrada e saída têm controles de habilitação independentes. Em **Receptivo**, vincula os números às filas compatíveis. Os relatórios continuam em Cadências → Relatórios.
+Em **Cadências**, configura público, horários, tentativas, mensagens e a fila responsável, que fornece os números utilizados. Em **Filas de atendimento**, cria filas receptivas, de saída ou mistas, configura números de voz e WhatsApp, atendentes, permissões e telefonia API/SIP. Entrada e saída têm controles de habilitação independentes. Em **Receptivo**, publica e ativa as rotas dos números de entrada. Os relatórios continuam em Cadências → Relatórios.
 
 A conta administrativa também pode usar **Minha operação** para atuar como atendente nas filas às quais foi vinculada. Essa tela mostra somente as filas desse usuário, mesmo quando ele é administrador.
 
@@ -92,3 +92,18 @@ A pausa da fila controla as cadências automáticas. Uma ligação manual exige 
 Na configuração da fila, a supervisão escolhe **Permitir telefones fixos · qualquer DDD** e **Permitir celulares**. Os agentes herdam a configuração. A política é aplicada na reserva manual, na escolha progressiva, na concessão da chamada e imediatamente antes da discagem pelo provedor. Desabilitar uma categoria após a reserva impede a discagem dessa chamada. Valores iniciais preservam as categorias anteriormente permitidas; não foram habilitadas cadências nem feitas chamadas na publicação.
 
 A classificação brasileira segue os indicadores publicados pela [Anatel](https://www.gov.br/anatel/pt-br/regulado/numeracao/perguntas-frequentes). Números brasileiros fora das categorias reconhecidas são recusados pela fila. Destinos internacionais continuam sujeitos às autorizações existentes na configuração da telefonia. Consentimento, opt-out, lista privada de homologação e limites permanecem aplicados.
+
+
+## Canais da fila e vínculo pela cadência — 05/10/2026
+
+Em **Filas de atendimento → Editar fila e vínculos**, o administrador configura origem de voz autorizada, telefonia (API/SIP), remetente WhatsApp (API/QR), número único ou separado, equipe e permissões. O formulário é dividido em identificação, canais, permissões e atendentes. Os números receptivos também podem ser vinculados nessa tela; um novo vínculo é salvo pausado, e a publicação/ativação na operadora continua em Receptivo. Rotas já existentes mantêm o estado e não são transferidas silenciosamente entre filas.
+
+Em **Cadências → cartão Ligar para o cliente → Fila da cadência**, selecione a fila e salve a etapa. A configuração geral também oferece essa seleção. O cartão WhatsApp apresenta o remetente herdado; conteúdo, template, variáveis e tentativas continuam na cadência. A fila exibe suas cadências como links, sem repetir a seleção de campanhas. Uma fila atende várias cadências; cada cadência tem uma fila de saída. Referências externas de campanhas do CRM continuam no cartão de público.
+
+A origem da fila vale para discagem manual e de campanha, e é revalidada antes de discar. O número deve ser o autorizado na conexão ou estar habilitado e recentemente verificado no catálogo da mesma conta. O modo legado de origem por DDD só se aplica a campanhas sem canais definidos pela fila; uma fila com número selecionado usa essa origem. Salvar uma fila sem enviar `campaign_ids` preserva seus vínculos; o campo legado continua aceito por compatibilidade. A API de configuração da cadência recebe `queue_id` (também em `config.queue_id` na etapa `voice`).
+
+Trocas de fila respeitam revisão, workspace, cadências pausadas e ausência de atendimentos na fila. Alterações de canal atualizam as configurações herdadas das cadências pausadas, invalidam formulários antigos e cancelam WhatsApps pendentes ligados à configuração anterior. Históricos de chamadas permanecem. Templates precisam ser compatíveis com o provedor escolhido. Nenhuma edição habilita cadências, coloca agentes online ou dispara chamadas/mensagens.
+
+A migração preserva as escolhas atuais quando as cadências de uma fila compartilham os mesmos canais. Filas sem uma configuração inequívoca permanecem pendentes de seleção explícita.
+
+Validação dos canais herdados: **312 testes / 2.500 asserções** em cada banco isolado (SQLite e PostgreSQL), seis testes de áudio/microfone, build Vite e navegador desktop/celular. Cenários cobrem vínculo/movimentação de cadências, origem de chamada manual e revalidação na telefonia, isolamento, revisões concorrentes, rejeição de remetente incompatível, preservação dos demais vínculos, número receptivo inicialmente pausado e cancelamento de mensagens pendentes sem apagar chamadas. Nenhuma chamada ou mensagem real foi iniciada durante a homologação. Evidências privadas em `evidence/queue-channels-20261005/`.

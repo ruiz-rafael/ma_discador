@@ -13,7 +13,7 @@ class VoiceJourneyEditorController extends Controller
 {
     private const FIELDS = [
         'entry' => ['list_kind', 'list_id', 'contact_ids', 'crm_campaign_id', 'segment_id'],
-        'voice' => ['mode', 'max_attempts', 'whatsapp_after', 'timezone', 'days', 'start_time', 'end_time', 'concurrency', 'script'],
+        'voice' => ['queue_id','mode', 'max_attempts', 'whatsapp_after', 'timezone', 'days', 'start_time', 'end_time', 'concurrency', 'script'],
         'wait' => ['retry_minutes'],
         'decision' => ['whatsapp_after'],
         'message' => ['whatsapp_enabled', 'whatsapp_delivery', 'number_mode', 'whatsapp_number', 'whatsapp_sender_id', 'whatsapp_after', 'whatsapp_delay', 'whatsapp_text', 'whatsapp_qr_template_id', 'whatsapp_qr_buttons_confirmed', 'whatsapp_real_template_id', 'whatsapp_template_id', 'whatsapp_variables'],
@@ -29,7 +29,7 @@ class VoiceJourneyEditorController extends Controller
     {
         $w = $this->workspace($r);
         abort_unless(isset(self::FIELDS[$node]), 422, 'Esta etapa tem uma regra fixa de encerramento.');
-        $d = $r->validate(['revision' => 'required|integer|min:0', 'config' => 'required|array:'.implode(',', self::FIELDS[$node]), 'config.list_kind' => 'sometimes|in:voice,automation', 'config.list_id' => 'sometimes|nullable|integer|min:1', 'config.contact_ids' => 'sometimes|array|max:500', 'config.contact_ids.*' => 'integer|distinct']);
+        $d = $r->validate(['revision' => 'required|integer|min:0', 'config' => 'required|array:'.implode(',', self::FIELDS[$node]), 'config.queue_id'=>'sometimes|nullable|integer|min:1', 'config.list_kind' => 'sometimes|in:voice,automation', 'config.list_id' => 'sometimes|nullable|integer|min:1', 'config.contact_ids' => 'sometimes|array|max:500', 'config.contact_ids.*' => 'integer|distinct']);
         return DB::transaction(function () use ($r, $w, $id, $node, $d) {
             DB::table('voice_runtime')->where('id', 1)->lockForUpdate()->firstOrFail();
             $c = DB::table('voice_campaigns')->where('workspace_id', $w)->where('id', $id)->firstOrFail();
@@ -54,13 +54,14 @@ class VoiceJourneyEditorController extends Controller
                 }
                 unset($config['list_kind'], $config['list_id'], $config['contact_ids']);
             }
+            $queueInput=array_key_exists('queue_id',$config)?['queue_id'=>$config['queue_id']]:[];unset($config['queue_id']);
             $s = array_replace($s, $config);
             if ($node === 'message' && ($s['number_mode'] ?? 'single') === 'single') {
                 $s['whatsapp_number'] = $s['business_number'] ?? null;
             }
             // Reuse all campaign validation, workspace checks, optimistic locking,
             // pending-message cancellation and paused/in-flight restrictions.
-            $request = Request::create('/', 'PUT', ['name' => $c->name, 'revision' => $d['revision'], 'contact_ids' => $ids, 'settings' => $s]);
+            $request = Request::create('/', 'PUT', ['name' => $c->name, 'revision' => $d['revision'], 'contact_ids' => $ids, 'settings' => $s]+$queueInput);
             $request->setUserResolver(fn () => $r->user());
             app(VoiceLabController::class)->campaign($request, $id);
             if ($node === 'entry') {
@@ -79,7 +80,7 @@ class VoiceJourneyEditorController extends Controller
                 unset($retry['no_answer']);
                 DB::table('voice_campaign_policies')->where('campaign_id', $id)->update(['retry_minutes' => json_encode((object) $retry), 'revision' => $policy->revision + 1, 'updated_at' => now()]);
             }
-            if ($node === 'voice' && isset($config['mode'])) {
+            if ($node === 'voice' && isset($config['mode']) && !\App\Services\QueueRouting::forCampaign($w,$id)->where('channels_configured',true)->exists()) {
                 $q = \App\Services\QueueRouting::forCampaign($w,$id);
                 $linked=(clone $q)->first();abort_if($linked&&count(\App\Services\QueueRouting::campaigns($linked))>1&&$linked->mode!==$config['mode'],422,'Esta fila atende várias campanhas. Altere o modo em Filas e atendimento.');
                 abort_if((clone $q)->where('status', 'running')->exists(), 409, 'Pause a fila antes de alterar o modo de discagem.');
