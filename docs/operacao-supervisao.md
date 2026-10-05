@@ -135,3 +135,14 @@ O agente vê a fila responsável e a contagem regressiva no headset, teclado e o
 A resposta de `GET /api/voice/operations/queues` inclui `last_call` e `wrapup`. O encerramento antecipado usa `POST /api/voice/operations/wrapup/finish`, com `session_id` e `token` do intervalo. A versão incorporável oferece a mesma operação. O servidor valida usuário, workspace, sessão, política e identificação do intervalo; um pedido atrasado não pode encerrar outro intervalo.
 
 Homologação: **329 testes / 2.659 asserções** em cada banco isolado, testes de áudio/microfone e compilação. Os testes do navegador simulam telefonia, resultados e cronômetros; a conferência em produção não disca nem muda a presença. Evidências privadas em `evidence/wrapup-feedback-20261005/` e `evidence/wrapup-admin-20261005/`.
+
+
+## Andamento da chamada no teclado — 05/10/2026
+
+A caixa **Fazer uma ligação** permanece aberta depois de clicar em **Ligar**. Mostra preparação, discagem aguardando atendimento, atendimento confirmado e resultado final no mesmo lugar. A confirmação **Cliente atendeu** depende do estado registrado pela telefonia; a conexão de áudio do navegador não é usada como prova de atendimento.
+
+**Encerrar ligação** controla a chamada local em andamento. Fechar a caixa apenas a recolhe; o áudio continua no componente de atendimento e o ícone de telefone permite reabrir o acompanhamento. Uma ligação atendida e encerrada apresenta **Abrir tabulação**, que leva à ficha existente em Minha operação. Não atendimento, ocupado, falha e cancelamento permanecem visíveis como resultado da última chamada.
+
+O resultado é atualizado nas consultas periódicas ao servidor, com intervalo de aproximadamente cinco segundos. A preparação aparece imediatamente. Enquanto há uma chamada ou tabulação pendente, uma segunda discagem permanece bloqueada. A abertura ou fechamento da caixa não muda filas, disponibilidade, destino ou origem.
+
+Homologação com telefonia e APIs simuladas: permanência da caixa, estado de discagem mesmo após conexão do SDK, confirmação de atendimento pelo servidor, encerramento pelo teclado, acesso à tabulação, reabertura durante a chamada e resultado final. Conferência visual em desktop e celular, sem chamadas reais. Evidências privadas em `evidence/dial-progress-20261005/`.

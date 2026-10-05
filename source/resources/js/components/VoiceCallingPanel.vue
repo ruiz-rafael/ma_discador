@@ -1,9 +1,9 @@
 <script setup>
 import {checkMicrophone,microphoneMessage} from '../voice/microphone'
-import {ref,computed,onMounted,onBeforeUnmount} from 'vue'
+import {ref,computed,onMounted,onBeforeUnmount,watch} from 'vue'
 import {voiceBase,voiceAuth,voiceCredentials} from '../voice/embed-session'
 import {Phone,PhoneOff,RefreshCw} from 'lucide-vue-next'
-const props=defineProps({reservation:Object,initialMethod:{type:String,default:'programmable_voice'},compact:{type:Boolean,default:false}});const emit=defineEmits(['failed','finished','feedback'])
+const props=defineProps({reservation:Object,initialMethod:{type:String,default:'programmable_voice'},compact:{type:Boolean,default:false}});const emit=defineEmits(['failed','finished','feedback','progress'])
 const state=ref(null),phase=ref('idle'),error=ref(''),audio=ref(null),autoplayBlocked=ref(false),settling=ref('')
 const method=ref(props.initialMethod)
 const connection=computed(()=>state.value?.methods?.[method.value]||{})
@@ -12,6 +12,7 @@ const contactId=ref(props.reservation?.contact_id||''),campaignId=ref(props.rese
 const metrics=ref({packets_sent:0,packets_received:0,audio_energy:0})
 const callLabels={pending:'Reservada',dialing:'Discando',answered:'Atendida',completed:'Encerrada',busy:'Ocupado',no_answer:'Não atendeu',failed:'Falhou',cancelled:'Cancelada',unknown:'Sem confirmação final'}
 let device=null,apiCall=null,ua=null,call=null,grantId=null,poll=null,deadline=null,statsTimer=null,closing=false,disposed=false,startKey=null,generation=0
+watch(phase,value=>emit('progress',{phase:value,reservation_id:props.reservation?.id}),{flush:'sync'})
 async function api(path='',method='GET',body){const r=await fetch(voiceBase()+'/calling'+path,{method,credentials:voiceCredentials(),signal:AbortSignal.timeout(8000),headers:{Accept:'application/json','Content-Type':'application/json',...voiceAuth()},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();if(!r.ok)throw new Error(d.message||'Não foi possível concluir a ligação.');return d}
 async function refresh(){try{state.value=await api();if(props.reservation?.contact){state.value.contacts=state.value.contacts.filter(c=>c.id!==props.reservation.contact_id);state.value.contacts.push(props.reservation.contact)}}catch(e){if(!disposed)error.value=microphoneMessage(e)}}
 function pc(){return call?.sessionDescriptionHandler?.peerConnection}
