@@ -4,13 +4,13 @@ A partir dos ajustes de 04/10/2026, o atendimento e a gestão têm telas e permi
 
 ## Supervisor / administrador
 
-Em **Cadências**, configura público, horários, tentativas, mensagem e remetente e habilita a cadência. Em **Cadências → Supervisão**, configura a fila e os atendentes, habilita ou pausa a fila e acompanha a disponibilidade da equipe. Os relatórios continuam em Cadências → Relatórios.
+Em **Cadências**, configura público, horários, tentativas, mensagem e remetente e habilita a cadência. Em **Filas de atendimento**, cria filas receptivas, de saída ou de entrada e saída, vincula campanhas e atendentes, define Twilio API ou SIP para a saída e acompanha a equipe. Entrada e saída têm controles de habilitação independentes. Em **Receptivo**, vincula os números às filas compatíveis. Os relatórios continuam em Cadências → Relatórios.
 
 A conta administrativa também pode usar **Minha operação** para atuar como atendente nas filas às quais foi vinculada. Essa tela mostra somente as filas desse usuário, mesmo quando ele é administrador.
 
 ## Agente
 
-Ao entrar, o usuário com perfil de agente é direcionado a **Minha operação**. Escolhe sua fila e o método de voz, confirma que está pronto e clica em **Ficar disponível**, permitindo o microfone. No modo progressivo, não há um segundo botão para iniciar a sequência: ela acompanha a disponibilidade do agente e a habilitação da fila/campanha. No modo preview, o contato é reservado antes de iniciar a ligação.
+Ao entrar, o usuário com perfil de agente é direcionado a **Minha operação**. Confere as filas atribuídas, verifica o microfone e escolhe uma fila de saída, quando for atender campanhas. O método de voz é definido pelo administrador. Confirma que está pronto e clica em **Ficar disponível**. Para receber chamadas, conecta também o receptivo; conectar apenas o áudio não altera a disponibilidade. No modo progressivo, não há um segundo botão para iniciar a sequência: ela acompanha a disponibilidade do agente e a habilitação da fila/campanha. No modo preview, o contato é reservado antes de iniciar a ligação.
 
 O agente pode pausar, ficar offline, concluir a ligação e tabular. Pausar impede novas tentativas, permitindo concluir a ligação atual. A navegação é bloqueada enquanto há chamada ou tabulação pendente. É necessário manter a aba aberta; o servidor revalida a presença antes da discagem e deixa de considerá-la atual após 90 segundos sem heartbeat.
 
@@ -47,3 +47,23 @@ Ao reduzir o máximo de tentativas abaixo do limiar do WhatsApp, o editor inform
 O aviso de saída desaparece quando as alterações correspondentes são salvas. Configurações da etapa e posições do mapa têm estados distintos: **Salvar etapa** não salva posições; trocar de cartão e descartar sua edição não descarta movimentos no mapa. Clicar ou organizar o mapa sem alterar as posições não gera aviso de pendência. Falhas de salvamento ficam visíveis no rodapé fixo e preservam o formulário.
 
 Validação: 204 testes / 1.585 asserções em SQLite e PostgreSQL isolados; navegador com gravações interceptadas, reproduzindo máximo 1 versus WhatsApp após 5, ajuste explícito, salvamento/reabertura, erro, saída e posições. Evidências em `evidence/journey-save-20261004/`. A publicação não altera os valores da campanha e não realiza chamadas ou envios.
+
+## Filas independentes e microfone — 05/10/2026
+
+Uma fila reúne atendentes e distribui trabalho. Uma campanha define contatos, horários, tentativas e a continuidade da cadência. Cada campanha pode pertencer a uma fila de saída; uma fila pode receber várias campanhas. A seleção alterna campanhas pela reserva mais antiga e mantém a prioridade de contatos com menos tentativas dentro de cada campanha. Cada reserva guarda sua campanha, inclusive depois de uma mudança de vínculo.
+
+Uma fila receptiva pode existir sem campanha e receber vários números. A fila mista compartilha a mesma equipe entre entrada e saída. Os agentes podem pertencer a várias filas, e a ocupação continua compartilhada para impedir duas chamadas simultâneas para a mesma pessoa. Alterações exigem saída pausada, revisão atual e conclusão de reservas, chamadas e tabulações. Remover uma campanha da fila não apaga seu histórico.
+
+A migração preserva as filas existentes: aquelas com rota receptiva tornam-se de entrada e saída; as outras, de saída. Nomes, campanhas, agentes, pausas e históricos são mantidos. O vínculo dos números existentes continua no mesmo lugar. A saída permanece com o método padrão Twilio API; o administrador pode alterá-lo na fila.
+
+**Verificar microfone** abre e libera o dispositivo local, sem telefonia, gravação ou mudança de presença. O erro “Requested device not found” indica que o navegador não encontrou uma entrada de áudio utilizável. A interface agora distingue microfone ausente, permissão bloqueada e dispositivo ocupado, com instruções em português. A disponibilidade não é ativada se essa verificação falhar. Um microfone fisicamente ausente ou desabilitado precisa ser conectado/habilitado no computador.
+
+## Conversas por número e acesso da equipe — 05/10/2026
+
+Em **Conversas**, as fichas no topo mostram cada número de WhatsApp, conexão QR/API e contadores de abertas, concluídas e não lidas. Clique no número e depois no telefone do contato para ver mensagens e botões escolhidos. Os contadores obedecem às mesmas permissões das conversas; o filtro de estado permite abertas, concluídas ou todas.
+
+O administrador configura **Distribuição**: número, fila e atribuição automática opcional. Mesmo com a atribuição automática desmarcada, novas conversas entram na fila para os membros assumirem manualmente. A opção **Incluir conversas abertas deste número que ainda estão sem fila e sem responsável** corrige pendências anteriores sem transferir conversas já atribuídas, mudar filas existentes ou reabrir atendimentos concluídos.
+
+Agentes veem suas conversas atribuídas e as conversas sem responsável nas próprias filas. Conversas sem fila e sem responsável ficam disponíveis apenas à supervisão até receberem um vínculo. Assumir é uma ação explícita; abrir o histórico não envia mensagem e não reinicia cadências.
+
+Validação desta evolução: **275 testes / 2.199 asserções** em SQLite e PostgreSQL isolados, seis testes de áudio/microfone e navegador em desktop/celular. Os cenários incluem fila receptiva sem campanha, várias campanhas por fila, proteção de reservas, falta/permissão de microfone e visibilidade das conversas por equipe. O teste de contenção admitiu uma requisição e recusou 39, sem duplicidades e sem mídia. Evidências privadas em `evidence/queue-routing-20261005/`.

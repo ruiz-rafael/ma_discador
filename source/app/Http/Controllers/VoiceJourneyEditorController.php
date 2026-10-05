@@ -80,7 +80,8 @@ class VoiceJourneyEditorController extends Controller
                 DB::table('voice_campaign_policies')->where('campaign_id', $id)->update(['retry_minutes' => json_encode((object) $retry), 'revision' => $policy->revision + 1, 'updated_at' => now()]);
             }
             if ($node === 'voice' && isset($config['mode'])) {
-                $q = DB::table('voice_live_queues')->where('campaign_id', $id);
+                $q = \App\Services\QueueRouting::forCampaign($w,$id);
+                $linked=(clone $q)->first();abort_if($linked&&count(\App\Services\QueueRouting::campaigns($linked))>1&&$linked->mode!==$config['mode'],422,'Esta fila atende várias campanhas. Altere o modo em Filas e atendimento.');
                 abort_if((clone $q)->where('status', 'running')->exists(), 409, 'Pause a fila antes de alterar o modo de discagem.');
                 $q->update(['mode' => $config['mode'], 'updated_at' => now()]);
             }

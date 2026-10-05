@@ -15,7 +15,7 @@ class TeamController extends Controller
  }
  public function index(Request $r) {
   $w=$this->workspace($r);
-  $queues=DB::table('voice_live_queues')->where('workspace_id',$w)->get(['id','name','status','agent_ids','revision']);
+  $queues=DB::table('voice_live_queues')->where('workspace_id',$w)->get(['id','name','status','agent_ids','revision','direction','inbound_enabled']);
   foreach($queues as $q)$q->agent_ids=json_decode($q->agent_ids,true);
   $users=DB::table('users as u')->leftJoin('voice_agent_presence as p',fn($j)=>$j->on('p.user_id','=','u.id')->where('p.workspace_id',$w))->where('u.voice_workspace_id',$w)->orderBy('u.name')->get(['u.id','u.name','u.email','u.voice_role','u.voice_enabled','u.voice_revision','p.status','p.last_seen_at','p.available_after']);
   foreach($users as $u){

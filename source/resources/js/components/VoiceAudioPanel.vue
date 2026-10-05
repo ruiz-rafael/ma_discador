@@ -1,4 +1,5 @@
 <script setup>
+import {checkMicrophone,microphoneMessage} from '../voice/microphone'
 import {ref,onMounted,onBeforeUnmount,computed} from 'vue'
 import {AudioQualityMonitor,qualityState,qualityLimits} from '../voice/audio-quality'
 import {Headphones,Phone,PhoneOff,RefreshCw,Mic} from 'lucide-vue-next'
@@ -14,14 +15,13 @@ function download(){const blob=new Blob([JSON.stringify({kind:'internal_echo',qu
 const labels={pending:'Reservado',connecting:'Conectando',active:'Áudio conectado',ended:'Encerrado pelo servidor',expired:'Sem confirmação final',cancelled:'Cancelado antes da conexão'}
 let ua=null,call=null,grantId=null,poll=null,deadline=null,statsTimer=null,closing=false,disposed=false,startKey=null,generation=0
 async function api(path='',method='GET',body){const r=await fetch('/api/voice/audio'+path,{method,signal:AbortSignal.timeout(8000),headers:{Accept:'application/json','Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();if(!r.ok)throw new Error(d.message||'Não foi possível concluir o teste.');return d}
-async function refresh(){try{state.value=await api()}catch(e){if(!disposed)error.value=e.message}}
+async function refresh(){try{state.value=await api()}catch(e){if(!disposed)error.value=microphoneMessage(e)}}
 function pc(){return call?.sessionDescriptionHandler?.peerConnection}
 async function collect(){try{const reports=await pc()?.getStats();if(!reports)return;quality.value=monitor.sample(reports);metrics.value=monitor.payload()}catch{}}
 async function stop(){generation++;if(closing)return;closing=true;clearInterval(statsTimer);clearTimeout(deadline);try{await collect();if(grantId)await api('/sessions/'+grantId+'/metrics','POST',metrics.value).catch(()=>{});if(call?.state==='Established')await call.bye();else if(call&&['Initial','Establishing'].includes(call.state))await call.cancel();}catch{}finally{const old=ua,connection=pc();ua=null;call=null;connection?.getSenders().forEach(s=>s.track?.stop());connection?.close();old?.stop().catch(()=>{});if(grantId)await api('/sessions/'+grantId+'/abandon','POST').catch(()=>{});grantId=null;if(audio.value){audio.value.srcObject?.getTracks().forEach(t=>t.stop());audio.value.srcObject=null}phase.value='idle';closing=false;await refresh()}}
 async function begin(){if(phase.value!=='idle')return;error.value='';autoplayBlocked.value=false;phase.value='permission';const attempt=++generation;monitor=new AudioQualityMonitor();quality.value=monitor.summary();metrics.value=monitor.payload();selectedHistory.value=null
  try{
-  if(!navigator.mediaDevices?.getUserMedia)throw new Error('Abra o MA em HTTPS em um navegador com suporte a microfone.')
-  const microphone=await navigator.mediaDevices.getUserMedia({audio:true,video:false});microphone.getTracks().forEach(t=>t.stop());if(disposed||attempt!==generation)return
+  await checkMicrophone();if(disposed||attempt!==generation)return
   startKey=crypto.randomUUID();const grant=await api('/sessions','POST',{idempotency_key:startKey});if(disposed||attempt!==generation){await api('/sessions/'+grant.id+'/abandon','POST');return}grantId=grant.id
   const {UserAgent,Inviter,SessionState}=await import('sip.js');if(disposed||attempt!==generation)return
   phase.value='connecting';deadline=setTimeout(()=>{if(phase.value!=='idle'){error.value='O teste foi encerrado pelo limite de duração ou por falta de conexão.';stop()}},75000)
@@ -34,7 +34,7 @@ async function begin(){if(phase.value!=='idle')return;error.value='';autoplayBlo
    if(value===SessionState.Terminated&&!closing){if(phase.value!=='active')error.value='O servidor não aceitou ou não conseguiu conectar o teste. Atualize o diagnóstico e tente novamente.';await stop()}
   })
   await call.invite()
- }catch(e){if(attempt!==generation||disposed)return;error.value=e.name==='NotAllowedError'?'Permita o uso do microfone no navegador e tente novamente.':e.message||'Falha ao conectar o áudio.';await stop()}
+ }catch(e){if(attempt!==generation||disposed)return;error.value=microphoneMessage(e);await stop()}
 }
 defineExpose({requestLeave:fn=>{if(phase.value!=='idle'){error.value='Encerre o diagnóstico de áudio antes de sair.';return}fn()}})
 onMounted(()=>{refresh();poll=setInterval(refresh,5000)})

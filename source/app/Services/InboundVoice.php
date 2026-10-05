@@ -8,9 +8,11 @@ use Twilio\Jwt\Grants\VoiceGrant;
 class InboundVoice {
  public const BASE=TwilioVoiceConnection::BASE.'/inbound';
  private function lock():void {DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();}
+ public function numbers(int $w,?array $cfg):array {if(!$cfg)return [];return collect([$cfg['caller_id']])->merge(DB::table('voice_origins')->where('workspace_id',$w)->where('account_sid',$cfg['account_sid'])->where('kind','owned')->where('verified_at','>=',now()->subDay())->pluck('number'))->filter()->unique()->values()->all();}
  public function token(int $w,int $u,string $session):array {
   return DB::transaction(function()use($w,$u,$session){$this->lock();
    abort_unless(DB::table('users')->where('id',$u)->where('voice_workspace_id',$w)->where('voice_enabled',true)->exists(),403);
+   abort_unless(DB::table('voice_live_queues')->where('workspace_id',$w)->whereIn('direction',['inbound','mixed'])->get()->contains(fn($q)=>in_array($u,json_decode($q->agent_ids,true),true)),403,'Você não está vinculado a uma fila receptiva.');
    $c=app(TwilioVoiceConnection::class)->read();abort_unless($w===1 && $c && $c['enabled'],422,'Habilite a conexão Twilio API.');
    $old=DB::table('voice_inbound_devices')->where('user_id',$u)->first();
    abort_if($old && $old->session_id!==$session && ($old->last_seen_at>now()->subSeconds(60)->toDateTimeString() || app(VoiceAgentCapacity::class)->inboundBusy($w,$u)),409,'O receptivo está conectado em outra aba. Desconecte-a primeiro.');
@@ -26,7 +28,8 @@ class InboundVoice {
  public function receive(array $d):string {
   return DB::transaction(function()use($d){$this->lock();$xml=new VoiceResponse;
    $route=DB::table('voice_inbound_routes')->where('number',$d['To'])->where('enabled',true)->first();
-   if(!$route||app(OperationPolicy::class)->voiceReason($route->workspace_id)){$xml->reject(['reason'=>'busy']);return (string)$xml;}
+   $queue=$route?DB::table('voice_live_queues')->where('workspace_id',$route->workspace_id)->find($route->queue_id):null;
+   if(!$route||!QueueRouting::incoming($queue)||app(OperationPolicy::class)->voiceReason($route->workspace_id)){$xml->reject(['reason'=>'busy']);return (string)$xml;}
    if(DB::table('voice_inbound_calls')->where('call_sid',$d['CallSid'])->exists())return app(TwilioVoiceCalling::class)->hangup();
    // The current homologation infrastructure reserves a single external call globally.
    if(DB::table('voice_audio_sessions')->whereIn('status',['pending','connecting','active'])->where('expires_at','>',now())->exists() || DB::table('voice_outbound_calls')->whereNull('capacity_released_at')->exists() || DB::table('voice_inbound_calls')->whereNull('capacity_released_at')->exists()){$xml->reject(['reason'=>'busy']);return (string)$xml;}
@@ -37,6 +40,7 @@ class InboundVoice {
  }
  private function candidates(object $call):\Illuminate\Support\Collection {
   $q=DB::table('voice_live_queues')->where('workspace_id',$call->workspace_id)->find($call->queue_id);
+  if(!QueueRouting::incoming($q))return collect();
   return DB::table('users as u')->join('voice_agent_presence as p','p.user_id','=','u.id')->join('voice_inbound_devices as d','d.user_id','=','u.id')
    ->where('u.voice_workspace_id',$call->workspace_id)->where('u.voice_enabled',true)->whereIn('u.id',json_decode($q->agent_ids,true))
    ->where('p.workspace_id',$call->workspace_id)->where('p.status','available')->where('p.last_seen_at','>',now()->subSeconds(90))
@@ -48,7 +52,8 @@ class InboundVoice {
   return DB::transaction(function()use($id,$sid){$this->lock();$c=DB::table('voice_inbound_calls')->find($id);abort_unless($c && $c->call_sid===$sid,403);
    if($c->capacity_released_at || $c->status!=='waiting')return app(TwilioVoiceCalling::class)->hangup();
    $route=DB::table('voice_inbound_routes')->find($c->route_id);$xml=new VoiceResponse;
-   if(!$route->enabled || app(OperationPolicy::class)->get($c->workspace_id)['paused'] || now()->gte(\Carbon\CarbonImmutable::parse($c->created_at)->addSeconds($route->wait_seconds))){DB::table('voice_inbound_calls')->where('id',$id)->update(['status'=>'unavailable','updated_at'=>now()]);$xml->say('No momento não há atendentes disponíveis. Por favor, tente novamente mais tarde.',['language'=>'pt-BR']);$xml->hangup();return (string)$xml;}
+   $queue=DB::table('voice_live_queues')->where('workspace_id',$c->workspace_id)->find($c->queue_id);
+   if(!QueueRouting::incoming($queue)||!$route->enabled || app(OperationPolicy::class)->get($c->workspace_id)['paused'] || now()->gte(\Carbon\CarbonImmutable::parse($c->created_at)->addSeconds($route->wait_seconds))){DB::table('voice_inbound_calls')->where('id',$id)->update(['status'=>'unavailable','updated_at'=>now()]);$xml->say('No momento não há atendentes disponíveis. Por favor, tente novamente mais tarde.',['language'=>'pt-BR']);$xml->hangup();return (string)$xml;}
    // Don't repeatedly ring a rejecting/unreachable agent during the same incoming call.
    $tried=DB::table('voice_inbound_offers')->where('call_id',$id)->pluck('user_id')->all();$agent=$this->candidates($c)->first(fn($u)=>!in_array($u->id,$tried,true));
    if(!$agent){$xml->say('Aguarde, estamos procurando um atendente.',['language'=>'pt-BR']);$xml->pause(['length'=>5]);$xml->redirect(self::BASE.'/wait/'.$id,['method'=>'POST']);return (string)$xml;}
@@ -116,7 +121,7 @@ class InboundVoice {
   });
  }
  public function publishRoute(int $w,int $u,int $id):array {
-  $route=DB::table('voice_inbound_routes')->where('workspace_id',$w)->where('id',$id)->firstOrFail();$cfg=app(TwilioVoiceConnection::class)->read();abort_unless($w===1&&$cfg&&$cfg['caller_id']===$route->number,409);
+  $route=DB::table('voice_inbound_routes')->where('workspace_id',$w)->where('id',$id)->firstOrFail();$cfg=app(TwilioVoiceConnection::class)->read();abort_unless($w===1&&$cfg&&in_array($route->number,$this->numbers($w,$cfg),true),409);
   abort_if(DB::table('voice_inbound_calls')->whereNull('capacity_released_at')->exists()||DB::table('voice_outbound_calls')->whereNull('capacity_released_at')->exists(),409,'Conclua as chamadas antes de alterar a rota.');
   $base='https://api.twilio.com/2010-04-01/Accounts/'.$cfg['account_sid'].'/IncomingPhoneNumbers';$http=Http::withBasicAuth($cfg['api_key'],$cfg['api_secret'])->asForm()->connectTimeout(3)->timeout(10)->withoutRedirecting();
   $r=$http->get($base.'.json',['PhoneNumber'=>$route->number,'PageSize'=>2]);abort_unless($r->successful()&&count($r->json('incoming_phone_numbers')??[])===1&&!$r->json('next_page_uri'),502,'A Twilio não confirmou o número.');$n=$r->json('incoming_phone_numbers')[0];abort_unless(($n['account_sid']??'')===$cfg['account_sid']&&($n['phone_number']??'')===$route->number&&preg_match('/^PN[a-fA-F0-9]{32}$/D',$n['sid']??''),502);

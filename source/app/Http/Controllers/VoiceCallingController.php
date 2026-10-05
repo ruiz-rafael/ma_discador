@@ -23,7 +23,7 @@ class VoiceCallingController extends Controller
 
         $manage = in_array($r->user()->voice_role, ['admin', 'supervisor'], true);
         $reserved = DB::table('voice_live_reservations')->where('workspace_id',$w)->where('user_id',$r->user()->id)->whereIn('status', \App\Services\VoiceLiveQueue::ACTIVE)->pluck('contact_id');
-        $campaignIds = collect(app(\App\Services\VoiceLiveQueue::class)->snapshot($w,$r->user()->id)['queues'])->pluck('campaign_id');
+        $campaignIds = collect(app(\App\Services\VoiceLiveQueue::class)->snapshot($w,$r->user()->id)['queues'])->flatMap(fn($q)=>$q->campaign_ids)->unique();
         $status = function (string $method = 'sip_trunk') use ($manage) {
             $s = app(VoiceCallingConfig::class)->status($method);
             if (! $manage) $s['allowed_recipients'] = [];

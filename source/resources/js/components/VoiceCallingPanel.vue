@@ -1,4 +1,5 @@
 <script setup>
+import {checkMicrophone,microphoneMessage} from '../voice/microphone'
 import {ref,computed,onMounted,onBeforeUnmount} from 'vue'
 import {voiceBase,voiceAuth,voiceCredentials} from '../voice/embed-session'
 import {Phone,PhoneOff,RefreshCw} from 'lucide-vue-next'
@@ -7,12 +8,12 @@ const state=ref(null),phase=ref('idle'),error=ref(''),audio=ref(null),autoplayBl
 const method=ref(props.initialMethod)
 const connection=computed(()=>state.value?.methods?.[method.value]||{})
 const methodLabels={programmable_voice:'API · Programmable Voice',sip_trunk:'Asterisk · SIP Trunk'}
-const contactId=ref(props.reservation?.contact_id||''),campaignId=ref(props.reservation?.queue?.campaign_id||null),consent=ref(false),evidence=ref(props.reservation?.contact?.consent_evidence||'')
+const contactId=ref(props.reservation?.contact_id||''),campaignId=ref(props.reservation?.campaign_id||props.reservation?.queue?.campaign_id||null),consent=ref(false),evidence=ref(props.reservation?.contact?.consent_evidence||'')
 const metrics=ref({packets_sent:0,packets_received:0,audio_energy:0})
 const callLabels={pending:'Reservada',dialing:'Discando',answered:'Atendida',completed:'Encerrada',busy:'Ocupado',no_answer:'Não atendeu',failed:'Falhou',cancelled:'Cancelada',unknown:'Sem confirmação final'}
 let device=null,apiCall=null,ua=null,call=null,grantId=null,poll=null,deadline=null,statsTimer=null,closing=false,disposed=false,startKey=null,generation=0
 async function api(path='',method='GET',body){const r=await fetch(voiceBase()+'/calling'+path,{method,credentials:voiceCredentials(),signal:AbortSignal.timeout(8000),headers:{Accept:'application/json','Content-Type':'application/json',...voiceAuth()},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();if(!r.ok)throw new Error(d.message||'Não foi possível concluir a ligação.');return d}
-async function refresh(){try{state.value=await api();if(props.reservation?.contact){state.value.contacts=state.value.contacts.filter(c=>c.id!==props.reservation.contact_id);state.value.contacts.push(props.reservation.contact)}}catch(e){if(!disposed)error.value=e.message}}
+async function refresh(){try{state.value=await api();if(props.reservation?.contact){state.value.contacts=state.value.contacts.filter(c=>c.id!==props.reservation.contact_id);state.value.contacts.push(props.reservation.contact)}}catch(e){if(!disposed)error.value=microphoneMessage(e)}}
 function pc(){return call?.sessionDescriptionHandler?.peerConnection}
 async function collect(){try{const reports=await pc()?.getStats();if(!reports)return;let sent=0,received=0,energy=0;reports.forEach(s=>{if(s.type==='outbound-rtp'&&s.kind==='audio')sent+=s.packetsSent||0;if(s.type==='inbound-rtp'&&s.kind==='audio'){received+=s.packetsReceived||0;energy+=s.totalAudioEnergy||0}});metrics.value={packets_sent:sent,packets_received:received,audio_energy:energy}}catch{}}
 async function stop(){generation++;if(closing)return;closing=true;clearInterval(statsTimer);clearTimeout(deadline);try{apiCall?.disconnect();apiCall=null;device?.destroy();device=null;await collect();if(call?.state==='Established')await call.bye();else if(call&&['Initial','Establishing'].includes(call.state))await call.cancel();}catch{}finally{const old=ua,connection=pc();ua=null;call=null;connection?.getSenders().forEach(s=>s.track?.stop());connection?.close();old?.stop().catch(()=>{});if(grantId)await api('/calls/'+grantId+'/cancel','POST').catch(()=>{});grantId=null;if(audio.value){audio.value.srcObject?.getTracks().forEach(t=>t.stop());audio.value.srcObject=null}phase.value='idle';closing=false;await refresh();emit('finished')}}
@@ -27,8 +28,7 @@ async function providerEnded(message){
 }
 async function begin(){if(phase.value!=='idle')return;if(!consent.value||evidence.value.trim().length<8){error.value='Confirme a autorização e informe a evidência.';emit('failed');return;}error.value='';settling.value='';autoplayBlocked.value=false;phase.value='permission';const attempt=++generation;metrics.value={packets_sent:0,packets_received:0,audio_energy:0}
  try{
-  if(!navigator.mediaDevices?.getUserMedia)throw new Error('Abra o MA em HTTPS em um navegador com suporte a microfone.')
-  const microphone=await navigator.mediaDevices.getUserMedia({audio:true,video:false});microphone.getTracks().forEach(t=>t.stop());if(disposed||attempt!==generation)return
+  await checkMicrophone();if(disposed||attempt!==generation)return
   startKey ||= crypto.randomUUID();const grant=await api('/calls','POST',{method:method.value,idempotency_key:startKey,contact_id:Number(contactId.value),campaign_id:campaignId.value,consent_confirmed:consent.value,consent_evidence:evidence.value,queue_reservation_id:props.reservation?.id||null});if(disposed||attempt!==generation){await api('/calls/'+grant.id+'/cancel','POST');return}grantId=grant.id;startKey=null
   if(grant.method==='programmable_voice'){
    const {Device}=await import('@twilio/voice-sdk');if(disposed||attempt!==generation)return
@@ -55,11 +55,11 @@ async function begin(){if(phase.value!=='idle')return;if(!consent.value||evidenc
    if(value===SessionState.Terminated&&!closing){if(phase.value!=='active')error.value='Ligação não conectada. Confira o resultado confirmado pelo servidor no histórico.';await stop()}
   })
   await call.invite()
- }catch(e){if(attempt!==generation||disposed)return;emit('failed');error.value=e.name==='NotAllowedError'?'Permita o uso do microfone no navegador e tente novamente.':e.message||'Falha ao conectar o áudio.';await stop()}
+ }catch(e){if(attempt!==generation||disposed)return;emit('failed');error.value=microphoneMessage(e);await stop()}
 }
 async function startAuthorized(){await refresh();consent.value=true;await begin()}
 defineExpose({startAuthorized,stop})
-async function reconcile(id){try{await api('/calls/'+id+'/reconcile','POST');await refresh()}catch(e){error.value=e.message}}
+async function reconcile(id){try{await api('/calls/'+id+'/reconcile','POST');await refresh()}catch(e){error.value=microphoneMessage(e)}}
 onMounted(()=>{refresh();poll=setInterval(refresh,10000)})
 onBeforeUnmount(()=>{disposed=true;clearInterval(poll);stop()})
 const date=s=>s?new Date(s.replace(' ','T')+'Z').toLocaleString('pt-BR'):'—'

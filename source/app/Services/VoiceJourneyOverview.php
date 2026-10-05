@@ -17,7 +17,7 @@ class VoiceJourneyOverview
                 $list = DB::table('audiences')->where('id', $policy->audience_id)->first(['id', 'name']);
                 if ($list) $list->kind = 'automation';
             }
-            $queue = DB::table('voice_live_queues')->where('campaign_id', $c->id)->first(['id', 'name', 'mode', 'status']);
+            $queue = QueueRouting::forCampaign($c->workspace_id,$c->id)->first(['id', 'name', 'mode', 'status']);
             $template = empty($s['whatsapp_real_template_id']) ? null : DB::table('wa_templates')->where('workspace_id', $c->workspace_id)->where('id', $s['whatsapp_real_template_id'])->first(['id', 'name', 'body', 'approval_status']);
             $sender = empty($s['whatsapp_sender_id']) ? null : DB::table('wa_senders')->where('workspace_id', $c->workspace_id)->where('id', $s['whatsapp_sender_id'])->first(['id', 'label', 'number', 'provider', 'status']);
 

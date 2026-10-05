@@ -32,7 +32,7 @@ return $w;
         if (! $manage) {
             $queues = app(VoiceLiveQueue::class)->snapshot($w, $r->user()->id)['queues'];
             return response()->json(['can_manage'=>false,'user_id'=>$r->user()->id,
-                'campaigns'=>DB::table('voice_campaigns')->where('workspace_id',$w)->whereIn('id',$queues->pluck('campaign_id'))->get(['id','name','status']),
+                'campaigns'=>DB::table('voice_campaigns')->where('workspace_id',$w)->whereIn('id',$queues->flatMap(fn($q)=>$q->campaign_ids)->unique())->get(['id','name','status']),
                 'agents'=>[['id'=>$r->user()->id,'name'=>$r->user()->name]],
                 'codes'=>DB::table('voice_disposition_codes')->where('workspace_id',$w)->where('active',true)->get(),
                 'lists'=>[],'policies'=>[],'origins'=>[]])->header('Cache-Control','no-store, private');
@@ -207,7 +207,7 @@ return $rows;
     public function queue(Request $r, ?int $id = null)
     {
         $w = $this->workspace($r, true);
-        $d = $r->validate(['name' => 'required|string|max:160', 'campaign_id' => 'required|integer', 'mode' => 'required|in:preview,progressive', 'strategy' => 'required|in:fifo', 'wrapup_seconds' => 'required|integer|between:0,120', 'agent_ids' => 'required|array|min:1|max:100', 'agent_ids.*' => 'required|integer|distinct', 'revision' => 'sometimes|integer|min:0']);
+        $d = $r->validate(['name' => 'required|string|max:160', 'campaign_id' => 'nullable|integer|min:1', 'campaign_ids'=>'sometimes|array|max:100', 'campaign_ids.*'=>'integer|min:1|distinct', 'direction'=>'sometimes|in:inbound,outbound,mixed','calling_method'=>'sometimes|in:programmable_voice,sip_trunk', 'mode' => 'required|in:preview,progressive', 'strategy' => 'required|in:fifo', 'wrapup_seconds' => 'required|integer|between:0,120', 'agent_ids' => 'required|array|min:1|max:100', 'agent_ids.*' => 'required|integer|distinct', 'revision' => 'sometimes|integer|min:0']);
 
         return app(VoiceLiveQueue::class)->configure($w, $r->user()->id, $d, $id);
     }
@@ -215,11 +215,14 @@ return $rows;
     public function queueStatus(Request $r, int $id)
     {
         $w = $this->workspace($r, true);
-        $d = $r->validate(['status' => 'required|in:running,paused']);
+        $d = $r->validate(['status' => 'required|in:running,paused','channel'=>'sometimes|in:inbound,outbound']);
         DB::transaction(function () use ($w, $id, $d) {
             DB::table('voice_runtime')->where('id', 1)->lockForUpdate()->firstOrFail();
             $q = DB::table('voice_live_queues')->where('workspace_id', $w)->where('id', $id)->firstOrFail();
-            DB::table('voice_live_queues')->where('id', $id)->update($d + ['revision' => $q->revision + 1, 'updated_at' => now()]);
+            $channel=$d['channel']??'outbound';abort_if($channel==='inbound'&&$q->direction==='outbound'||$channel==='outbound'&&$q->direction==='inbound',422,'Canal incompatível com o tipo da fila.');
+            abort_if($channel==='outbound'&&$d['status']==='running'&&!\App\Services\QueueRouting::campaigns($q),422,'Vincule ao menos uma campanha antes de habilitar a saída.');
+            $values=$channel==='inbound'?['inbound_enabled'=>$d['status']==='running']:['status'=>$d['status']];
+            DB::table('voice_live_queues')->where('id', $id)->update($values + ['revision' => $q->revision + 1, 'updated_at' => now()]);
         });
 
         return response()->json(['saved' => true]);

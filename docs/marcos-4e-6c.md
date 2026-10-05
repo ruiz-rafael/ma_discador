@@ -5,7 +5,7 @@ Entrega de 05/10/2026 no projeto MA. O CRM e os outros projetos da VM permanecem
 ## Acesso às entregas
 
 - **Equipe e acessos:** cadastro de atendentes com senha inicial, perfis administrador/supervisor/atendente, ativação e vínculos às filas existentes. Supervisores gerenciam atendentes; administradores também gerenciam perfis privilegiados. A senha tem no mínimo 12 caracteres e não é devolvida pela API. O usuário deve compartilhá-la por canal privado. Não há convite por e-mail nesta entrega.
-- **Minha operação:** operação de saída existente e conexão do receptivo no navegador. A disponibilidade é compartilhada. Conectar o receptivo habilita a recepção, mas não inicia a sequência de saída; o agente ainda escolhe sua fila e confirma a disponibilidade no discador.
+- **Minha operação:** operação de saída existente e conexão do receptivo no navegador. A disponibilidade é compartilhada. Conectar o receptivo prepara o áudio; o agente confirma separadamente a disponibilidade. Para a saída, seleciona uma fila atribuída pelo administrador.
 - **Receptivo:** número, fila, ativação, tempo de toque e espera máxima. “Aplicar na Twilio” configura os callbacks de voz e encerramento do número configurado no MA; recusa substituir outra rota, aplicação ou tronco existente. A configuração original é guardada de forma privada e criptografada. A rota recebida tem ativação independente da campanha de saída.
 - **Conversas:** histórico por remetente e cliente, status de mensagens, botões respondidos, responsável, fila, encerramento/reabertura e resposta manual. A configuração “Distribuição” associa remetente e fila, com limite de conversas abertas por atendente. A distribuição prioriza agentes disponíveis com menos conversas abertas. Sem agente elegível, a conversa aguarda na fila.
 - **Integrações:** credenciais com escopos e revogação, listas e atendentes permitidos, origem do componente incorporável e webhook opcional. Disponível somente ao administrador. [Contrato OpenAPI](https://ma.zyrex.ia.br/integrations/openapi.json) e [cliente de referência](https://ma.zyrex.ia.br/integrations/reference).
@@ -17,7 +17,7 @@ A primeira implementação receptiva utiliza **Twilio Programmable Voice**, com 
 
 1. Cadastre os atendentes e vincule-os à fila.
 2. Configure a rota de entrada e aplique-a na Twilio.
-3. Cada atendente acessa Minha operação, permite o microfone e conecta o receptivo. A disponibilidade pode ser pausada na mesma tela.
+3. Habilite a entrada da fila. Cada atendente acessa Minha operação, verifica o microfone, conecta o receptivo e clica em Ficar disponível. A disponibilidade pode ser pausada na mesma tela.
 4. Ligue para o número configurado. O MA reserva um agente elegível e toca no navegador. Ao recusar ou não atender, a distribuição procura outro agente; a espera tem limite.
 5. Durante a conversa, o atendente pode transferir para outro agente disponível da fila. A transferência é direta, sem consulta prévia. As duas capacidades ficam reservadas até a confirmação da mudança pelo provedor.
 6. O resultado confirmado libera a telefonia. A tabulação pendente continua bloqueando novas reservas para o agente responsável.
@@ -111,3 +111,7 @@ Publicação com backup em `/srv/zyrex-ma/backups/quality-next-before-20261005T0
 ## Incremento operacional do marco 6C — 05/10/2026
 
 Custos por canal (voz de saída/receptiva e WhatsApp), recuperação de eventos com histórico e proteção contra respostas atrasadas, e retenção técnica configurável com arquivamento/restauração. Consulte o [guia operacional](custos-recuperacao-retencao.md). O automático permanece desativado; nenhum contato com pessoas faz parte desta validação.
+
+## Filas e caixa por número — 05/10/2026
+
+As filas agora são independentes das campanhas, com tipos receptivo, saída e misto. A caixa WhatsApp possui fichas por número e vínculo explícito de conversas pendentes à equipe. O guia vigente de administração, operação e verificação do microfone está em [Operação e supervisão](operacao-supervisao.md#filas-independentes-e-microfone--05102026).
