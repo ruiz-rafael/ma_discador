@@ -3,9 +3,12 @@ use Illuminate\Support\Facades\{Route,DB};
 use App\Http\Controllers\{IntegrationController,PublicApiController,VoiceOperationsController,VoiceQueueController,VoiceCallingController,InboundVoiceController};
 Route::middleware(['auth','throttle:60,1'])->prefix('api/voice/integrations')->group(function(){Route::post('/{id}/reference-session',[IntegrationController::class,'referenceSession'])->whereUuid('id');Route::get('/',[IntegrationController::class,'index']);Route::post('/',[IntegrationController::class,'create']);Route::post('/{id}/revoke',[IntegrationController::class,'revoke'])->whereUuid('id');Route::post('/deliveries/{id}/retry',[IntegrationController::class,'retry'])->whereUuid('id');});
 Route::prefix('api/v1')->middleware('throttle:240,1')->group(function(){
+ foreach([['calls/inbound','inbound','calls:read'],['calls/inbound/{id}','inboundDetail','calls:read'],['conversations','conversations','conversations:read'],['conversations/{id}/messages','messages','conversations:read'],['reports/costs','costs','costs:read']] as [$path,$action,$scope])Route::get($path,[\App\Http\Controllers\PublicReadController::class,$action])->whereUuid('id')->middleware(\App\Http\Middleware\PublicIntegration::class.':'.$scope);
+
  foreach([['GET','lists','lists','lists:read'],['POST','contacts/import','import','lists:write'],['GET','calls','calls','calls:read'],['GET','reports/journeys','reports','reports:read'],['GET','events','events','events:read'],['POST','embed-sessions','session','voice:embed'],['POST','leads','lead','leads:write']] as [$method,$path,$action,$scope])Route::match([$method],$path,[PublicApiController::class,$action])->middleware(\App\Http\Middleware\PublicIntegration::class.':'.$scope);
 });
 Route::get('/integrations/openapi.json',fn()=>response()->file(resource_path('contracts/openapi.json'),['Content-Type'=>'application/json']));
+Route::get('/integrations/guide',fn()=>view('integration-guide'));
 Route::get('/integrations/reference',fn()=>view('integration-reference'));
 Route::get('/embed',function(\Illuminate\Http\Request $r){$origin=$r->query('origin');abort_unless(is_string($origin)&&DB::table('ma_integrations')->where('active',true)->where('embed_origin',$origin)->exists(),403);return response()->view('embed',['origin'=>$origin])->header('Content-Security-Policy',"frame-ancestors ".$origin)->header('Cache-Control','no-store')->header('Referrer-Policy','no-referrer');});
 Route::middleware([\App\Http\Middleware\EmbeddedAgent::class,'throttle:120,1'])->prefix('embed/api/voice')->group(function(){

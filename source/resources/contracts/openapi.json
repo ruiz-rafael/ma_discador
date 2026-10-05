@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Zyrex MA · Integrações",
-    "version": "1.0.0",
-    "description": "API autenticada do MA. Token mai_ mantido exclusivamente no servidor integrador. Limite: 120 requisições/minuto por credencial. Contatos importados não iniciam discagem; a operação depende de fila habilitada, agente disponível, consentimento e limites. O CRM existente não é modificado."
+    "version": "1.1.0",
+    "description": "API autenticada do MA. Token mai_ mantido exclusivamente no servidor integrador. Limite: 120 requisições/minuto por credencial. Contatos importados não iniciam discagem; a operação depende de fila habilitada, agente disponível, consentimento e limites. O CRM existente não é modificado. Consultas de conversas e custos exigem os novos escopos explícitos conversations:read e costs:read. Não são concedidos a credenciais existentes. As permissões de consulta abrangem o workspace; listas permitidas só limitam operações de listas."
   },
   "servers": [
     {
@@ -16,6 +16,658 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Credencial mai_ criada em Integrações. Escopo exigido documentado em x-required-scope."
+      }
+    },
+    "schemas": {
+      "InboundCall": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "queue_id": {
+            "type": "integer"
+          },
+          "user_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "from_number": {
+            "type": "string"
+          },
+          "to_number": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          },
+          "answered_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          },
+          "capacity_released_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          },
+          "bill_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "disposition_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "answered",
+              "active",
+              "unavailable",
+              "abandoned"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "queue_id",
+          "user_id",
+          "from_number",
+          "to_number",
+          "status",
+          "created_at",
+          "answered_at",
+          "ended_at",
+          "capacity_released_at",
+          "bill_seconds",
+          "disposition_code",
+          "outcome"
+        ]
+      },
+      "InboundOffer": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          },
+          "answered_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "status",
+          "created_at",
+          "answered_at",
+          "ended_at"
+        ]
+      },
+      "Conversation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sender_id": {
+            "type": "integer"
+          },
+          "contact_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "phone": {
+            "type": "string"
+          },
+          "queue_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "assigned_user_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "last_message_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          },
+          "last_inbound_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          },
+          "updated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          }
+        },
+        "required": [
+          "id",
+          "sender_id",
+          "contact_id",
+          "phone",
+          "queue_id",
+          "assigned_user_id",
+          "status",
+          "last_message_at",
+          "last_inbound_at",
+          "revision",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "ConversationMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "inbound",
+              "outbound"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          },
+          "updated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          },
+          "campaign_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "user_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "button_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "button_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reply_to_message_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reply_attribution": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "direction",
+          "provider",
+          "status",
+          "body",
+          "created_at",
+          "updated_at",
+          "campaign_id",
+          "user_id",
+          "button_id",
+          "button_label",
+          "reply_to_message_id",
+          "reply_attribution"
+        ]
+      },
+      "KnownMoney": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "amount": {
+            "type": "string",
+            "description": "Decimal sem conversão de moeda."
+          }
+        },
+        "required": [
+          "currency",
+          "amount"
+        ]
+      },
+      "CostComponent": {
+        "type": "object",
+        "properties": {
+          "leg": {
+            "type": "string"
+          },
+          "amount": {
+            "type": [
+              "string",
+              "number",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "synced_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          }
+        },
+        "required": [
+          "leg",
+          "amount",
+          "currency",
+          "synced_at"
+        ]
+      },
+      "ChannelCost": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "voice_outbound",
+              "voice_inbound",
+              "whatsapp_api",
+              "whatsapp_qr"
+            ]
+          },
+          "phone": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "direction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC, YYYY-MM-DD HH:MM:SS; null quando desconhecido."
+          },
+          "cost_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "partial",
+              "pending",
+              "unavailable"
+            ]
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CostComponent"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "phone",
+          "provider",
+          "status",
+          "direction",
+          "created_at",
+          "cost_status",
+          "components"
+        ]
+      },
+      "ChannelSummary": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "voice_outbound",
+              "voice_inbound",
+              "whatsapp_api",
+              "whatsapp_qr"
+            ]
+          },
+          "records": {
+            "type": "integer"
+          },
+          "complete": {
+            "type": "integer"
+          },
+          "partial": {
+            "type": "integer"
+          },
+          "unknown": {
+            "type": "integer"
+          },
+          "known": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnownMoney"
+            }
+          }
+        },
+        "required": [
+          "channel",
+          "records",
+          "complete",
+          "partial",
+          "unknown",
+          "known"
+        ]
+      },
+      "InboundPage": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/InboundCall"
+                }
+              },
+              "current_page": {
+                "type": "integer"
+              },
+              "last_page": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "data",
+              "current_page",
+              "last_page",
+              "total"
+            ]
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rows",
+          "timezone",
+          "scope"
+        ]
+      },
+      "InboundDetail": {
+        "type": "object",
+        "properties": {
+          "call": {
+            "$ref": "#/components/schemas/InboundCall"
+          },
+          "offers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboundOffer"
+            }
+          }
+        },
+        "required": [
+          "call",
+          "offers"
+        ]
+      },
+      "ConversationsPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Conversation"
+            }
+          },
+          "current_page": {
+            "type": "integer"
+          },
+          "last_page": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "current_page",
+          "last_page",
+          "total"
+        ]
+      },
+      "ConversationMessages": {
+        "type": "object",
+        "properties": {
+          "conversation": {
+            "$ref": "#/components/schemas/Conversation"
+          },
+          "messages": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ConversationMessage"
+                }
+              },
+              "current_page": {
+                "type": "integer"
+              },
+              "last_page": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "data",
+              "current_page",
+              "last_page",
+              "total"
+            ]
+          }
+        },
+        "required": [
+          "conversation",
+          "messages"
+        ]
+      },
+      "ChannelCosts": {
+        "type": "object",
+        "properties": {
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelSummary"
+            }
+          },
+          "known": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnownMoney"
+            }
+          },
+          "rows": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ChannelCost"
+                }
+              },
+              "current_page": {
+                "type": "integer"
+              },
+              "last_page": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "data",
+              "current_page",
+              "last_page",
+              "total"
+            ]
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "channels",
+          "known",
+          "rows",
+          "timezone",
+          "scope"
+        ]
       }
     }
   },
@@ -553,6 +1205,380 @@
                 "additionalProperties": false
               }
             }
+          }
+        }
+      }
+    },
+    "/calls/inbound": {
+      "get": {
+        "operationId": "inboundPage",
+        "summary": "Consultar chamadas receptivas",
+        "description": "50 registros por página, ordenados por criação descendente e ID ascendente. Chamadas admitidas pelo MA. Transferências não duplicam chamadas. Horários dos registros em UTC; filtros em São Paulo.",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "x-required-scope": "calls:read",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Primeiro dia inclusivo em America/Sao_Paulo."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Último dia inclusivo; intervalo máximo de 90 dias."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1
+            }
+          },
+          {
+            "name": "queue_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboundPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credencial ausente ou revogada"
+          },
+          "403": {
+            "description": "Escopo ou workspace não autorizado"
+          },
+          "404": {
+            "description": "Registro não encontrado no workspace"
+          },
+          "422": {
+            "description": "Filtros inválidos"
+          },
+          "429": {
+            "description": "Limite de requisições atingido"
+          }
+        }
+      }
+    },
+    "/calls/inbound/{id}": {
+      "get": {
+        "operationId": "inboundDetail",
+        "summary": "Detalhar chamada receptiva e ofertas aos atendentes",
+        "description": "Não expõe identidade SIP, SID do provedor, credenciais ou anotações privadas. Atendimento técnico não comprova conversa humana.",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "x-required-scope": "calls:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboundDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credencial ausente ou revogada"
+          },
+          "403": {
+            "description": "Escopo ou workspace não autorizado"
+          },
+          "404": {
+            "description": "Registro não encontrado no workspace"
+          },
+          "422": {
+            "description": "Filtros inválidos"
+          },
+          "429": {
+            "description": "Limite de requisições atingido"
+          }
+        }
+      }
+    },
+    "/conversations": {
+      "get": {
+        "operationId": "conversationsPage",
+        "summary": "Consultar conversas WhatsApp",
+        "description": "Leitura de todo o workspace, independentemente das listas permitidas. 50 registros por página, atualização descendente e ID ascendente. Paginação do estado atual, sem snapshot; deduplicar por ID.",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "x-required-scope": "conversations:read",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed"
+              ]
+            }
+          },
+          {
+            "name": "sender_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "assigned_user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationsPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credencial ausente ou revogada"
+          },
+          "403": {
+            "description": "Escopo ou workspace não autorizado"
+          },
+          "404": {
+            "description": "Registro não encontrado no workspace"
+          },
+          "422": {
+            "description": "Filtros inválidos"
+          },
+          "429": {
+            "description": "Limite de requisições atingido"
+          }
+        }
+      }
+    },
+    "/conversations/{id}/messages": {
+      "get": {
+        "operationId": "conversationMessages",
+        "summary": "Consultar mensagens e respostas a botões",
+        "description": "Leitura explícita de conteúdo. Não marca como lido nem envia mensagens. Até 50 por página, criação descendente e ID ascendente. Botão nulo significa não identificado; texto não é automaticamente clique. Credenciais e IDs do provedor não são expostos.",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "x-required-scope": "conversations:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationMessages"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credencial ausente ou revogada"
+          },
+          "403": {
+            "description": "Escopo ou workspace não autorizado"
+          },
+          "404": {
+            "description": "Registro não encontrado no workspace"
+          },
+          "422": {
+            "description": "Filtros inválidos"
+          },
+          "429": {
+            "description": "Limite de requisições atingido"
+          }
+        }
+      }
+    },
+    "/reports/costs": {
+      "get": {
+        "operationId": "channelCosts",
+        "summary": "Consultar custos conhecidos por canal",
+        "description": "Consulta apenas o ledger local, sem acessar o provedor. Totais abrangem todos os canais do período; canal filtra rows (25/página). Moedas separadas. Ausência não é zero e QR não é gratuito. complete significa recursos identificados consultados, não fatura completa. Mensalidades, impostos e serviços adicionais não informados não constam.",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "x-required-scope": "costs:read",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Primeiro dia inclusivo em America/Sao_Paulo."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Último dia inclusivo; intervalo máximo de 90 dias."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "voice_outbound",
+                "voice_inbound",
+                "whatsapp_api",
+                "whatsapp_qr"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelCosts"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credencial ausente ou revogada"
+          },
+          "403": {
+            "description": "Escopo ou workspace não autorizado"
+          },
+          "404": {
+            "description": "Registro não encontrado no workspace"
+          },
+          "422": {
+            "description": "Filtros inválidos"
+          },
+          "429": {
+            "description": "Limite de requisições atingido"
           }
         }
       }

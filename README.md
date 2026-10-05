@@ -47,7 +47,7 @@ Os canais dependem de credenciais e arquivos privados de configuração. Consult
 
 ## Verificação
 
-A versão de aplicação importada foi validada em 05/10/2026: **256 testes e 1.987 asserções**, tanto em SQLite quanto em PostgreSQL isolado; três testes das estatísticas WebRTC; compilação Vite e validação visual em desktop/celular. Para reprodução local, instale as dependências e use banco de testes separado:
+A versão de aplicação importada foi validada em 05/10/2026: **264 testes e 2.095 asserções**, tanto em SQLite quanto em PostgreSQL isolado; três testes das estatísticas WebRTC; compilação Vite e validação visual em desktop/celular. Para reprodução local, instale as dependências e use banco de testes separado:
 
 ```sh
 cd source
@@ -77,3 +77,5 @@ Não foram incluídos senhas, tokens, chaves SSH, sessões WhatsApp, banco de da
 Alguns documentos descrevem entregas históricas. Para o estado atual, prevalece o [roteiro dos marcos](docs/roteiro-proximos-marcos.md).
 
 O incremento operacional do marco 6C inclui custos por canal, histórico e recuperação de eventos com proteção contra respostas atrasadas, e retenção técnica reversível. Consulte [o guia operacional](docs/custos-recuperacao-retencao.md).
+
+A API 1.1.0 acrescenta consultas de receptivo, conversas/respostas a botões e custos, com permissões explícitas. [Guia das consultas para CRM](docs/api-consultas-crm.md).

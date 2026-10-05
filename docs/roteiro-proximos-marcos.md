@@ -11,7 +11,7 @@ Atualizado em 05/10/2026. Este é o roteiro vigente; documentos de testes anteri
 | **4D — Botões e homologação** | Templates personalizados, botões QR experimentais, registro de respostas e opção escolhida. O usuário confirmou os três botões no celular | Conferir novamente após retirada do selo de IA; validar outros aparelhos e continuidade completa. Nenhum novo envio nesta rodada |
 | **4E — Equipe** | Tela de atendentes, perfis, filas, disponibilidade, desativação e acesso restrito | Exercício com atendentes reais, seus navegadores e headsets |
 | **5 — Receptivo** | Entrada Twilio API, distribuição, capacidade compartilhada, transferência e tabulação. Incremento: relatório por período/fila/atendente, gráfico diário e detalhe das ofertas | Homologar áudio recebido e transferência com pessoas em horário adequado. Recepção SIP permanece fora da implementação atual |
-| **6A — Integrações** | API v1 documentada, escopos, idempotência, eventos assinados e discador incorporável; cliente de referência | Homologar áudio incorporado no domínio consumidor; integração efetiva ao CRM será posterior. Operação atual restrita ao workspace 1 |
+| **6A — Integrações** | API v1 documentada, escopos, idempotência, eventos assinados e discador incorporável. Incremento: consultas de receptivo, conversas/botões e custos; contrato 1.1.0 e guia para o integrador | Homologar áudio incorporado no domínio consumidor; integração efetiva ao CRM será posterior. Operação atual restrita ao workspace 1 |
 | **6B — Conversas** | Caixa WhatsApp, responsáveis, distribuição e recebimento de leads pela API. Incremento: triagem com responsável, estado, notas, controle de versão e evento `lead.reviewed` | Integração direta de formulários Meta depende de aplicação/permissões; qualificação não autoriza contato nem inicia cadência |
 | **6C — Operação e escala** | Supervisão, limites, métricas de áudio interno e teste de disputa por capacidade. Incremento: custos por canal, histórico e recuperação protegida de eventos, retenção configurável com arquivamento/restauração | Homologar operação e mídia com pessoas antes de elevar concorrência; conferir custos reais com a fatura e definir se a política de arquivamento deve ser habilitada |
 
@@ -26,6 +26,8 @@ A triagem fica em **Conversas → Leads de integrações**. Supervisor e adminis
 O diagnóstico fica em **Cadências → Testes → Áudio** e na **Minha operação** fora do discador incorporado. **Saúde e limites** reúne as últimas medições da equipe. Sessões de diagnóstico e chamadas externas não podem disputar os recursos ao mesmo tempo; o diagnóstico recusa início durante atendimento/reserva/tabulação. Ele não habilita agentes ou filas.
 
 **Saúde e limites** inclui custos por canal, histórico de entregas e retenção reversível. Os prazos são configuráveis; o arquivamento automático começa desativado. A restauração preserva estados e não reenvia eventos. Chamadas, mensagens, custos, auditorias e consentimentos não são arquivados. Detalhes: [custos, recuperação e retenção](custos-recuperacao-retencao.md).
+
+O incremento do **marco 6A** disponibiliza consultas para o futuro CRM em **Integrações → Guia de integração**. As permissões de conversas e custos são explícitas; nenhuma credencial existente recebe esses acessos automaticamente. Consulte [a API de consultas](api-consultas-crm.md).
 
 ## Qualidade de voz — alcance da verificação
 
