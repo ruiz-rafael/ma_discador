@@ -98,6 +98,7 @@ class VoiceEligibility
         abort_if(app(OperationPolicy::class)->get($call->workspace_id)['paused'],422,'Operação pausada pela supervisão.');
         $global = $this->globalReason($call->workspace_id, $call->contact_id, $call->id);
         abort_if($global, 422, $global);
+        if($call->queue_id)app(VoiceLiveQueue::class)->assertDial($call);
         if (! $call->campaign_id) {
             return;
         }
@@ -110,8 +111,5 @@ class VoiceEligibility
         abort_unless($campaign->followup_revision === $call->campaign_revision, 422, 'Configuração alterada depois da reserva.');
         $reason = $this->reason($call->workspace_id, $campaign, DB::table('voice_contacts')->find($call->contact_id), $call->id);
         abort_if($reason,422,$reason);
-        if ($call->queue_id) {
-            app(VoiceLiveQueue::class)->assertDial($call);
-        }
     }
 }

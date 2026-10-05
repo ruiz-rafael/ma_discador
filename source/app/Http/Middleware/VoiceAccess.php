@@ -19,7 +19,7 @@ class VoiceAccess
         if (! $r->is('api/*') || ! $user?->voice_workspace_id || in_array($user->voice_role, ['admin', 'supervisor'], true)) return $next($r);
         $path = $r->path();
         $read = $r->isMethod('GET') && preg_match('~^api/(?:bootstrap|voice/(?:conversations(?:/[a-f0-9-]+)?|inbound|calling|audio|audio/authorize|operations/(?:catalog|queues|reports|export|calls/[a-f0-9-]+/history)))$~D', $path);
-        $write = $r->isMethod('POST') && preg_match('~^api/(?:logout|voice/(?:conversations/[a-f0-9-]+/(?:assign|read|send)|inbound/(?:token|device|calls/[a-f0-9-]+/(?:transfer|reconcile|disposition))|queues/(?:presence|heartbeat)|operations/(?:queues/\d+/claim|reservations/[a-f0-9-]+/cancel|calls/[a-f0-9-]+/disposition)|calling/calls(?:/[a-f0-9-]+/(?:cancel|reconcile))?|audio/sessions(?:/[a-f0-9-]+/(?:abandon|metrics))?))$~D', $path);
+        $write = $r->isMethod('POST') && preg_match('~^api/(?:logout|voice/(?:conversations/[a-f0-9-]+/(?:assign|read|send)|inbound/(?:token|device|calls/[a-f0-9-]+/(?:transfer|reconcile|disposition))|queues/(?:presence|heartbeat)|operations/(?:manual-reservations|queues/\d+/claim|reservations/[a-f0-9-]+/cancel|calls/[a-f0-9-]+/disposition)|calling/calls(?:/[a-f0-9-]+/(?:cancel|reconcile))?|audio/sessions(?:/[a-f0-9-]+/(?:abandon|metrics))?))$~D', $path);
         abort_unless($read || $write, 403, 'Esta área é reservada à supervisão. Use Minha operação para atender.');
         return $next($r);
     }

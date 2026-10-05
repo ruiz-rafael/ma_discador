@@ -207,7 +207,7 @@ return $rows;
     public function queue(Request $r, ?int $id = null)
     {
         $w = $this->workspace($r, true);
-        $d = $r->validate(['name' => 'required|string|max:160', 'campaign_id' => 'nullable|integer|min:1', 'campaign_ids'=>'sometimes|array|max:100', 'campaign_ids.*'=>'integer|min:1|distinct', 'direction'=>'sometimes|in:inbound,outbound,mixed','calling_method'=>'sometimes|in:programmable_voice,sip_trunk', 'mode' => 'required|in:preview,progressive', 'strategy' => 'required|in:fifo', 'wrapup_seconds' => 'required|integer|between:0,120', 'agent_ids' => 'required|array|min:1|max:100', 'agent_ids.*' => 'required|integer|distinct', 'revision' => 'sometimes|integer|min:0']);
+        $d = $r->validate(['name' => 'required|string|max:160', 'campaign_id' => 'nullable|integer|min:1', 'campaign_ids'=>'sometimes|array|max:100', 'campaign_ids.*'=>'integer|min:1|distinct', 'direction'=>'sometimes|in:inbound,outbound,mixed','calling_method'=>'sometimes|in:programmable_voice,sip_trunk','manual_enabled'=>'sometimes|boolean', 'mode' => 'required|in:preview,progressive', 'strategy' => 'required|in:fifo', 'wrapup_seconds' => 'required|integer|between:0,120', 'agent_ids' => 'required|array|min:1|max:100', 'agent_ids.*' => 'required|integer|distinct', 'revision' => 'sometimes|integer|min:0']);
 
         return app(VoiceLiveQueue::class)->configure($w, $r->user()->id, $d, $id);
     }
@@ -220,7 +220,7 @@ return $rows;
             DB::table('voice_runtime')->where('id', 1)->lockForUpdate()->firstOrFail();
             $q = DB::table('voice_live_queues')->where('workspace_id', $w)->where('id', $id)->firstOrFail();
             $channel=$d['channel']??'outbound';abort_if($channel==='inbound'&&$q->direction==='outbound'||$channel==='outbound'&&$q->direction==='inbound',422,'Canal incompatível com o tipo da fila.');
-            abort_if($channel==='outbound'&&$d['status']==='running'&&!\App\Services\QueueRouting::campaigns($q),422,'Vincule ao menos uma campanha antes de habilitar a saída.');
+            abort_if($channel==='outbound'&&$d['status']==='running'&&!$q->manual_enabled&&!\App\Services\QueueRouting::campaigns($q),422,'Vincule uma campanha ou permita a discagem manual antes de habilitar a saída.');
             $values=$channel==='inbound'?['inbound_enabled'=>$d['status']==='running']:['status'=>$d['status']];
             DB::table('voice_live_queues')->where('id', $id)->update($values + ['revision' => $q->revision + 1, 'updated_at' => now()]);
         });
@@ -234,6 +234,8 @@ return $rows;
 
         return app(VoiceLiveQueue::class)->claim($this->workspace($r),$r->user()->id,$id,$d['idempotency_key']);
     }
+
+    public function manual(Request $r) { $d=$r->validate(['queue_id'=>'required|integer|min:1','number'=>'required|string|max:40','idempotency_key'=>'required|uuid']);return app(\App\Services\ManualDial::class)->reserve($this->workspace($r),$r->user()->id,$d); }
 
     public function cancelReservation(Request $r,string $id)
     {

@@ -95,13 +95,20 @@ class VoiceQueue
         });
     }
 
-    public function presence(int $w, int $u, ?string $status = null, ?string $reason = null): void
+    public function presence(int $w, int $u, ?string $status = null, ?string $reason = null, ?array $selection = null, ?string $session = null, bool $setSelection = false): void
     {
-        DB::transaction(function () use ($w, $u, $status, $reason) {
+        DB::transaction(function () use ($w, $u, $status, $reason, $selection, $session, $setSelection) {
             $this->lock();
             $this->expire($w);
             $old = DB::table('voice_agent_presence')->where('user_id', $u)->first();
+            abort_unless(DB::table('users')->where('id',$u)->where('voice_workspace_id',$w)->where('voice_enabled',true)->exists(),403,'Atendente desativado.');
+            if($status===null&&$old?->session_id&&$old->session_id!==$session)abort(409,'Esta aba não controla sua disponibilidade.');
+            if($old?->session_id && $old->session_id!==$session && $old->status!=='offline' && $old->last_seen_at && CarbonImmutable::parse($old->last_seen_at)->gt(now()->subSeconds(90)))abort(409,'Sua disponibilidade está sendo controlada em outra aba. Fique offline naquela aba antes de usar esta.');
+            if($setSelection)AgentAvailability::validateSelection($w,$u,$selection);
             $values = ['workspace_id' => $w, 'last_seen_at' => now(), 'updated_at' => now()];
+            if($setSelection)$values['queue_ids']=$selection===null?null:json_encode(array_values($selection));
+            if($status!==null)$values['session_id']=$session;
+
             if ($status !== null) {
                 $values += ['status' => $status, 'pause_reason' => $status === 'paused' ? $reason : null];
             }

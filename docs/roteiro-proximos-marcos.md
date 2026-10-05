@@ -49,3 +49,5 @@ Referências técnicas: [semântica das estatísticas WebRTC](https://www.w3.org
 Nenhuma chamada externa ou mensagem é necessária para validar permissões, relatórios, revisão de leads e conflitos de versão. A autorização desta rodada é para configuração e testes internos; o roteiro acima não inicia contato com pessoas.
 
 Filas de atendimento são independentes das campanhas: receptivas, de saída ou mistas. A fila pode atender várias campanhas, e o administrador define equipe e telefonia. A caixa de conversas organiza os números em fichas e permite vincular pendências sem responsável à equipe. Consulte [Operação e supervisão](operacao-supervisao.md).
+
+O atendente controla Online/Pausado/Offline pelo headset do topo e escolhe sua disponibilidade por fila em **Gerenciar filas**. O teclado permite ligações manuais autorizadas, registradas fora das tentativas das cadências. A operação permanece conectada ao navegar para Conversas. Consulte o [guia do atendimento](operacao-supervisao.md#headset-disponibilidade-por-fila-e-teclado--05102026).

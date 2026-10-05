@@ -1,16 +1,70 @@
 <script setup>
-import {ref,onMounted,defineAsyncComponent} from 'vue'
-const VoiceAudioPanel=defineAsyncComponent(()=>import('./VoiceAudioPanel.vue'))
-import {voiceApi} from '../voice/operations'
-import {isEmbedded} from '../voice/embed-session'
+import {ref,computed,onMounted,onBeforeUnmount,nextTick,defineAsyncComponent} from 'vue'
+import {Headset,Phone,PhoneIncoming,MessageCircle,ArrowRight,Volume2,Clock} from 'lucide-vue-next'
+import {voiceApi as api} from '../voice/operations'
+import {isEmbedded,voiceBase,voiceAuth} from '../voice/embed-session'
+import {checkMicrophone,microphoneMessage} from '../voice/microphone'
+import AgentStatusControl from './AgentStatusControl.vue'
 import InboundVoicePanel from './InboundVoicePanel.vue'
-import VoiceLiveQueuePanel from './VoiceLiveQueuePanel.vue'
-const inboundReady=ref(false)
-const diagnostic=ref(false),audio=ref(null)
-function toggleAudio(){if(diagnostic.value&&audio.value)audio.value.requestLeave(()=>diagnostic.value=false);else diagnostic.value=true}
-const catalog=ref(null),error=ref(''),operation=ref(null),inbound=ref(null)
-onMounted(async()=>{try{catalog.value=await voiceApi('/operations/catalog')}catch(e){error.value=e.message}})
-function leaveOperation(fn){return inbound.value?inbound.value.requestLeave(()=>operation.value?operation.value.requestLeave(fn):fn()):fn()}
-defineExpose({requestLeave:fn=>audio.value?audio.value.requestLeave(()=>leaveOperation(fn)):leaveOperation(fn)})
+import VoiceCallingPanel from './VoiceCallingPanel.vue'
+import VoiceDispositionForm from './VoiceDispositionForm.vue'
+const VoiceAudioPanel=defineAsyncComponent(()=>import('./VoiceAudioPanel.vue'))
+const props=defineProps({toolbarTarget:String,visible:{type:Boolean,default:true}})
+const emit=defineEmits(['open-operation'])
+const catalog=ref(null),state=ref(null),error=ref(''),notice=ref(''),busy=ref(false),control=ref(null),inbound=ref(null),dialer=ref(null),inboundReady=ref(false),inboundActive=ref(false),diagnostic=ref(false),audio=ref(null),dialOpen=ref(false)
+const toolbarReady=ref(!props.toolbarTarget)
+const session=crypto.randomUUID(),labels={available:'Online',paused:'Pausado',offline:'Offline'}
+let timer=null,polling=false,disposed=false,owned=false,epoch=0,nextAt=0,cursor=0,claimKey=null,manualKey=null
+const queues=computed(()=>(state.value?.queues||[]).filter(q=>q.agent_ids.includes(catalog.value?.user_id)))
+const selection=computed(()=>{const raw=state.value?.presence?.queue_ids;return raw===null||raw===undefined?queues.value.map(q=>q.id):(typeof raw==='string'?JSON.parse(raw):raw)})
+const selectedQueues=computed(()=>queues.value.filter(q=>selection.value.includes(q.id)))
+const fresh=computed(()=>{const raw=state.value?.presence?.last_seen_at;return raw&&Date.now()-Date.parse(/[Zz]|[+-]\d\d:\d\d$/.test(raw)?raw:raw.replace(' ','T')+'Z')<90000})
+const status=computed(()=>fresh.value?state.value?.presence?.status||'offline':'offline')
+const otherSession=computed(()=>status.value!=='offline'&&!!state.value?.presence?.session_id&&state.value.presence.session_id!==session)
+const occupied=computed(()=>!!state.value?.current||inboundActive.value)
+const outgoing=computed(()=>selectedQueues.value.filter(q=>q.direction!=='inbound'&&(!isEmbedded()||q.calling_method!=='sip_trunk')))
+const incoming=computed(()=>selectedQueues.value.filter(q=>q.incoming_numbers?.length))
+const previewQueues=computed(()=>outgoing.value.filter(q=>q.mode==='preview'))
+async function load(){const s=await api('/operations/queues');if(!disposed)state.value=s;inboundActive.value=!!inbound.value?.hasActive()}
+async function run(fn){if(busy.value)return;busy.value=true;error.value='';try{await fn()}catch(e){error.value=microphoneMessage(e);control.value?.open('status')}finally{busy.value=false}}
+async function availability(value,ids=null){epoch++;const version=epoch;const selected=queues.value.filter(q=>ids===null||ids.includes(q.id));if(value==='available'){
+ if(!selected.length)throw Error('Solicite ao administrador um vínculo com uma fila de atendimento.');
+ if(otherSession.value)throw Error('Fique offline na outra aba de atendimento antes de usar esta.');
+ if(selected.some(q=>q.direction!=='inbound'||q.incoming_numbers?.length)&&!occupied.value)await checkMicrophone();
+ if(selected.some(q=>q.incoming_numbers?.length)&&!inboundReady.value){if(occupied.value)throw Error('Conclua o atendimento antes de conectar o receptivo.');await inbound.value?.connect()}
+ if(disposed||version!==epoch)return
+ }
+ await api('/queues/presence','POST',{status:value,pause_reason:value==='paused'?'Pausa do atendente':null,session_id:session,...(value==='available'?{all_queues:ids===null,...(ids===null?{}:{queue_ids:ids})}:{})});owned=value!=='offline';nextAt=Date.now()+5000;await load();
+ if(value==='offline'&&!occupied.value)await inbound.value?.disconnect();control.value?.close();notice.value=value==='available'?'Disponível nas filas selecionadas. As regras do administrador continuam valendo.':value==='paused'?'Novas distribuições pausadas. Você pode concluir o atendimento atual.':'Você está offline.'
+}
+async function manage(ids){await availability(ids.length?'available':'offline',ids)}
+async function claim(q,automatic=false){const version=epoch;claimKey ||= {queue:q.id,key:crypto.randomUUID()};if(claimKey.queue!==q.id)claimKey={queue:q.id,key:crypto.randomUUID()};const result=await api('/operations/queues/'+q.id+'/claim','POST',{idempotency_key:claimKey.key});claimKey=null;await load();nextAt=Date.now()+Math.max(5,result.retry_after||5)*1000;if(!result.reservation){notice.value=result.message;return}if(automatic&&owned&&version===epoch&&status.value==='available'&&!disposed&&state.value.current?.id===result.reservation.id&&!state.value.current.call_id){await nextTick();await dialer.value?.startAuthorized()}}
+async function dial(d){epoch++;const version=epoch;if(status.value!=='available'||otherSession.value)throw Error('Fique online nesta aba antes de ligar.');const q=queues.value.find(q=>q.id===d.queue_id);if(!q||!selection.value.includes(q.id))throw Error('Selecione esta fila em Gerenciar filas antes de ligar.');if(occupied.value)throw Error('Conclua o atendimento atual antes de ligar.');await checkMicrophone();if(disposed||version!==epoch)return;const fingerprint=JSON.stringify(d);if(manualKey?.fingerprint!==fingerprint)manualKey={fingerprint,key:crypto.randomUUID()};await api('/operations/manual-reservations','POST',{...d,idempotency_key:manualKey.key});manualKey=null;await load();control.value?.close();emit('open-operation');await nextTick();await dialer.value?.startAuthorized()}
+async function failure(){epoch++;await availability('paused')}
+async function tick(){if(disposed||polling||busy.value)return;polling=true;try{if(owned)await api('/queues/heartbeat','POST',{session_id:session});await load();if(disposed||!owned||status.value!=='available'||otherSession.value||occupied.value||dialOpen.value||diagnostic.value||Date.now()<nextAt)return;
+ const q=outgoing.value.filter(q=>q.status==='running'&&q.mode==='progressive');if(!q.length)return;const selected=q[cursor%q.length];cursor++;await claim(selected,true)
+ }catch(e){epoch++;owned=false;error.value=microphoneMessage(e)}finally{polling=false}}
+function receptionReady(value){inboundReady.value=value;if(!value&&owned&&status.value==='available'&&incoming.value.length&&!busy.value)run(async()=>{await availability('paused');error.value='O áudio receptivo desconectou. Confira a conexão e clique em Online para reconectar.';control.value?.open('status')})}
+function toggleAudio(){control.value?.close();emit('open-operation');if(diagnostic.value&&audio.value)audio.value.requestLeave(()=>diagnostic.value=false);else diagnostic.value=true}
+async function cancel(){epoch++;await api('/operations/reservations/'+state.value.current.id+'/cancel','POST',{});nextAt=Date.now()+5000;await load()}
+async function shutdown(){if(occupied.value)throw Error('Conclua a chamada e a tabulação antes de sair da conta.');if(owned)await availability('offline');else await inbound.value?.disconnect()}
+function beforeUnload(e){if(occupied.value){e.preventDefault();e.returnValue=''}}
+function pageHide(){if(!owned)return;const data={status:'offline',session_id:session};if(isEmbedded()){fetch(voiceBase()+'/queues/presence',{method:'POST',credentials:'omit',keepalive:true,headers:{'Content-Type':'application/json',...voiceAuth()},body:JSON.stringify(data)}).catch(()=>{});return}navigator.sendBeacon('/api/voice/queues/presence',new Blob([JSON.stringify({...data,_token:document.querySelector('meta[name="csrf-token"]').content})],{type:'application/json'}))}
+onMounted(async()=>{await nextTick();toolbarReady.value=true;try{catalog.value=await api('/operations/catalog');await load()}catch(e){error.value=e.message}timer=setInterval(tick,5000);window.addEventListener('pagehide',pageHide);window.addEventListener('beforeunload',beforeUnload)})
+onBeforeUnmount(()=>{disposed=true;epoch++;clearInterval(timer);window.removeEventListener('pagehide',pageHide);window.removeEventListener('beforeunload',beforeUnload);pageHide()})
+defineExpose({requestLeave:fn=>fn(),shutdown})
 </script>
-<template><div class="operations agent-workspace"><div class="section-heading"><div><span class="eyebrow">ATENDIMENTO</span><h1>Minha operação</h1><p>Sua disponibilidade, suas chamadas e a tabulação de cada conversa.</p></div></div><button v-if="!isEmbedded()" class="secondary" @click="toggleAudio">{{diagnostic?'Fechar diagnóstico':'Testar áudio sem ligar para clientes'}}</button><VoiceAudioPanel v-if="diagnostic" ref="audio"/><p v-if="error" class="error" role="alert">{{error}}</p><VoiceLiveQueuePanel v-if="catalog" ref="operation" :catalog="catalog" :inbound-ready="inboundReady" view="agent"/><InboundVoicePanel v-if="catalog" ref="inbound" :codes="catalog.codes" @ready="inboundReady=$event"/></div></template>
+<template><div class="agent-workspace">
+ <Teleport v-if="toolbarReady" :to="toolbarTarget||'body'" :disabled="!toolbarTarget"><AgentStatusControl ref="control" :status="status" :queues="queues" :selected-ids="selection" :busy="busy" :occupied="occupied" :error="error" :other-session="otherSession" @status="v=>run(()=>availability(v))" @queues="ids=>run(()=>manage(ids))" @dial="d=>run(()=>dial(d))" @dial-open="dialOpen=$event" @diagnostic="toggleAudio"/></Teleport>
+ <Teleport v-if="!visible&&occupied" to="body"><button class="active-call-notice" @click="emit('open-operation')"><Headset :size="19"/> Atendimento em andamento · abrir <ArrowRight :size="16"/></button></Teleport>
+ <div class="section-heading"><div><span class="eyebrow">ATENDIMENTO</span><h1>Minha operação</h1><p>Concentre-se na conversa. Sua disponibilidade e o teclado ficam no headset, no topo.</p></div><span :class="['agent-status',status]">{{labels[status]}}</span></div>
+ <p v-if="error" class="agent-error" role="alert">{{error}}</p><p v-if="notice" class="agent-notice" role="status">{{notice}}</p>
+ <div class="agent-summary"><div><Headset :size="19"/><strong>{{status==='available'?selectedQueues.length:0}}</strong><span>filas online</span></div><div><Phone :size="18"/><strong>{{outgoing.length}}</strong><span>filas de saída selecionadas</span></div><div><PhoneIncoming :size="18"/><strong>{{inboundReady?'Conectado':'Em espera'}}</strong><span>áudio receptivo</span></div></div>
+ <InboundVoicePanel v-if="catalog" ref="inbound" compact :codes="catalog.codes" @ready="receptionReady" @active="inboundActive=$event"/>
+ <article v-if="state?.current" class="table-card current-call"><header><span class="eyebrow">{{state.current.kind==='manual'?'LIGAÇÃO MANUAL':'ATENDIMENTO DA FILA'}}</span><h2>{{state.current.contact.name}}</h2><p>{{state.current.contact.phone}}</p><small>{{state.current.queue.name}}<template v-if="state.current.campaign"> · {{state.current.campaign.name}}</template></small></header><button v-if="!state.current.call_id" class="secondary" :disabled="busy" @click="run(cancel)">Devolver contato</button><VoiceCallingPanel v-if="state.current.status!=='tabulation'" :key="state.current.id" ref="dialer" :reservation="state.current" :initial-method="state.current.queue.calling_method" compact @failed="run(failure)"/><VoiceDispositionForm v-else :key="state.current.call.id" :call="{...state.current.call,destination:state.current.contact.phone}" :codes="catalog?.codes||[]" @saved="run(load)"/></article>
+ <article v-else-if="!inboundActive" class="table-card agent-idle"><div class="idle-icon"><Headset :size="38"/></div><h2>{{status==='available'?'Pronto para o próximo atendimento':status==='paused'?'Seu atendimento está pausado':'Seu espaço de atendimento'}}</h2><p>{{status==='available'?'As filas habilitadas distribuem os próximos atendimentos conforme as regras da operação.':'Use o headset no topo para ficar online. Em Gerenciar filas, escolha onde deseja atender.'}}</p><div class="idle-actions"><button class="primary" @click="control?.open('status')"><Headset :size="16"/> Alterar status</button><button class="secondary" @click="control?.open('dial')"><Phone :size="16"/> Discagem manual</button></div><div v-if="status==='available'&&previewQueues.length" class="preview-options"><h3>Chamadas com confirmação</h3><button v-for="q in previewQueues" :key="q.id" class="secondary" :disabled="busy||q.status!=='running'||otherSession" @click="run(()=>claim(q))">{{q.name}} · Próximo contato <ArrowRight :size="15"/></button></div></article>
+ <footer class="agent-footer"><span><Clock :size="14"/> Mantenha esta aba aberta durante o atendimento.</span><button v-if="!isEmbedded()" @click="toggleAudio"><Volume2 :size="15"/>{{diagnostic?'Fechar diagnóstico':'Configurações e diagnóstico de áudio'}}</button></footer><VoiceAudioPanel v-if="diagnostic&&!isEmbedded()" ref="audio"/>
+ </div></template>
+<style scoped>
+.agent-workspace{min-width:0}.agent-status{font-size:11px;background:#eceee6;color:#7c8771;border-radius:20px;padding:8px 14px}.agent-status.available{color:#307e58;background:#e6f1e9}.agent-status.paused{color:#9a7528;background:#fbf0d8}.agent-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0}.agent-summary>div{display:grid;grid-template-columns:26px 1fr;gap:7px 12px;background:white;border:1px solid #e0e3d6;border-radius:14px;padding:19px}.agent-summary svg{color:#b48a30;grid-row:span 2;margin-top:4px}.agent-summary strong{font-size:19px;color:#435337}.agent-summary span{font-size:11px;color:#7d866f}.agent-idle{padding:48px 28px;text-align:center;min-height:340px}.idle-icon{display:grid;place-items:center;width:76px;height:76px;border-radius:24px;background:#f8f0de;color:#c0973b;margin:0 auto 20px}.agent-idle h2{font-size:24px;margin:0 0 12px}.agent-idle p{font-size:13px;line-height:1.8;color:#7b856d;max-width:480px;margin:0 auto 24px}.idle-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}.agent-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:24px 0;color:#858e78;font-size:11px}.agent-footer span,.agent-footer button{display:flex;align-items:center;gap:8px}.agent-footer button{color:#9c7a30}.agent-notice{font-size:12px;color:#637957;background:#edf2e6;padding:12px 16px;border-radius:10px}.agent-error{font-size:12px;color:#9a4034;background:#fff0ed;padding:12px 16px;border-radius:10px}.current-call{padding:24px}.current-call header{margin-bottom:24px}.current-call h2{margin:9px 0;font-size:23px}.current-call p,.current-call small{color:#758166}.preview-options{margin:28px auto 0;display:grid;gap:10px;max-width:550px}.preview-options h3{font-size:13px}.preview-options button{white-space:normal}.active-call-notice{position:fixed;bottom:24px;right:24px;z-index:1100;display:flex;gap:12px;align-items:center;background:#3e6445;color:white;padding:18px 22px;border-radius:14px;box-shadow:0 10px 30px #182c1a25}@media(max-width:750px){.agent-summary{grid-template-columns:1fr;gap:10px}.agent-summary>div{padding:15px}.agent-idle{padding:32px 18px;min-height:0}.agent-idle h2{font-size:21px}.current-call{padding:15px}.active-call-notice{bottom:15px;right:15px;left:70px;font-size:12px}}
+</style>

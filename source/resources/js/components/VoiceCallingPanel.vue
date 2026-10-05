@@ -8,7 +8,7 @@ const state=ref(null),phase=ref('idle'),error=ref(''),audio=ref(null),autoplayBl
 const method=ref(props.initialMethod)
 const connection=computed(()=>state.value?.methods?.[method.value]||{})
 const methodLabels={programmable_voice:'API · Programmable Voice',sip_trunk:'Asterisk · SIP Trunk'}
-const contactId=ref(props.reservation?.contact_id||''),campaignId=ref(props.reservation?.campaign_id||props.reservation?.queue?.campaign_id||null),consent=ref(false),evidence=ref(props.reservation?.contact?.consent_evidence||'')
+const contactId=ref(props.reservation?.contact_id||''),campaignId=ref(props.reservation?.kind==='manual'?null:(props.reservation?.campaign_id||props.reservation?.queue?.campaign_id||null)),consent=ref(false),evidence=ref(props.reservation?.contact?.consent_evidence||'')
 const metrics=ref({packets_sent:0,packets_received:0,audio_energy:0})
 const callLabels={pending:'Reservada',dialing:'Discando',answered:'Atendida',completed:'Encerrada',busy:'Ocupado',no_answer:'Não atendeu',failed:'Falhou',cancelled:'Cancelada',unknown:'Sem confirmação final'}
 let device=null,apiCall=null,ua=null,call=null,grantId=null,poll=null,deadline=null,statsTimer=null,closing=false,disposed=false,startKey=null,generation=0

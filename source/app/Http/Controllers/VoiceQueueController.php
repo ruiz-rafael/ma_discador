@@ -48,14 +48,14 @@ class VoiceQueueController extends Controller
 
     public function presence(Request $r, VoiceQueue $queues)
     {
-        $d = $r->validate(['status' => 'required|in:available,paused,offline', 'pause_reason' => 'nullable|required_if:status,paused|string|max:160']);
-        $queues->presence($this->workspace($r), $r->user()->id, $d['status'], $d['pause_reason'] ?? null);
+        $d = $r->validate(['status' => 'required|in:available,paused,offline', 'pause_reason' => 'nullable|required_if:status,paused|string|max:160','session_id'=>'nullable|uuid','all_queues'=>'sometimes|boolean','queue_ids'=>'required_if:all_queues,false|nullable|array|max:100','queue_ids.*'=>'integer|min:1|distinct']);
+        $queues->presence($this->workspace($r), $r->user()->id, $d['status'], $d['pause_reason'] ?? null, ($d['all_queues']??!array_key_exists('queue_ids',$d))?null:($d['queue_ids']??[]),$d['session_id']??null,$d['status']==='available'||array_key_exists('queue_ids',$d)||isset($d['all_queues']));
         return response('', 204);
     }
 
     public function heartbeat(Request $r, VoiceQueue $queues)
     {
-        $queues->presence($this->workspace($r), $r->user()->id);
+        $d=$r->validate(['session_id'=>'nullable|uuid']);$queues->presence($this->workspace($r), $r->user()->id,null,null,null,$d['session_id']??null);
         return response('', 204);
     }
 

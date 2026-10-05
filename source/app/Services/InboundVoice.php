@@ -46,7 +46,7 @@ class InboundVoice {
    ->where('p.workspace_id',$call->workspace_id)->where('p.status','available')->where('p.last_seen_at','>',now()->subSeconds(90))
    ->where(fn($b)=>$b->whereNull('p.available_after')->orWhere('p.available_after','<=',now()))
    ->where('d.workspace_id',$call->workspace_id)->where('d.ready',true)->where('d.last_seen_at','>',now()->subSeconds(45))->orderBy('p.updated_at')->orderBy('u.id')->get(['u.id','u.name','d.identity'])
-   ->filter(fn($u)=>!app(VoiceAgentCapacity::class)->busy($call->workspace_id,$u->id))->values();
+   ->filter(fn($u)=>AgentAvailability::available($call->workspace_id,$u->id,$call->queue_id)&&!app(VoiceAgentCapacity::class)->busy($call->workspace_id,$u->id))->values();
  }
  public function dispatch(string $id,string $sid):string {
   return DB::transaction(function()use($id,$sid){$this->lock();$c=DB::table('voice_inbound_calls')->find($id);abort_unless($c && $c->call_sid===$sid,403);

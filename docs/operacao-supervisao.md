@@ -10,7 +10,7 @@ A conta administrativa também pode usar **Minha operação** para atuar como at
 
 ## Agente
 
-Ao entrar, o usuário com perfil de agente é direcionado a **Minha operação**. Confere as filas atribuídas, verifica o microfone e escolhe uma fila de saída, quando for atender campanhas. O método de voz é definido pelo administrador. Confirma que está pronto e clica em **Ficar disponível**. Para receber chamadas, conecta também o receptivo; conectar apenas o áudio não altera a disponibilidade. No modo progressivo, não há um segundo botão para iniciar a sequência: ela acompanha a disponibilidade do agente e a habilitação da fila/campanha. No modo preview, o contato é reservado antes de iniciar a ligação.
+Ao entrar, o usuário com perfil de agente é direcionado a **Minha operação**. Usa o **headset no topo** para escolher Online, Pausado ou Offline. Online inclui todas as filas atribuídas pelo administrador; **Gerenciar filas** permite uma seleção específica. O método de voz é definido pelo administrador. Antes de ativar a disponibilidade de voz, a interface verifica o microfone e conecta o receptivo quando a seleção inclui números de entrada. No modo progressivo, não há um segundo botão para iniciar a sequência: ela acompanha a disponibilidade do agente e a habilitação da fila/campanha. No modo preview, o contato é reservado antes de iniciar a ligação.
 
 O agente pode pausar, ficar offline, concluir a ligação e tabular. Pausar impede novas tentativas, permitindo concluir a ligação atual. A navegação é bloqueada enquanto há chamada ou tabulação pendente. É necessário manter a aba aberta; o servidor revalida a presença antes da discagem e deixa de considerá-la atual após 90 segundos sem heartbeat.
 
@@ -67,3 +67,20 @@ O administrador configura **Distribuição**: número, fila e atribuição autom
 Agentes veem suas conversas atribuídas e as conversas sem responsável nas próprias filas. Conversas sem fila e sem responsável ficam disponíveis apenas à supervisão até receberem um vínculo. Assumir é uma ação explícita; abrir o histórico não envia mensagem e não reinicia cadências.
 
 Validação desta evolução: **275 testes / 2.199 asserções** em SQLite e PostgreSQL isolados, seis testes de áudio/microfone e navegador em desktop/celular. Os cenários incluem fila receptiva sem campanha, várias campanhas por fila, proteção de reservas, falta/permissão de microfone e visibilidade das conversas por equipe. O teste de contenção admitiu uma requisição e recusou 39, sem duplicidades e sem mídia. Evidências privadas em `evidence/queue-routing-20261005/`.
+
+## Headset, disponibilidade por fila e teclado — 05/10/2026
+
+O headset permanece no topo ao navegar entre Minha operação e Conversas. A operação, a conexão receptiva e o heartbeat permanecem montados; trocar de tela não coloca o agente offline. Fechar a aba encerra a disponibilidade, e o servidor desconsidera presença sem heartbeat recente.
+
+- **Online:** torna o agente elegível em todas as filas atribuídas, respeitando as habilitações do administrador. Filas progressivas de saída podem iniciar chamadas após essa ação. A consulta alterna as filas selecionadas, mantendo as regras de elegibilidade de cada campanha.
+- **Gerenciar filas:** abre uma caixa compacta com as filas permitidas. Aplicar uma seleção torna o agente online somente nelas. Limpar a seleção e aplicar coloca-o offline. Desmarcar uma fila não remove seu vínculo administrativo nem transfere conversas já atribuídas.
+- **Pausado / Offline:** impedem novas distribuições, preservando a chamada e a tabulação em andamento. A alteração vale para voz de saída, ofertas/transferências receptivas e atribuição automática de WhatsApp.
+- **Teclado:** permite digitar ou clicar no telefone e escolher uma fila de saída autorizada. Somente o botão **Ligar** solicita a chamada manual; abrir a caixa e digitar não faz chamadas.
+
+O administrador pode desmarcar **Permitir discagem manual pelos atendentes** na configuração da fila. A saída precisa estar habilitada, o agente precisa estar online nessa fila e o telefone precisa corresponder a um contato cadastrado com autorização. Continuam valendo a lista privada de destinos, os limites globais, o bloqueio por opt-out, a capacidade compartilhada e o pós-atendimento. Um número brasileiro pode ser informado com DDD; a normalização acrescenta +55 quando aplicável.
+
+Chamadas manuais guardam fila, atendente e contato, com `manual=true` e `campaign_id=null`. Exigem ação explícita do atendente e usam a mesma telefonia, conciliação e tabulação. Não contam como tentativas da cadência, não iniciam WhatsApp automático e não limpam o histórico de resposta. Um contato que já respondeu pode receber um retorno manual autorizado; pedidos de interrupção continuam bloqueados.
+
+A seleção de filas é validada no servidor, inclusive imediatamente antes da discagem. Uma sessão de navegador identifica o controlador da presença: outra aba não pode renovar ou encerrar a sessão ativa. Se a conexão receptiva cair, a interface pausa novas distribuições e orienta a reconexão. Os vínculos e conversas existentes não são alterados na implantação.
+
+Validação: **285 testes / 2.293 asserções** em SQLite e PostgreSQL isolados, seis testes de áudio/microfone, compilação e testes do navegador com telefonia simulada. Evidências privadas em `evidence/agent-console-20261005/`. A validação não telefona para contatos nem envia WhatsApp.
