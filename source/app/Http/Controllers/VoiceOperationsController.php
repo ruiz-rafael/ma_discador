@@ -235,7 +235,7 @@ return $rows;
         return app(VoiceLiveQueue::class)->claim($this->workspace($r),$r->user()->id,$id,$d['idempotency_key']);
     }
 
-    public function manual(Request $r) { $d=$r->validate(['queue_id'=>'required|integer|min:1','number'=>'required|string|max:40','idempotency_key'=>'required|uuid']);return app(\App\Services\ManualDial::class)->reserve($this->workspace($r),$r->user()->id,$d); }
+    public function manual(Request $r) { $d=$r->validate(['queue_id'=>'required_without:origin_number|prohibits:origin_number|integer|min:1','origin_number'=>['required_without:queue_id','string','regex:/^\+[1-9][0-9]{7,14}$/'],'session_id'=>'required_with:origin_number|uuid','number'=>'required|string|max:40','idempotency_key'=>'required|uuid']);return app(\App\Services\ManualDial::class)->reserve($this->workspace($r),$r->user()->id,$d); }
 
     public function cancelReservation(Request $r,string $id)
     {

@@ -58,4 +58,30 @@ class AgentAvailabilityTest extends TestCase {
  DB::table('voice_origins')->insert(['workspace_id'=>1,'account_sid'=>config('twilio_voice_test.account_sid'),'number'=>'+12025550124','provider_sid'=>'PN'.str_repeat('a',32),'kind'=>'owned','enabled'=>true,'verified_at'=>now()]);
  DB::table('voice_live_queues')->where('id',$this->a)->update(['channels_configured'=>true,'voice_number'=>'+12025550124']);$this->online()->assertNoContent();$r=$this->manual()->assertOk()->json('reservation');$g=$this->grant($r)->assertOk()->json();$this->assertDatabaseHas('voice_outbound_calls',['id'=>$g['id'],'caller_id'=>'+12025550124']);DB::table('voice_origins')->where('number','+12025550124')->update(['enabled'=>false]);$this->assertStringNotContainsString('<Dial',$this->dial($g));DB::table('voice_origins')->where('number','+12025550124')->update(['enabled'=>true]);$this->assertStringContainsString('callerId="+12025550124"',$this->dial($g));Http::assertNothingSent();
  }
+ private function numberDial(array $extra=[]){return $this->postJson('/api/voice/operations/manual-reservations',$extra+['origin_number'=>'+12025550123','session_id'=>$this->session,'number'=>'+5511999990001','idempotency_key'=>(string)Str::uuid()]);}
+ private function configureOrigins():void {DB::table('voice_live_queues')->whereIn('id',[$this->a,$this->b])->update(['channels_configured'=>true,'voice_number'=>'+12025550123','status'=>'paused']);}
+ public function test_number_catalog_deduplicates_assigned_enabled_origins_and_hides_unready_connections():void {
+  $this->configureOrigins();$foreign=$this->queue('outbound');DB::table('voice_live_queues')->where('id',$foreign)->update(['channels_configured'=>true,'voice_number'=>'+12025550123','agent_ids'=>json_encode([$this->admin->id])]);
+  $this->getJson('/api/voice/operations/queues')->assertOk()->assertJsonCount(1,'manual_origins')->assertJsonCount(2,'manual_origins.0.routes')->assertJsonPath('manual_origins.0.number','+12025550123');
+  DB::table('voice_live_queues')->where('id',$this->a)->update(['manual_enabled'=>false]);$this->getJson('/api/voice/operations/queues')->assertJsonCount(1,'manual_origins.0.routes')->assertJsonPath('manual_origins.0.routes.0.queue_id',$this->b);
+  config(['twilio_voice_test.enabled'=>false]);$this->getJson('/api/voice/operations/queues')->assertJsonCount(0,'manual_origins');Http::assertNothingSent();
+ }
+ public function test_number_dial_chooses_an_online_queue_that_allows_the_destination():void {
+  $this->configureOrigins();DB::table('voice_live_queues')->where('id',$this->a)->update(['allow_mobile'=>false]);$this->online()->assertNoContent();
+  $key=(string)Str::uuid();$r=$this->numberDial(['idempotency_key'=>$key])->assertOk()->assertJsonPath('reservation.queue_id',$this->b)->assertJsonPath('reservation.campaign_id',null)->json('reservation');$this->numberDial(['idempotency_key'=>$key])->assertJsonPath('reservation.id',$r['id']);
+  $this->assertDatabaseCount('voice_live_reservations',1);$this->assertDatabaseCount('voice_outbound_calls',0);$this->assertDatabaseCount('wa_messages',0);Http::assertNothingSent();
+ }
+ public function test_number_dial_does_not_use_an_offline_queue_to_bypass_destination_permissions():void {
+  $this->configureOrigins();DB::table('voice_live_queues')->where('id',$this->a)->update(['allow_mobile'=>false]);$this->online([$this->a])->assertNoContent();$this->numberDial()->assertConflict();$this->assertDatabaseCount('voice_live_reservations',0);
+ }
+ public function test_number_dial_rejects_spoofed_origin_other_session_and_ambiguous_payload():void {
+  $this->configureOrigins();$this->online()->assertNoContent();$this->numberDial(['origin_number'=>'+12025550199'])->assertUnprocessable();$this->numberDial(['session_id'=>(string)Str::uuid()])->assertConflict();$this->numberDial(['queue_id'=>$this->a])->assertUnprocessable();$this->numberDial(['session_id'=>null])->assertUnprocessable();$this->assertDatabaseCount('voice_live_reservations',0);Http::assertNothingSent();
+ }
+ public function test_number_dial_rechecks_origin_after_catalog_and_never_enables_a_queue():void {
+  $this->configureOrigins();$this->online()->assertNoContent();$this->getJson('/api/voice/operations/queues')->assertJsonCount(1,'manual_origins');DB::table('voice_live_queues')->whereIn('id',[$this->a,$this->b])->update(['manual_enabled'=>false]);$this->numberDial()->assertUnprocessable();$this->assertDatabaseCount('voice_live_reservations',0);$this->assertDatabaseHas('voice_live_queues',['id'=>$this->a,'status'=>'paused']);
+ }
+ public function test_number_dial_blocks_stale_presence_and_allows_only_current_selected_queues():void {
+  $this->configureOrigins();$this->online([$this->b])->assertNoContent();$this->travel(91)->seconds();$this->numberDial()->assertConflict();$this->online([$this->b])->assertNoContent();$this->numberDial()->assertOk()->assertJsonPath('reservation.queue_id',$this->b);Http::assertNothingSent();
+ }
+
 }

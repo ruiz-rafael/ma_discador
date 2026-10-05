@@ -50,7 +50,7 @@ Os canais dependem de credenciais e arquivos privados de configuração. Consult
 
 ## Verificação
 
-A versão de aplicação importada foi validada em 05/10/2026: **312 testes e 2.500 asserções**, tanto em SQLite quanto em PostgreSQL isolado; seis testes das estatísticas WebRTC e da verificação de microfone; compilação Vite e validação visual em desktop/celular. Para reprodução local, instale as dependências e use banco de testes separado:
+A versão de aplicação importada foi validada em 05/10/2026: **318 testes e 2.544 asserções**, tanto em SQLite quanto em PostgreSQL isolado; seis testes das estatísticas WebRTC e da verificação de microfone; compilação Vite e validação visual em desktop/celular. Para reprodução local, instale as dependências e use banco de testes separado:
 
 ```sh
 cd source

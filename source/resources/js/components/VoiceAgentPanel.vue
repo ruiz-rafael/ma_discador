@@ -18,7 +18,8 @@ let timer=null,polling=false,disposed=false,owned=false,epoch=0,nextAt=0,cursor=
 const queues=computed(()=>(state.value?.queues||[]).filter(q=>q.agent_ids.includes(catalog.value?.user_id)))
 const selection=computed(()=>{const raw=state.value?.presence?.queue_ids;return raw===null||raw===undefined?queues.value.map(q=>q.id):(typeof raw==='string'?JSON.parse(raw):raw)})
 const selectedQueues=computed(()=>queues.value.filter(q=>selection.value.includes(q.id)))
-const fresh=computed(()=>{const raw=state.value?.presence?.last_seen_at;return raw&&Date.now()-Date.parse(/[Zz]|[+-]\d\d:\d\d$/.test(raw)?raw:raw.replace(' ','T')+'Z')<90000})
+const clock=ref(Date.now())
+const fresh=computed(()=>{const raw=state.value?.presence?.last_seen_at;return raw&&clock.value-Date.parse(/[Zz]|[+-]\d\d:\d\d$/.test(raw)?raw:raw.replace(' ','T')+'Z')<90000})
 const status=computed(()=>fresh.value?state.value?.presence?.status||'offline':'offline')
 const otherSession=computed(()=>status.value!=='offline'&&!!state.value?.presence?.session_id&&state.value.presence.session_id!==session)
 const occupied=computed(()=>!!state.value?.current||inboundActive.value)
@@ -29,7 +30,7 @@ async function load(){const s=await api('/operations/queues');if(!disposed)state
 async function run(fn,context='status'){if(busy.value)return;busy.value=true;error.value='';try{await fn()}catch(e){error.value=microphoneMessage(e);control.value?.open(context,true)}finally{busy.value=false}}
 async function availability(value,ids=null){epoch++;const version=epoch;const selected=queues.value.filter(q=>ids===null||ids.includes(q.id));if(value==='available'){
  if(!selected.length)throw Error('Solicite ao administrador um vínculo com uma fila de atendimento.');
- if(otherSession.value)throw Error('Fique offline na outra aba de atendimento antes de usar esta.');
+ if(otherSession.value)throw Error('Use a aba ou navegador onde ficou online. Se já fechou aquela conexão, aguarde até 90 segundos e tente novamente.');
  if(selected.some(q=>q.direction!=='inbound'||q.incoming_numbers?.length)&&!occupied.value)await checkMicrophone();
  if(selected.some(q=>q.incoming_numbers?.length)&&!inboundReady.value){if(occupied.value)throw Error('Conclua o atendimento antes de conectar o receptivo.');await inbound.value?.connect()}
  if(disposed||version!==epoch)return
@@ -39,9 +40,9 @@ async function availability(value,ids=null){epoch++;const version=epoch;const se
 }
 async function manage(ids){await availability(ids.length?'available':'offline',ids)}
 async function claim(q,automatic=false){const version=epoch;claimKey ||= {queue:q.id,key:crypto.randomUUID()};if(claimKey.queue!==q.id)claimKey={queue:q.id,key:crypto.randomUUID()};const result=await api('/operations/queues/'+q.id+'/claim','POST',{idempotency_key:claimKey.key});claimKey=null;await load();nextAt=Date.now()+Math.max(5,result.retry_after||5)*1000;if(!result.reservation){notice.value=result.message;return}if(automatic&&owned&&version===epoch&&status.value==='available'&&!disposed&&state.value.current?.id===result.reservation.id&&!state.value.current.call_id){await nextTick();await dialer.value?.startAuthorized()}}
-async function dial(d){epoch++;const version=epoch;if(status.value!=='available'||otherSession.value)throw Error('Fique online nesta aba antes de ligar.');const q=queues.value.find(q=>q.id===d.queue_id);if(!q||!selection.value.includes(q.id))throw Error('Selecione esta fila em Gerenciar filas antes de ligar.');if(occupied.value)throw Error('Conclua o atendimento atual antes de ligar.');await checkMicrophone();if(disposed||version!==epoch)return;const fingerprint=JSON.stringify(d);if(manualKey?.fingerprint!==fingerprint)manualKey={fingerprint,key:crypto.randomUUID()};await api('/operations/manual-reservations','POST',{...d,idempotency_key:manualKey.key});manualKey=null;await load();control.value?.close();emit('open-operation');await nextTick();await dialer.value?.startAuthorized()}
+async function dial(d){epoch++;const version=epoch;if(status.value!=='available'||otherSession.value)throw Error('Fique online nesta aba antes de ligar.');if(!state.value?.manual_origins?.some(o=>o.number===d.origin_number&&o.routes.some(r=>selection.value.includes(r.queue_id))))throw Error('Fique online em uma fila vinculada ao número escolhido.');if(occupied.value)throw Error('Conclua o atendimento atual antes de ligar.');await checkMicrophone();if(disposed||version!==epoch)return;const fingerprint=JSON.stringify(d);if(manualKey?.fingerprint!==fingerprint)manualKey={fingerprint,key:crypto.randomUUID()};await api('/operations/manual-reservations','POST',{...d,session_id:session,idempotency_key:manualKey.key});manualKey=null;await load();control.value?.close();emit('open-operation');await nextTick();await dialer.value?.startAuthorized()}
 async function failure(){epoch++;await availability('paused')}
-async function tick(){if(disposed||polling||busy.value)return;polling=true;try{if(owned)await api('/queues/heartbeat','POST',{session_id:session});await load();if(disposed||!owned||status.value!=='available'||otherSession.value||occupied.value||dialOpen.value||diagnostic.value||Date.now()<nextAt)return;
+async function tick(){clock.value=Date.now();if(disposed||polling||busy.value)return;polling=true;try{if(owned)await api('/queues/heartbeat','POST',{session_id:session});await load();if(disposed||!owned||status.value!=='available'||otherSession.value||occupied.value||dialOpen.value||diagnostic.value||Date.now()<nextAt)return;
  const q=outgoing.value.filter(q=>q.status==='running'&&q.mode==='progressive');if(!q.length)return;const selected=q[cursor%q.length];cursor++;await claim(selected,true)
  }catch(e){epoch++;owned=false;error.value=microphoneMessage(e)}finally{polling=false}}
 function receptionReady(value){inboundReady.value=value;if(!value&&owned&&status.value==='available'&&incoming.value.length&&!busy.value)run(async()=>{await availability('paused');error.value='O áudio receptivo desconectou. Confira a conexão e clique em Online para reconectar.';control.value?.open('status',true)})}
@@ -55,7 +56,7 @@ onBeforeUnmount(()=>{disposed=true;epoch++;clearInterval(timer);window.removeEve
 defineExpose({requestLeave:fn=>fn(),shutdown})
 </script>
 <template><div class="agent-workspace">
- <Teleport v-if="toolbarReady" :to="toolbarTarget||'body'" :disabled="!toolbarTarget"><AgentStatusControl ref="control" :status="status" :queues="queues" :selected-ids="selection" :busy="busy" :occupied="occupied" :error="error" :other-session="otherSession" @status="v=>run(()=>availability(v))" @queues="ids=>run(()=>manage(ids))" @dial="d=>run(()=>dial(d),'dial')" @dial-open="dialOpen=$event" @clear-error="error=''" @diagnostic="toggleAudio"/></Teleport>
+ <Teleport v-if="toolbarReady" :to="toolbarTarget||'body'" :disabled="!toolbarTarget"><AgentStatusControl ref="control" :status="status" :queues="queues" :selected-ids="selection" :origins="state?.manual_origins||[]" :busy="busy" :occupied="occupied" :error="error" :other-session="otherSession" @status="v=>run(()=>availability(v))" @queues="ids=>run(()=>manage(ids))" @dial="d=>run(()=>dial(d),'dial')" @dial-open="dialOpen=$event" @clear-error="error=''" @diagnostic="toggleAudio"/></Teleport>
  <Teleport v-if="!visible&&occupied" to="body"><button class="active-call-notice" @click="emit('open-operation')"><Headset :size="19"/> Atendimento em andamento · abrir <ArrowRight :size="16"/></button></Teleport>
  <div class="section-heading"><div><span class="eyebrow">ATENDIMENTO</span><h1>Minha operação</h1><p>Concentre-se na conversa. Sua disponibilidade e o teclado ficam no headset, no topo.</p></div><span :class="['agent-status',status]">{{labels[status]}}</span></div>
  <p v-if="error" class="agent-error" role="alert">{{error}}</p><p v-if="notice" class="agent-notice" role="status">{{notice}}</p>

@@ -172,7 +172,7 @@ return ['reservation' => null, 'retry_after' => 15, 'reasons' => $reasons, 'mess
                 if (! $a->online) $a->status = 'offline';
                 return $a;
             }) : [];
-            return ['queues' => $queues, 'team' => $team, 'current' => $current, 'presence' => DB::table('voice_agent_presence')->where('user_id',$u)->where('workspace_id',$w)->first(), 'user_id' => $u];
+            return ['manual_origins' => app(ManualDial::class)->origins($w,$u), 'queues' => $queues, 'team' => $team, 'current' => $current, 'presence' => DB::table('voice_agent_presence')->where('user_id',$u)->where('workspace_id',$w)->first(), 'user_id' => $u];
         });
     }
 }

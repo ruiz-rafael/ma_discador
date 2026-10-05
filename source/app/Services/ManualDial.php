@@ -3,9 +3,32 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 class ManualDial {
+ /** Numbers are advertised only through queues assigned to this agent and a ready connection. */
+ public function origins(int $w,int $u):array {
+  $groups=[];$cfg=app(VoiceCallingConfig::class);
+  foreach(DB::table('voice_live_queues')->where('workspace_id',$w)->where('direction','!=','inbound')->where('manual_enabled',true)->where('channels_configured',true)->orderBy('id')->get()as $q){
+   if(!in_array($u,json_decode($q->agent_ids,true),true)||!$cfg->status($q->calling_method)['ready'])continue;
+   try{$origin=app(QueueChannels::class)->origin($q,$cfg->connection($q->calling_method)??[]);}catch(\Symfony\Component\HttpKernel\Exception\HttpException $e){continue;}
+   $groups[$origin]??=['number'=>$origin,'routes'=>[]];
+   $groups[$origin]['routes'][]=['queue_id'=>$q->id,'method'=>$q->calling_method,'allow_landline'=>(bool)$q->allow_landline,'allow_mobile'=>(bool)$q->allow_mobile];
+  }
+  return array_values($groups);
+ }
+ private function resolve(int $w,int $u,array $d,string $destination):int {
+  $p=DB::table('voice_agent_presence')->where('workspace_id',$w)->where('user_id',$u)->first();
+  abort_unless($p&&$p->session_id===($d['session_id']??null),409,'Fique online nesta aba antes de ligar. Outra conexão não pode iniciar uma chamada por você.');
+  $origin=collect($this->origins($w,$u))->firstWhere('number',$d['origin_number']);
+  abort_unless($origin,422,'Este número de saída não está mais habilitado para você. Atualize os números disponíveis.');
+  foreach($origin['routes']as $route){
+   if(!AgentAvailability::available($w,$u,$route['queue_id']))continue;
+   $q=DB::table('voice_live_queues')->find($route['queue_id']);
+   if(QueueDestinations::reason($q,$destination)===null)return $q->id;
+  }
+  abort(409,'Nenhuma das suas filas online permite ligar para este destino com o número escolhido. Confira Gerenciar filas e as permissões de fixos e celulares.');
+ }
  public function reserve(int $w,int $u,array $d):array {return DB::transaction(function()use($w,$u,$d){
   DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();app(VoiceCalling::class)->expire();app(VoiceLiveQueue::class)->settle();
-  $number=VoiceLab::phone($d['number']);$q=DB::table('voice_live_queues')->where('workspace_id',$w)->where('id',$d['queue_id'])->firstOrFail();
+  $number=VoiceLab::phone($d['number']);if(!empty($d['origin_number']))$d['queue_id']=$this->resolve($w,$u,$d,$number);$q=DB::table('voice_live_queues')->where('workspace_id',$w)->where('id',$d['queue_id'])->firstOrFail();
   abort_unless(in_array($u,json_decode($q->agent_ids,true),true)&&$q->direction!=='inbound'&&$q->manual_enabled,403,'Esta fila não permite discagem manual para seu usuário.');
   $old=DB::table('voice_live_reservations')->where('workspace_id',$w)->where('idempotency_key',$d['idempotency_key'])->first();
   if($old){abort_unless($old->kind==='manual'&&$old->queue_id===$q->id&&$old->user_id===$u&&DB::table('voice_contacts')->where('id',$old->contact_id)->value('phone')===$number,409,'Identificador já utilizado em outra reserva.');return ['reservation'=>$old];}
