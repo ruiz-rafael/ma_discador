@@ -23,7 +23,7 @@ class VoiceAudioController extends Controller
     {
         $w = $this->workspace($r);
         $this->audio->expire();
-        $rows = DB::table('voice_audio_sessions')->where('workspace_id', $w)->where('user_id', $r->user()->id)->orderByDesc('created_at')->limit(30)->get(['id', 'status', 'started_at', 'answered_at', 'ended_at', 'duration', 'cause', 'created_at', 'client_metrics']);
+        $rows = DB::table('voice_audio_sessions')->where('workspace_id', $w)->where('user_id', $r->user()->id)->whereNull('archived_at')->orderByDesc('created_at')->limit(30)->get(['id', 'status', 'started_at', 'answered_at', 'ended_at', 'duration', 'cause', 'created_at', 'client_metrics']);
         foreach ($rows as $row) $row->client_metrics = $row->client_metrics ? json_decode($row->client_metrics, true) : null;
         return ['ready' => $this->audio->ready(), 'kind' => 'internal_echo', 'max_seconds' => 60, 'max_concurrency' => 2, 'pstn_enabled' => false, 'sessions' => $rows];
     }

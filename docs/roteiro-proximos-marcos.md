@@ -13,7 +13,7 @@ Atualizado em 05/10/2026. Este é o roteiro vigente; documentos de testes anteri
 | **5 — Receptivo** | Entrada Twilio API, distribuição, capacidade compartilhada, transferência e tabulação. Incremento: relatório por período/fila/atendente, gráfico diário e detalhe das ofertas | Homologar áudio recebido e transferência com pessoas em horário adequado. Recepção SIP permanece fora da implementação atual |
 | **6A — Integrações** | API v1 documentada, escopos, idempotência, eventos assinados e discador incorporável; cliente de referência | Homologar áudio incorporado no domínio consumidor; integração efetiva ao CRM será posterior. Operação atual restrita ao workspace 1 |
 | **6B — Conversas** | Caixa WhatsApp, responsáveis, distribuição e recebimento de leads pela API. Incremento: triagem com responsável, estado, notas, controle de versão e evento `lead.reviewed` | Integração direta de formulários Meta depende de aplicação/permissões; qualificação não autoriza contato nem inicia cadência |
-| **6C — Operação e escala** | Supervisão, limites, custos conhecidos de saída, recuperação de eventos e teste de disputa por capacidade. Incremento: métricas de áudio interno e prévia de retenção técnica | Medir capacidade de mídia e operação real antes de elevar concorrência; completar custos de receptivo/WhatsApp e política efetiva de retenção |
+| **6C — Operação e escala** | Supervisão, limites, métricas de áudio interno e teste de disputa por capacidade. Incremento: custos por canal, histórico e recuperação protegida de eventos, retenção configurável com arquivamento/restauração | Homologar operação e mídia com pessoas antes de elevar concorrência; conferir custos reais com a fatura e definir se a política de arquivamento deve ser habilitada |
 
 Detalhes da base publicada: [marcos 4E–6C](marcos-4e-6c.md), [dashboard por jornada](dashboard-jornadas.md), [operação e supervisão](operacao-supervisao.md), [listas e webhooks](listas-contatos-webhooks.md).
 
@@ -25,7 +25,7 @@ A triagem fica em **Conversas → Leads de integrações**. Supervisor e adminis
 
 O diagnóstico fica em **Cadências → Testes → Áudio** e na **Minha operação** fora do discador incorporado. **Saúde e limites** reúne as últimas medições da equipe. Sessões de diagnóstico e chamadas externas não podem disputar os recursos ao mesmo tempo; o diagnóstico recusa início durante atendimento/reserva/tabulação. Ele não habilita agentes ou filas.
 
-A prévia de retenção em Saúde e limites apenas contabiliza testes internos encerrados, sessões incorporadas expiradas e entregas de eventos concluídas/canceladas anteriores ao corte. Não apaga registros. Chamadas, mensagens, auditorias e consentimentos não entram nessa prévia.
+**Saúde e limites** inclui custos por canal, histórico de entregas e retenção reversível. Os prazos são configuráveis; o arquivamento automático começa desativado. A restauração preserva estados e não reenvia eventos. Chamadas, mensagens, custos, auditorias e consentimentos não são arquivados. Detalhes: [custos, recuperação e retenção](custos-recuperacao-retencao.md).
 
 ## Qualidade de voz — alcance da verificação
 

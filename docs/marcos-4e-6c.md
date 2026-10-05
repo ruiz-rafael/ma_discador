@@ -107,3 +107,7 @@ O diagnóstico interno guarda codec, perdas, jitter, RTT e série de até 90 amo
 Validação do incremento: **244 testes / 1.892 asserções**, em SQLite e PostgreSQL isolados; três testes das estatísticas WebRTC; compilação e navegador com dados simulados, incluindo telas de celular. Contenção: 40 requisições em quatro processos, uma admissão, 39 recusas e zero duplicidades; p95 439,8 ms no controle de admissão, sem mídia. Os limites de produção não foram aumentados.
 
 Publicação com backup em `/srv/zyrex-ma/backups/quality-next-before-20261005T032745Z`, migração aditiva da triagem e nenhum reinício de container. Campanhas, filas e históricos de 21 chamadas externas e três mensagens enviadas preservados. A conferência das novas telas em produção retornou HTTP 200, sem erros JavaScript. Evidências: `evidence/quality-next-20261005`; eco interno: `evidence/voice-quality-20261005`.
+
+## Incremento operacional do marco 6C — 05/10/2026
+
+Custos por canal (voz de saída/receptiva e WhatsApp), recuperação de eventos com histórico e proteção contra respostas atrasadas, e retenção técnica configurável com arquivamento/restauração. Consulte o [guia operacional](custos-recuperacao-retencao.md). O automático permanece desativado; nenhum contato com pessoas faz parte desta validação.

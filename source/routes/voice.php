@@ -133,6 +133,11 @@ Route::middleware(['auth','throttle:120,1'])->prefix('api/voice/conversations')-
 });
 
 Route::middleware(['auth','throttle:60,1'])->prefix('api/voice/health')->group(function(){
+ $m=\App\Http\Controllers\OperationalControlsController::class;
+ Route::get('/costs',[$m,'costs']);Route::post('/costs/{channel}/{id}/sync',[$m,'syncCost'])->whereUuid('id');
+ Route::get('/recovery',[$m,'recovery']);Route::get('/recovery/{id}/attempts',[$m,'attempts'])->whereUuid('id');
+ Route::get('/retention',[$m,'retention']);Route::put('/retention',[$m,'saveRetention']);Route::post('/retention/archive',[$m,'archive']);Route::post('/retention/{id}/restore',[$m,'restore'])->whereUuid('id');
+
  Route::get('/diagnostics',[\App\Http\Controllers\OperationDiagnosticsController::class,'index']);$c=\App\Http\Controllers\OperationsHealthController::class;Route::get('/',[$c,'index']);Route::put('/policy',[$c,'policy']);Route::post('/calls/{id}/reconcile',[$c,'reconcile'])->whereUuid('id');
 });
 

@@ -113,12 +113,15 @@ class VoiceProviderCatalog
             }
             $price = $n['price'] ?? null;
             $currency = strtoupper($n['price_unit'] ?? '');
-            $amount = is_numeric($price) && preg_match('/^[A-Z]{3}$/D', $currency) ? abs((float) $price) : null;
+            [$amount, $currency] = ChannelCosts::amount($price, $currency);
             $saved[] = ['call_id' => $id, 'provider_sid' => $sid, 'leg' => $leg, 'amount' => $amount, 'currency' => $amount === null ? null : $currency, 'synced_at' => now()];
         }
-        foreach ($saved as $v) {
+        DB::transaction(function () use ($saved) { foreach ($saved as $v) {
+            $old=DB::table('voice_call_costs')->where('provider_sid',$v['provider_sid'])->lockForUpdate()->first();
+            abort_if($old && $old->call_id!==$v['call_id'],409,'Custo vinculado a outra chamada.');
+            if($v['amount']===null && $old && $old->amount!==null)continue;
             DB::table('voice_call_costs')->updateOrInsert(['provider_sid' => $v['provider_sid']],$v);
-        }
+        }});
 
         return ['legs' => count($saved), 'pending' => count(array_filter($saved,fn ($v) => $v['amount'] === null))];
     }

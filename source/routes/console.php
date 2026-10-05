@@ -13,3 +13,5 @@ Schedule::command('voice:followups:run')->everyMinute()->name('voice-followups')
 Schedule::command('ma:inbox-sync')->everyMinute()->name('ma-inbox')->withoutOverlapping(5);
 
 Schedule::command('ma:events-deliver')->everyMinute()->name('ma-events')->withoutOverlapping(5);
+
+Schedule::command('ma:retention-archive')->dailyAt('03:30')->name('ma-retention')->withoutOverlapping(30);

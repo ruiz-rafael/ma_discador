@@ -1,0 +1,18 @@
+<?php
+namespace App\Http\Controllers;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use App\Services\{ChannelCosts,TechnicalRetention};
+class OperationalControlsController extends Controller {
+ private function workspace(Request $r,bool $admin=false):int{abort_unless($r->user()->voice_workspace_id===1&&in_array($r->user()->voice_role,$admin?['admin']:['admin','supervisor'],true),403);return 1;}
+ private function json(array $data){return response()->json($data)->header('Cache-Control','no-store, private');}
+ public function costs(Request $r){$w=$this->workspace($r);$d=$r->validate(['from'=>'required|date_format:Y-m-d','to'=>'required|date_format:Y-m-d|after_or_equal:from','channel'=>['nullable',Rule::in(ChannelCosts::CHANNELS)],'page'=>'nullable|integer|min:1|max:100000']);abort_if(\Carbon\CarbonImmutable::parse($d['from'])->diffInDays(\Carbon\CarbonImmutable::parse($d['to']))>89,422,'Consulte até 90 dias por vez.');return $this->json(app(ChannelCosts::class)->report($w,$d['from'],$d['to'],$d['channel']??'',$d['page']??1)+['can_manage'=>$r->user()->voice_role==='admin']);}
+ public function syncCost(Request $r,string $channel,string $id){$w=$this->workspace($r,true);return $this->json(app(ChannelCosts::class)->sync($w,$r->user()->id,$channel,$id));}
+ public function recovery(Request $r){$w=$this->workspace($r);$r->validate(['page'=>'nullable|integer|min:1|max:100000']);$q=DB::table('ma_event_deliveries as d')->join('ma_integrations as i','i.id','=','d.integration_id')->join('ma_public_events as e','e.sequence','=','d.event_sequence')->where('i.workspace_id',$w)->whereNull('d.archived_at');$counts=(clone $q)->selectRaw('d.status, count(*) as total')->groupBy('d.status')->get();$rows=$q->orderByDesc('d.updated_at')->orderBy('d.id')->paginate(25,['d.id','d.event_sequence','d.status','d.attempts','d.http_status','d.last_error','d.next_at','d.locked_until','d.revision','d.updated_at','i.name as integration_name','i.active','e.type']);return $this->json(['counts'=>$counts,'rows'=>$rows,'can_manage'=>$r->user()->voice_role==='admin']);}
+ public function attempts(Request $r,string $id){$w=$this->workspace($r);DB::table('ma_event_deliveries')->where('id',$id)->whereIn('integration_id',DB::table('ma_integrations')->where('workspace_id',$w)->select('id'))->firstOrFail();return $this->json(['attempts'=>DB::table('ma_delivery_attempts')->where('delivery_id',$id)->orderByDesc('started_at')->limit(100)->get(['id','attempt','status','http_status','error','started_at','finished_at'])]);}
+ public function retention(Request $r){$w=$this->workspace($r);return $this->json(app(TechnicalRetention::class)->preview($w)+['can_manage'=>$r->user()->voice_role==='admin']);}
+ public function saveRetention(Request $r){$w=$this->workspace($r,true);$d=$r->validate(['revision'=>'required|integer|min:0','audio_days'=>'required|integer|between:30,3650','session_days'=>'required|integer|between:30,3650','delivery_days'=>'required|integer|between:30,3650','automatic'=>'required|boolean']);return $this->json(['policy'=>app(TechnicalRetention::class)->save($w,$r->user()->id,$d)]);}
+ public function archive(Request $r){$w=$this->workspace($r,true);$d=$r->validate(['revision'=>'required|integer|min:0','idempotency_key'=>'required|uuid','confirm'=>'required|accepted']);return $this->json(app(TechnicalRetention::class)->archive($w,$r->user()->id,$d['idempotency_key'],$d['revision']));}
+ public function restore(Request $r,string $id){$w=$this->workspace($r,true);$r->validate(['confirm'=>'required|accepted']);return $this->json(app(TechnicalRetention::class)->restore($w,$r->user()->id,$id));}
+}
