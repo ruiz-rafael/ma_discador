@@ -34,6 +34,33 @@ class InboundVoiceTest extends TestCase {
  public function test_session_cannot_be_taken_over_by_second_browser_and_token_cannot_dial_out():void {
   DB::table('voice_inbound_devices')->delete();$session=(string)Str::uuid();$r=$this->postJson('/api/voice/inbound/token',['session_id'=>$session])->assertOk();$parts=explode('.',$r->json('access_token'));$jwt=json_decode(base64_decode(strtr($parts[1],'-_','+/')),true);$this->assertTrue($jwt['grants']['voice']['incoming']['allow']);$this->assertArrayNotHasKey('outgoing',$jwt['grants']['voice']);$this->postJson('/api/voice/inbound/token',['session_id'=>(string)Str::uuid()])->assertConflict();
  }
+ public function test_explicit_release_allows_immediate_reload_and_late_old_requests_cannot_change_new_device():void {
+  $old=DB::table('voice_inbound_devices')->value('session_id');$next=(string)Str::uuid();
+  $this->postJson('/api/voice/inbound/device',['session_id'=>$old,'ready'=>false])->assertOk();
+  $this->assertDatabaseCount('voice_inbound_devices',0);
+  $this->postJson('/api/voice/inbound/token',['session_id'=>$next])->assertOk();
+  $this->postJson('/api/voice/inbound/device',['session_id'=>$next,'ready'=>true])->assertOk();
+  $this->postJson('/api/voice/inbound/device',['session_id'=>$old,'ready'=>false])->assertOk();
+  $this->postJson('/api/voice/inbound/device',['session_id'=>$old,'ready'=>true])->assertConflict();
+  $this->assertDatabaseHas('voice_inbound_devices',['user_id'=>$this->user->id,'session_id'=>$next,'ready'=>true]);
+  $this->postJson('/api/voice/inbound/token',['session_id'=>(string)Str::uuid()])->assertConflict();
+  $this->assertDatabaseCount('voice_outbound_calls',0);Http::assertNothingSent();
+ }
+ public function test_release_during_inbound_offer_keeps_identity_and_prevents_takeover_even_after_lease_expires():void {
+  $old=DB::table('voice_inbound_devices')->value('session_id');$this->receive();
+  $this->postJson('/api/voice/inbound/device',['session_id'=>$old,'ready'=>false])->assertOk();
+  $this->assertDatabaseHas('voice_inbound_devices',['user_id'=>$this->user->id,'session_id'=>$old,'ready'=>false]);
+  $this->travel(65)->seconds();
+  $this->postJson('/api/voice/inbound/token',['session_id'=>(string)Str::uuid()])->assertConflict();
+  $this->assertTrue(app(VoiceAgentCapacity::class)->inboundBusy(1,$this->user->id));Http::assertNothingSent();
+ }
+ public function test_missing_release_still_protects_a_pending_registration_until_timeout():void {
+  DB::table('voice_inbound_devices')->delete();$old=(string)Str::uuid();$next=(string)Str::uuid();
+  $this->postJson('/api/voice/inbound/token',['session_id'=>$old])->assertOk();
+  $this->postJson('/api/voice/inbound/token',['session_id'=>$next])->assertConflict()->assertJsonPath('message','A conexão anterior do receptivo ainda está registrada. Se acabou de recarregar, aguarde até 60 segundos e tente ficar online novamente. Se houver outra aba atendendo, use aquela aba.');
+  $this->travel(61)->seconds();$this->postJson('/api/voice/inbound/token',['session_id'=>$next])->assertOk();
+  $this->assertDatabaseHas('voice_inbound_devices',['user_id'=>$this->user->id,'session_id'=>$next,'ready'=>false]);Http::assertNothingSent();
+ }
  public function test_callback_requires_valid_signature_and_account():void {
   $d=['AccountSid'=>'AC'.str_repeat('a',32),'CallSid'=>'CA'.str_repeat('1',32),'From'=>'+5511999991111','To'=>'+16890000000'];$url='/callbacks/twilio/voice/inbound';$this->post($url,$d,['Content-Type'=>'application/x-www-form-urlencoded'])->assertForbidden();$sig=(new RequestValidator(str_repeat('t',32)))->computeSignature(InboundVoice::BASE,$d);$this->post($url,$d,['Content-Type'=>'application/x-www-form-urlencoded','X-Twilio-Signature'=>$sig])->assertOk();$this->assertDatabaseCount('voice_inbound_calls',1);
  }

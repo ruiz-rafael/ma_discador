@@ -15,7 +15,7 @@ class InboundVoice {
    abort_unless(DB::table('voice_live_queues')->where('workspace_id',$w)->whereIn('direction',['inbound','mixed'])->get()->contains(fn($q)=>in_array($u,json_decode($q->agent_ids,true),true)),403,'Você não está vinculado a uma fila receptiva.');
    $c=app(TwilioVoiceConnection::class)->read();abort_unless($w===1 && $c && $c['enabled'],422,'Habilite a conexão Twilio API.');
    $old=DB::table('voice_inbound_devices')->where('user_id',$u)->first();
-   abort_if($old && $old->session_id!==$session && ($old->last_seen_at>now()->subSeconds(60)->toDateTimeString() || app(VoiceAgentCapacity::class)->inboundBusy($w,$u)),409,'O receptivo está conectado em outra aba. Desconecte-a primeiro.');
+   abort_if($old && $old->session_id!==$session && ($old->last_seen_at>now()->subSeconds(60)->toDateTimeString() || app(VoiceAgentCapacity::class)->inboundBusy($w,$u)),409,'A conexão anterior do receptivo ainda está registrada. Se acabou de recarregar, aguarde até 60 segundos e tente ficar online novamente. Se houver outra aba atendendo, use aquela aba.');
    $identity='ma_in_'.$w.'_'.$u.'_'.str_replace('-','',$session);
    DB::table('voice_inbound_devices')->updateOrInsert(['user_id'=>$u],['workspace_id'=>$w,'session_id'=>$session,'identity'=>$identity,'last_seen_at'=>now(),'ready'=>$old && $old->session_id===$session ? $old->ready:false]);
    $token=new AccessToken($c['account_sid'],$c['api_key'],$c['api_secret'],300,$identity);$grant=new VoiceGrant;$grant->setIncomingAllow(true);$token->addGrant($grant);
@@ -23,7 +23,17 @@ class InboundVoice {
   });
  }
  public function device(int $w,int $u,string $session,bool $ready):void {
-  abort_unless(DB::table('voice_inbound_devices')->where('workspace_id',$w)->where('user_id',$u)->where('session_id',$session)->update(['ready'=>$ready,'last_seen_at'=>now()]),409,'Reconecte o receptivo nesta aba.');
+  DB::transaction(function()use($w,$u,$session,$ready){$this->lock();
+   $device=DB::table('voice_inbound_devices')->where('workspace_id',$w)->where('user_id',$u)->where('session_id',$session);
+   if(!$ready){
+    // An explicit release must not renew the old session's lease. Keep its identity
+    // only while an offer, call or tabulation still belongs to this connection.
+    if(app(VoiceAgentCapacity::class)->inboundBusy($w,$u))$device->update(['ready'=>false]);
+    else $device->delete();
+    return; // Repeated or late release from an old session is harmless.
+   }
+   abort_unless($device->update(['ready'=>true,'last_seen_at'=>now()]),409,'Reconecte o receptivo nesta aba.');
+  });
  }
  public function receive(array $d):string {
   return DB::transaction(function()use($d){$this->lock();$xml=new VoiceResponse;

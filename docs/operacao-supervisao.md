@@ -155,3 +155,12 @@ Os controles de chamadas manuais ficam no teclado do headset. A ficha em Minha o
 Quando a telefonia confirma o encerramento de uma ligação atendida, a tabulação aparece no mesmo local. O formulário permanece montado ao recolher o teclado, preservando as anotações enquanto o atendimento estiver pendente. Fechar o teclado não salva nem cancela a tabulação. **Atualizar resultado** permite consultar a ligação existente; **Permitir reprodução do áudio** continua disponível quando exigido pelo navegador para SIP.
 
 Falhas de transporte apresentam orientação em português, sem significar “não atendeu” e sem repetição automática da ação. O aviso de consulta é retirado quando os dados voltam a ser obtidos. A causa da falha de rede do navegador não pode ser determinada apenas pelo texto “Failed to fetch”. Homologação: oito testes de áudio, microfone e transporte; fluxo simulado de discagem, falha de rede, recuperação, tabulação e preservação do rascunho, em desktop e celular. Nenhuma chamada ou mensagem real enviada na validação. Evidências privadas: `evidence/dial-unified-20261005/`.
+
+
+### Recarregar a aba e liberar o receptivo — 05/10/2026
+
+O aviso de desconexão (`ready=false`) libera o registro temporário do dispositivo quando não há oferta, chamada ou tabulação receptiva pendente. Antes, esse aviso atualizava a data da conexão e renovava por 60 segundos o bloqueio contra outra sessão, causando um falso aviso de outra aba após Ctrl + F5.
+
+A liberação e o registro usam o mesmo bloqueio transacional. Mensagens atrasadas de uma sessão anterior não alteram a nova. Uma chamada ou oferta pendente preserva sua identidade e impede troca de conexão, mesmo após expirar o prazo. Se o navegador não conseguir comunicar o fechamento, permanece o prazo de proteção de 60 segundos; a mensagem informa a possibilidade de recarregamento em vez de afirmar que existe outra aba.
+
+Cada conexão do SDK recebe um identificador próprio. Eventos atrasados de dispositivos destruídos são ignorados. A atualização não coloca agentes online e não inicia chamadas. Testes isolados cobrem liberação imediata, mensagem atrasada, registro em andamento, expiração e oferta receptiva ativa, além da reconexão após recarregar no navegador. Evidências privadas em `evidence/inbound-release-20261005/`.
