@@ -329,7 +329,7 @@ class VoiceOperationsTest extends TestCase
         }
     }
 
-    public function test_queue_call_reaches_mock_provider_and_enforces_wrapup_without_external_request(): void
+    public function test_queue_call_reaches_mock_provider_and_skips_wrapup_when_unanswered_without_external_request(): void
     {
         $q = $this->queue();
         $r = $this->claim($q['id'])->json('reservation');
@@ -341,8 +341,8 @@ class VoiceOperationsTest extends TestCase
         $this->assertStringContainsString('<Dial', $service->dial($d, config('twilio_voice_test')));
         $this->assertStringNotContainsString('<Dial', $service->dial($d, config('twilio_voice_test')));
         $service->apply($g['id'], config('twilio_voice_test.account_sid'), $parent, $child, 'no-answer', 0);
-        $this->getJson('/api/voice/operations/queues')->assertJsonPath('current', null);
-        $this->claim($q['id'])->assertOk()->assertJsonPath('reservation',null)->assertJsonPath('retry_after',30);
+        $this->getJson('/api/voice/operations/queues')->assertJsonPath('current', null)->assertJsonPath('wrapup',null);
+        $this->claim($q['id'])->assertOk()->assertJsonPath('reservation',null)->assertJsonMissing(['message'=>'Aguarde o pós-atendimento.']);
         $this->assertDatabaseCount('voice_outbound_calls', 1);
         Http::assertNothingSent();
     }

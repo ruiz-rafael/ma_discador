@@ -206,7 +206,7 @@ class VoiceQueue
             $done = $contact->replied_at || $contact->suppressed_at || $d['outcome'] === 'invalid';
             DB::table('voice_queue_items')->where('id', $item->id)->update(['status' => $done ? 'done' : ($reason ? 'blocked' : 'waiting'), 'reason' => $reason, 'available_at' => $contact->next_allowed_at ?? now(), 'updated_at' => now()]);
             DB::table('voice_queue_assignments')->where('id', $id)->update(['status' => 'completed', 'completion_hash' => $hash, 'notes' => $d['notes'] ?? null, 'finished_at' => now(), 'updated_at' => now()]);
-            DB::table('voice_agent_presence')->where('user_id', $u)->update(['available_after' => now()->addSeconds($q->wrapup_seconds), 'updated_at' => now()]);
+            DB::table('voice_agent_presence')->where('user_id', $u)->update(['available_after' => now()->addSeconds($q->wrapup_seconds), 'wrapup_queue_id'=>null,'wrapup_source'=>null,'wrapup_token'=>null,'wrapup_allow_early'=>false,'updated_at' => now()]);
             $this->audit($w, $u, 'completed', $id, ['outcome' => $d['outcome']]);
             return $this->get('voice_queue_assignments', $w, $id);
         });

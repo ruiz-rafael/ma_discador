@@ -120,3 +120,18 @@ Ao solicitar a ligação, o servidor escolhe a primeira fila por ID que correspo
 **Outra conexão** significa que uma identificação diferente da aba atual controla a presença do mesmo usuário e enviou heartbeat nos últimos 90 segundos. O sistema não informa o dispositivo nem comprova que exista outra pessoa conectada. Uma recarga também gera nova identificação; se o encerramento anterior não chegou ao servidor, é necessário aguardar o vencimento. A caixa explica o caso e impede usar os controles de status para encerrar a outra conexão. Quando o heartbeat vence, a interface volta a Offline e permite uma nova ação explícita de Online. A implantação não transfere nem encerra atendimentos ativos.
 
 Validação desta alteração: **318 testes / 2.544 asserções** em cada banco isolado, seis testes de áudio/microfone e compilação Vite. A homologação de navegador utiliza API e telefonia simuladas; a conferência em produção é somente de leitura. Evidências privadas em `evidence/manual-origin-20261005/`.
+
+
+## Retorno da ligação e pós-atendimento por fila — 05/10/2026
+
+**Minha operação** e o teclado mantêm o resultado da última chamada do próprio atendente, mesmo após a reserva sair da tela. São mostrados destino, estado, tempo até o encerramento e retorno técnico disponível. “Não atendeu” é o resultado informado pela telefonia: não comprova que o aparelho tocou. Áudio conectado no navegador também não comprova atendimento do destinatário. Falhas locais de conexão são comunicadas à tela do agente, além do cartão da ligação.
+
+Em **Filas de atendimento → Editar fila e vínculos → Pós-atendimento**, a supervisão define se existe intervalo, sua duração (até 3.600 segundos) e se o atendente pode encerrá-lo antes. As configurações anteriores de duração são preservadas; encerramento antecipado começa desabilitado. O intervalo só é criado quando houve atendimento confirmado. Não atendimento, ocupado, falha e cancelamento antes de atender não criam pós-atendimento.
+
+O cronômetro começa no encerramento confirmado da chamada, tanto na saída quanto no receptivo. A tabulação utiliza esse mesmo tempo; salvá-la ou corrigir suas anotações não reinicia o intervalo. Mesmo se o tempo acabar ou estiver desabilitado, uma tabulação obrigatória pendente continua bloqueando uma nova chamada. Novas distribuições de voz e WhatsApp respeitam o intervalo.
+
+O agente vê a fila responsável e a contagem regressiva no headset, teclado e operação. **Encerrar pós-atendimento** aparece somente quando permitido e exige concluir a chamada e salvar a tabulação. O encerramento não muda status online/pausado/offline nem a seleção de filas. Trocar de fila ou colocar-se online novamente não elimina o intervalo obrigatório. Duração e permissão são preservadas para o intervalo em andamento; alterações da supervisão valem para próximos atendimentos.
+
+A resposta de `GET /api/voice/operations/queues` inclui `last_call` e `wrapup`. O encerramento antecipado usa `POST /api/voice/operations/wrapup/finish`, com `session_id` e `token` do intervalo. A versão incorporável oferece a mesma operação. O servidor valida usuário, workspace, sessão, política e identificação do intervalo; um pedido atrasado não pode encerrar outro intervalo.
+
+Homologação: **329 testes / 2.659 asserções** em cada banco isolado, testes de áudio/microfone e compilação. Os testes do navegador simulam telefonia, resultados e cronômetros; a conferência em produção não disca nem muda a presença. Evidências privadas em `evidence/wrapup-feedback-20261005/` e `evidence/wrapup-admin-20261005/`.

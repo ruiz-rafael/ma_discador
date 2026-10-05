@@ -101,6 +101,7 @@ Route::middleware(['auth', 'throttle:120,1'])->prefix('api/voice/operations')->g
     Route::put('/queues/{id}',[$c,'queue'])->whereNumber('id');
     Route::post('/queues/{id}/status',[$c,'queueStatus'])->whereNumber('id');
     Route::post('/queues/{id}/claim',[$c,'claim'])->whereNumber('id');
+ Route::post('/wrapup/finish',[$c,'finishWrapup']);
  Route::post('/manual-reservations',[$c,'manual'])->middleware('throttle:6,1,manual-reserve:');
     Route::post('/reservations/{id}/cancel',[$c,'cancelReservation'])->whereUuid('id');
 });

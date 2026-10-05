@@ -28,9 +28,8 @@ class VoiceLiveQueue
                 continue;
             }
             DB::table('voice_live_reservations')->where('id', $r->id)->update(['status' => $status, 'finished_at' => in_array($status, ['completed', 'expired']) ? now() : null, 'updated_at' => now()]);
-            if ($status === 'completed') {
-                $q = DB::table('voice_live_queues')->find($r->queue_id);
-                DB::table('voice_agent_presence')->where('workspace_id', $r->workspace_id)->where('user_id', $r->user_id)->update(['available_after' => now()->addSeconds($q->wrapup_seconds), 'updated_at' => now()]);
+            if ($r->status !== 'tabulation' && in_array($status,['tabulation','completed']) && ($c->answered_at || $c->status==='completed')) {
+                app(AgentWrapup::class)->start(DB::table('voice_live_queues')->find($r->queue_id),$r->user_id,'outbound:'.$c->id,$c->ended_at??$c->capacity_released_at);
             }
         }
     }
@@ -62,8 +61,8 @@ class VoiceLiveQueue
             $p = DB::table('voice_agent_presence')->where('workspace_id', $w)->where('user_id', $u)->first();
             abort_unless($p && $p->status === 'available' && $p->last_seen_at && CarbonImmutable::parse($p->last_seen_at)->gt(now()->subSeconds(90)), 409, 'Fique disponível para atendimento.');
             abort_unless(AgentAvailability::selected($p,$id),409,'Você está offline nesta fila.');
-            if ($p->available_after && CarbonImmutable::parse($p->available_after)->isFuture()) return ['reservation' => null, 'retry_after' => max(1, (int) now()->diffInSeconds(CarbonImmutable::parse($p->available_after))), 'message' => 'Aguarde o pós-atendimento.', 'reasons' => []];
             abort_if(DB::table('voice_live_reservations')->where('workspace_id', $w)->where('user_id', $u)->whereIn('status', self::ACTIVE)->exists() || DB::table('voice_queue_assignments')->where('workspace_id', $w)->where('user_id', $u)->where('status', 'active')->exists() || DB::table('voice_outbound_calls')->where('workspace_id', $w)->where('user_id', $u)->whereNull('capacity_released_at')->exists(), 409, 'Conclua sua reserva, chamada ou tabulação atual.');
+            if ($p->available_after && CarbonImmutable::parse($p->available_after)->isFuture()) return ['reservation' => null, 'retry_after' => max(1, (int) now()->diffInSeconds(CarbonImmutable::parse($p->available_after))), 'message' => 'Aguarde o pós-atendimento.', 'reasons' => []];
             if (DB::table('voice_inbound_calls')->whereNull('capacity_released_at')->exists() || DB::table('voice_outbound_calls')->whereNull('capacity_released_at')->exists()) return ['reservation' => null, 'retry_after' => 10, 'message' => 'Aguardando capacidade de telefonia.', 'reasons' => []];
             $campaignIds=QueueRouting::campaigns($q);
             // Alternate eligible campaigns; preserve attempt rounds inside each campaign.
@@ -172,7 +171,7 @@ return ['reservation' => null, 'retry_after' => 15, 'reasons' => $reasons, 'mess
                 if (! $a->online) $a->status = 'offline';
                 return $a;
             }) : [];
-            return ['manual_origins' => app(ManualDial::class)->origins($w,$u), 'queues' => $queues, 'team' => $team, 'current' => $current, 'presence' => DB::table('voice_agent_presence')->where('user_id',$u)->where('workspace_id',$w)->first(), 'user_id' => $u];
+            return ['wrapup'=>app(AgentWrapup::class)->state($w,$u),'last_call'=>app(CallFeedback::class)->latest($w,$u),'manual_origins' => app(ManualDial::class)->origins($w,$u), 'queues' => $queues, 'team' => $team, 'current' => $current, 'presence' => DB::table('voice_agent_presence')->where('user_id',$u)->where('workspace_id',$w)->first(), 'user_id' => $u];
         });
     }
 }

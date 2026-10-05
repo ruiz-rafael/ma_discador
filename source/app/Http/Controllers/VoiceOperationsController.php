@@ -207,7 +207,7 @@ return $rows;
     public function queue(Request $r, ?int $id = null)
     {
         $w = $this->workspace($r, true);
-        $d = $r->validate(['incoming_number'=>['sometimes','nullable','regex:/^\+[1-9][0-9]{7,14}$/D'],'voice_number'=>['sometimes','nullable','regex:/^\+[1-9][0-9]{7,14}$/D'],'whatsapp_sender_id'=>'sometimes|nullable|integer|min:1','number_mode'=>'sometimes|in:single,separate','name' => 'required|string|max:160', 'campaign_id' => 'nullable|integer|min:1', 'campaign_ids'=>'sometimes|array|max:100', 'campaign_ids.*'=>'integer|min:1|distinct', 'direction'=>'sometimes|in:inbound,outbound,mixed','calling_method'=>'sometimes|in:programmable_voice,sip_trunk','manual_enabled'=>'sometimes|boolean','allow_landline'=>'sometimes|boolean','allow_mobile'=>'sometimes|boolean', 'mode' => 'required|in:preview,progressive', 'strategy' => 'required|in:fifo', 'wrapup_seconds' => 'required|integer|between:0,120', 'agent_ids' => 'required|array|min:1|max:100', 'agent_ids.*' => 'required|integer|distinct', 'revision' => 'sometimes|integer|min:0']);
+        $d = $r->validate(['incoming_number'=>['sometimes','nullable','regex:/^\+[1-9][0-9]{7,14}$/D'],'voice_number'=>['sometimes','nullable','regex:/^\+[1-9][0-9]{7,14}$/D'],'whatsapp_sender_id'=>'sometimes|nullable|integer|min:1','number_mode'=>'sometimes|in:single,separate','name' => 'required|string|max:160', 'campaign_id' => 'nullable|integer|min:1', 'campaign_ids'=>'sometimes|array|max:100', 'campaign_ids.*'=>'integer|min:1|distinct', 'direction'=>'sometimes|in:inbound,outbound,mixed','calling_method'=>'sometimes|in:programmable_voice,sip_trunk','manual_enabled'=>'sometimes|boolean','allow_landline'=>'sometimes|boolean','allow_mobile'=>'sometimes|boolean', 'mode' => 'required|in:preview,progressive', 'strategy' => 'required|in:fifo', 'wrapup_enabled'=>'sometimes|boolean','wrapup_allow_early'=>'sometimes|boolean','wrapup_seconds' => 'required|integer|between:0,3600', 'agent_ids' => 'required|array|min:1|max:100', 'agent_ids.*' => 'required|integer|distinct', 'revision' => 'sometimes|integer|min:0']);
 
         return app(VoiceLiveQueue::class)->configure($w, $r->user()->id, $d, $id);
     }
@@ -235,6 +235,7 @@ return $rows;
         return app(VoiceLiveQueue::class)->claim($this->workspace($r),$r->user()->id,$id,$d['idempotency_key']);
     }
 
+    public function finishWrapup(Request $r) { $d=$r->validate(['session_id'=>'required|uuid','token'=>'required|uuid']);app(\App\Services\AgentWrapup::class)->finish($this->workspace($r),$r->user()->id,$d['session_id'],$d['token']);return response()->noContent(); }
     public function manual(Request $r) { $d=$r->validate(['queue_id'=>'required_without:origin_number|prohibits:origin_number|integer|min:1','origin_number'=>['required_without:queue_id','string','regex:/^\+[1-9][0-9]{7,14}$/'],'session_id'=>'required_with:origin_number|uuid','number'=>'required|string|max:40','idempotency_key'=>'required|uuid']);return app(\App\Services\ManualDial::class)->reserve($this->workspace($r),$r->user()->id,$d); }
 
     public function cancelReservation(Request $r,string $id)

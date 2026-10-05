@@ -17,6 +17,7 @@ class ManualDial {
  private function resolve(int $w,int $u,array $d,string $destination):int {
   $p=DB::table('voice_agent_presence')->where('workspace_id',$w)->where('user_id',$u)->first();
   abort_unless($p&&$p->session_id===($d['session_id']??null),409,'Fique online nesta aba antes de ligar. Outra conexão não pode iniciar uma chamada por você.');
+  $wrapup=app(AgentWrapup::class)->state($w,$u);abort_if($wrapup,409,'Pós-atendimento em andamento. Aguarde '.($wrapup['remaining_seconds']??0).' segundos.');
   $origin=collect($this->origins($w,$u))->firstWhere('number',$d['origin_number']);
   abort_unless($origin,422,'Este número de saída não está mais habilitado para você. Atualize os números disponíveis.');
   foreach($origin['routes']as $route){

@@ -55,4 +55,8 @@ class InboundVoiceTest extends TestCase {
   $this->assertStringContainsString('<Reject',$this->receive());$this->assertDatabaseCount('voice_inbound_calls',0);
   $result=app(VoiceLiveQueue::class)->claim(1,$this->user->id,$this->queue,(string)Str::uuid());$this->assertNull($result['reservation']);$this->assertDatabaseCount('voice_live_reservations',0);Http::assertNothingSent();
  }
+ public function test_inbound_wrapup_counts_from_hangup_and_disposition_does_not_restart_it():void {
+  DB::table('voice_live_queues')->where('id',$this->queue)->update(['wrapup_seconds'=>120]);$this->receive();$c=$this->row();$o=$this->offer();$service=app(InboundVoice::class);$service->offerStatus($o->id,['AccountSid'=>$c->account_sid,'ParentCallSid'=>$c->call_sid,'CallSid'=>'CA'.str_repeat('2',32),'CallStatus'=>'in-progress']);$service->ended(['AccountSid'=>$c->account_sid,'CallSid'=>$c->call_sid,'CallStatus'=>'completed','CallDuration'=>20]);$until=DB::table('voice_agent_presence')->where('user_id',$this->user->id)->value('available_after');$this->assertNotNull($until);$this->travel(20)->seconds();DB::table('voice_disposition_codes')->insertOrIgnore(['workspace_id'=>1,'code'=>'qa_done','label'=>'Concluído','active'=>true]);$this->postJson('/api/voice/inbound/calls/'.$c->id.'/disposition',['code'=>'qa_done','revision'=>$this->row()->revision])->assertOk();$this->assertSame($until,DB::table('voice_agent_presence')->where('user_id',$this->user->id)->value('available_after'));Http::assertNothingSent();
+ }
+
 }

@@ -78,7 +78,7 @@ class InboundVoice {
    if(in_array($d['CallStatus'],['in-progress','completed'],true)){
     $this->stopCadences($c);
     DB::table('voice_inbound_offers')->where('id',$id)->update(['answered_at'=>$o->answered_at??now(),'child_sid'=>$d['CallSid']]);
-    $late=['answered_at'=>$c->answered_at??now()];if($c->capacity_released_at&&!$c->disposition_code&&$o->status!=='transferred'&&($c->user_id===$o->user_id||$c->user_id===null)){$late['status']='tabulation';$late['user_id']=$o->user_id;}DB::table('voice_inbound_calls')->where('id',$c->id)->update($late);
+    $late=['answered_at'=>$c->answered_at??now()];if($c->capacity_released_at&&!$c->disposition_code&&$o->status!=='transferred'&&($c->user_id===$o->user_id||$c->user_id===null)){$late['status']='tabulation';$late['user_id']=$o->user_id;}DB::table('voice_inbound_calls')->where('id',$c->id)->update($late);if(isset($late['status']))app(AgentWrapup::class)->start(DB::table('voice_live_queues')->find($c->queue_id),$o->user_id,'inbound:'.$c->id,$c->ended_at);
    }
    if($c->capacity_released_at || !in_array($o->status,['offered','answered'],true))return;
    $v=['child_sid'=>$d['CallSid'],'updated_at'=>now()];if($d['CallStatus']==='in-progress'){$v+=['status'=>'answered','answered_at'=>$o->answered_at??now()];DB::table('voice_inbound_calls')->where('id',$c->id)->update(['status'=>'answered','answered_at'=>$c->answered_at??now(),'updated_at'=>now()]);}
@@ -88,6 +88,7 @@ class InboundVoice {
  public function finish(string $id,array $d):string {
   return DB::transaction(function()use($id,$d){$this->lock();$o=DB::table('voice_inbound_offers')->find($id);abort_unless($o,404);$c=DB::table('voice_inbound_calls')->find($o->call_id);abort_unless($c->call_sid===$d['CallSid']&&$c->account_sid===$d['AccountSid'],403);
    if($d['DialCallStatus']==='completed'&&$o->status!=='transferred'){$this->stopCadences($c);DB::table('voice_inbound_offers')->where('id',$id)->update(['answered_at'=>$o->answered_at??now()]);DB::table('voice_inbound_calls')->where('id',$c->id)->update(['answered_at'=>$c->answered_at??now()]+($c->capacity_released_at&&!$c->disposition_code?['status'=>'tabulation','user_id'=>$o->user_id]:[]));}
+   if($c->capacity_released_at&&$d['DialCallStatus']==='completed'&&$o->status!=='transferred'&&!$c->disposition_code)app(AgentWrapup::class)->start(DB::table('voice_live_queues')->find($c->queue_id),$o->user_id,'inbound:'.$c->id,$c->ended_at);
    if($c->capacity_released_at || !in_array($o->status,['offered','answered'],true))return app(TwilioVoiceCalling::class)->hangup();
    abort_if(!empty($d['DialCallSid']) && $o->child_sid && $o->child_sid!==$d['DialCallSid'],403);
    DB::table('voice_inbound_offers')->where('id',$id)->update(['status'=>$d['DialCallStatus'],'ended_at'=>now(),'updated_at'=>now()]);
@@ -101,6 +102,7 @@ class InboundVoice {
    $owner=DB::table('voice_inbound_offers')->where('call_id',$c->id)->whereNotNull('answered_at')->orderByDesc('answered_at')->orderByDesc('created_at')->first();
    DB::table('voice_inbound_calls')->where('id',$c->id)->update(['user_id'=>$owner?->user_id??$c->user_id,'status'=>($c->answered_at||$owner)?'tabulation':($c->status==='unavailable'?'unavailable':'abandoned'),'bill_seconds'=>isset($d['CallDuration'])?(int)$d['CallDuration']:null,'ended_at'=>now(),'capacity_released_at'=>now(),'updated_at'=>now()]);
    DB::table('voice_inbound_offers')->where('call_id',$c->id)->whereIn('status',['offered','answered','transfer_pending','unknown'])->update(['status'=>'completed','ended_at'=>now(),'updated_at'=>now()]);
+   if($c->answered_at||$owner)app(AgentWrapup::class)->start(DB::table('voice_live_queues')->find($c->queue_id),$owner?->user_id??$c->user_id,'inbound:'.$c->id,now()->toDateTimeString());
    app(VoiceLab::class)->audit($c->workspace_id,$c->user_id,'inbound.ended',$c->id);
   });
  }

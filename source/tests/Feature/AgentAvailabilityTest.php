@@ -84,4 +84,37 @@ class AgentAvailabilityTest extends TestCase {
   $this->configureOrigins();$this->online([$this->b])->assertNoContent();$this->travel(91)->seconds();$this->numberDial()->assertConflict();$this->online([$this->b])->assertNoContent();$this->numberDial()->assertOk()->assertJsonPath('reservation.queue_id',$this->b);Http::assertNothingSent();
  }
 
+ private function completedCall(bool $answered=true,string $result='completed'):array {
+  $this->online()->assertNoContent();$r=$this->manual()->assertOk()->json('reservation');$g=$this->grant($r)->assertOk()->json();$this->assertStringContainsString('<Dial',$this->dial($g));
+  if($answered)app(TwilioVoiceCalling::class)->apply($g['id'],config('twilio_voice_test.account_sid'),'CA'.str_repeat('7',32),'CA'.str_repeat('8',32),'in-progress',0);
+  $this->travel(3)->seconds();app(TwilioVoiceCalling::class)->apply($g['id'],config('twilio_voice_test.account_sid'),'CA'.str_repeat('7',32),'CA'.str_repeat('8',32),$result,$answered?3:0);return $g;
+ }
+ private function tabulateCall(string $id):void {DB::table('voice_disposition_codes')->insertOrIgnore(['workspace_id'=>1,'code'=>'qa_done','label'=>'Concluído QA','active'=>true]);$this->postJson('/api/voice/operations/calls/'.$id.'/disposition',['revision'=>0,'idempotency_key'=>(string)Str::uuid(),'code'=>'qa_done'])->assertOk();}
+ public static function unansweredResults():array {return [['no-answer'],['busy'],['failed'],['canceled']];}
+ #[\PHPUnit\Framework\Attributes\DataProvider('unansweredResults')]
+ public function test_unanswered_calls_have_persistent_feedback_without_wrapup(string $result):void {
+  $this->completedCall(false,$result);$j=$this->getJson('/api/voice/operations/queues')->assertOk()->assertJsonPath('wrapup',null)->assertJsonPath('last_call.elapsed_seconds',3)->assertJsonPath('last_call.bill_seconds',0)->json();$this->assertNotEmpty($j['last_call']['detail']);$this->assertTrue(AgentAvailability::available(1,$this->agent->id,$this->a));Http::assertNothingSent();
+ }
+ public function test_wrapup_starts_at_hangup_and_tabulation_does_not_restart_timer():void {
+  DB::table('voice_live_queues')->where('id',$this->a)->update(['wrapup_seconds'=>30]);$g=$this->completedCall();$j=$this->getJson('/api/voice/operations/queues')->assertJsonPath('current.status','tabulation')->assertJsonPath('wrapup.remaining_seconds',30)->json();$until=$j['wrapup']['until'];
+  $this->assertFalse(AgentAvailability::available(1,$this->agent->id,$this->a));$this->travel(10)->seconds();$this->tabulateCall($g['id']);$this->getJson('/api/voice/operations/queues')->assertJsonPath('wrapup.until',$until)->assertJsonPath('wrapup.remaining_seconds',20)->assertJsonPath('current',null);$this->travel(21)->seconds();$this->assertTrue(AgentAvailability::available(1,$this->agent->id,$this->a));$this->getJson('/api/voice/operations/queues')->assertJsonPath('wrapup',null);Http::assertNothingSent();
+ }
+ public function test_disabled_wrapup_still_requires_tabulation_but_adds_no_cooldown():void {
+  DB::table('voice_live_queues')->where('id',$this->a)->update(['wrapup_enabled'=>false,'wrapup_seconds'=>120]);$g=$this->completedCall();$this->getJson('/api/voice/operations/queues')->assertJsonPath('wrapup',null)->assertJsonPath('current.status','tabulation');$this->manual()->assertConflict();$this->tabulateCall($g['id']);$this->assertTrue(AgentAvailability::available(1,$this->agent->id,$this->a));
+ }
+ public function test_early_wrapup_finish_requires_policy_session_token_and_saved_tabulation():void {
+  DB::table('voice_live_queues')->where('id',$this->a)->update(['wrapup_seconds'=>120,'wrapup_allow_early'=>true]);$g=$this->completedCall();$j=$this->getJson('/api/voice/operations/queues')->json();$d=['session_id'=>$this->session,'token'=>$j['wrapup']['token']];$url='/api/voice/operations/wrapup/finish';
+  $this->postJson($url,$d)->assertConflict();$this->tabulateCall($g['id']);$this->postJson($url,['session_id'=>(string)Str::uuid()]+$d)->assertConflict();$this->postJson($url,['token'=>(string)Str::uuid()]+$d)->assertConflict();$this->postJson($url,$d)->assertNoContent();$this->postJson($url,$d)->assertNoContent();$this->assertTrue(AgentAvailability::available(1,$this->agent->id,$this->a));$this->assertDatabaseHas('voice_agent_presence',['user_id'=>$this->agent->id,'status'=>'available','session_id'=>$this->session]);Http::assertNothingSent();
+ }
+ public function test_mandatory_wrapup_cannot_be_skipped_by_switching_queues_or_changing_new_policy():void {
+  DB::table('voice_live_queues')->where('id',$this->a)->update(['wrapup_seconds'=>120,'wrapup_allow_early'=>false]);$g=$this->completedCall();$this->tabulateCall($g['id']);$j=$this->getJson('/api/voice/operations/queues')->json();$this->online([$this->b])->assertNoContent();DB::table('voice_live_queues')->where('id',$this->a)->update(['wrapup_allow_early'=>true,'wrapup_enabled'=>false]);$this->postJson('/api/voice/operations/wrapup/finish',['session_id'=>$this->session,'token'=>$j['wrapup']['token']])->assertForbidden();$this->manual(['queue_id'=>$this->b])->assertConflict();
+ }
+ public function test_feedback_is_scoped_to_owner_and_workspace():void {
+  $this->completedCall(false,'no-answer');$this->getJson('/api/voice/operations/queues')->assertJsonPath('last_call.status','no_answer');$this->actingAs($this->admin);$this->getJson('/api/voice/operations/queues')->assertJsonPath('last_call',null);
+ }
+ public function test_only_supervision_can_configure_wrapup_policy_and_duration_is_validated():void {
+  $d=['name'=>'Fila QA','direction'=>'mixed','mode'=>'preview','strategy'=>'fifo','wrapup_seconds'=>240,'wrapup_enabled'=>true,'wrapup_allow_early'=>true,'agent_ids'=>[$this->agent->id],'revision'=>0];DB::table('voice_live_queues')->where('id',$this->a)->update(['status'=>'paused']);$url='/api/voice/operations/queues/'.$this->a;
+  $this->putJson($url,$d)->assertForbidden();$this->actingAs($this->admin);$this->putJson($url,['wrapup_seconds'=>3601]+$d)->assertUnprocessable();$this->putJson($url,$d)->assertOk();$this->assertDatabaseHas('voice_live_queues',['id'=>$this->a,'wrapup_seconds'=>240,'wrapup_enabled'=>true,'wrapup_allow_early'=>true]);
+ }
+
 }
