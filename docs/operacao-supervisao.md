@@ -164,3 +164,13 @@ O aviso de desconexão (`ready=false`) libera o registro temporário do disposit
 A liberação e o registro usam o mesmo bloqueio transacional. Mensagens atrasadas de uma sessão anterior não alteram a nova. Uma chamada ou oferta pendente preserva sua identidade e impede troca de conexão, mesmo após expirar o prazo. Se o navegador não conseguir comunicar o fechamento, permanece o prazo de proteção de 60 segundos; a mensagem informa a possibilidade de recarregamento em vez de afirmar que existe outra aba.
 
 Cada conexão do SDK recebe um identificador próprio. Eventos atrasados de dispositivos destruídos são ignorados. A atualização não coloca agentes online e não inicia chamadas. Testes isolados cobrem liberação imediata, mensagem atrasada, registro em andamento, expiração e oferta receptiva ativa, além da reconexão após recarregar no navegador. Evidências privadas em `evidence/inbound-release-20261005/`.
+
+### Experiência do administrador e modal persistente — 05/10/2026
+
+O administrador inicia em **Visão geral** quando abre o MA sem um endereço específico. Links antigos de cadências, relatórios e demais páginas continuam válidos. O agente mantém Minha operação como entrada. A visão geral consulta apenas cadastros e filas existentes; seus cards não ativam canais nem comprovam áudio ou entrega de mensagens. Dados sem consulta bem-sucedida aparecem como indisponíveis, e erros de atualização são informados.
+
+**Filas de atendimento** apresenta cards pesquisáveis. Selecione **Ver fila** para os controles operacionais ou **Editar fila e vínculos** para as abas Visão geral, Números e canais, Equipe e Permissões e pausas. A equipe atual fica recolhida em **Equipe agora**. A única ação de persistência continua sendo **Salvar fila**; alternar abas preserva os valores editados.
+
+No agente, **Discagem manual** abre um modal centralizado e adapta-se a telas menores. Clique no fundo e Escape não fecham o discador. Os estados da ligação, erro e resultado final permanecem nele. O teclado numérico é recolhido durante a preparação/chamada para dar prioridade ao acompanhamento. A tabulação permanece no mesmo modal. O botão × fecha a interface, preservando a chamada e o rascunho; Encerrar ligação é uma ação independente. Pausas automáticas por erro não fecham nem substituem o modal por uma caixa de status. A tela de fundo fica inerte enquanto a caixa está aberta, e o foco de teclado volta ao controle de origem ao fechar.
+
+O resumo da última chamada em Minha operação pode ser expandido para detalhes. A abertura de telas e cards não disca, não envia WhatsApp e não altera a disponibilidade. Homologação desta rodada com telefonia simulada e conferência pública somente de leitura; evidências privadas em `evidence/workspace-experience-20261005/`.

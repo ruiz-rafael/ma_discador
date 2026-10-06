@@ -51,3 +51,26 @@ Nenhuma chamada externa ou mensagem é necessária para validar permissões, rel
 Filas de atendimento são independentes das campanhas: receptivas, de saída ou mistas. A fila pode atender várias campanhas, e o administrador define equipe e telefonia. A caixa de conversas organiza os números em fichas e permite vincular pendências sem responsável à equipe. Consulte [Operação e supervisão](operacao-supervisao.md).
 
 O atendente controla Online/Pausado/Offline pelo headset do topo e escolhe sua disponibilidade por fila em **Gerenciar filas**. O teclado permite ligações manuais autorizadas, registradas fora das tentativas das cadências. A operação permanece conectada ao navegar para Conversas. Consulte o [guia do atendimento](operacao-supervisao.md#headset-disponibilidade-por-fila-e-teclado--05102026).
+
+## Marco 7 — Experiência de operação e administração
+
+A rodada de 05/10 organiza o produto para uso cotidiano, sem alterar a telefonia ou colocar a equipe online:
+
+| Entrega | Comportamento |
+| --- | --- |
+| **7A — Visão geral administrativa** | Entrada do administrador com cards de cadências, filas e equipe, atalhos para conversas e relatórios e uma sequência de configuração. Menus agrupados em Operação, Público, Gestão e Integrações. |
+| **7B — Configuração progressiva das filas** | Catálogo com cards e busca. Edição em Visão geral, Números e canais, Equipe e Permissões e pausas. Valores permanecem no formulário ao trocar de aba; validação nativa revela campos obrigatórios ocultos. |
+| **7C — Espaço do agente e discador persistente** | Operação com resumo compacto, ações de atendimento e última chamada recolhível. Discador centralizado: clique fora, Escape, erros, respostas e tabulação não o fecham. Fechar é uma ação explícita; não encerra a ligação. O rascunho da tabulação permanece ao reabrir. |
+
+Os cards da visão geral indicam cadastro, não homologação ou disponibilidade garantida. A atualização é manual, com horário da consulta; falha de consulta mantém os últimos valores e exibe aviso. A abertura da página não ativa filas, disponibilidade, sincronização de operadora ou contatos.
+
+Validação desta rodada: compilação Vite, oito testes existentes de áudio/microfone/transporte e navegador desktop/celular com SDK e mutações simulados. Cenários de discagem, resultado do provedor, falha de rede sem rediscagem, tabulação, foco, fechamento explícito, busca e edição de filas. O backend não muda nesta entrega.
+
+### Próximos passos que dependem de acesso ou homologação
+
+1. **Operação com pessoas:** áudio de ida e volta, receptivo, transferência entre dois agentes e continuidade da cadência, conforme roteiro acima. Não aumentar concorrência antes da homologação.
+2. **Operadora SIP escolhida:** configurar credenciais e números autorizados; conferir tarifação e qualidade. O receptivo SIP requer implementação própria e continua pendente, distinto do receptivo Twilio API existente.
+3. **Meta oficial direta:** cadastro de número/WABA e aplicação com permissões; implementar e homologar o conector Cloud API e a entrada direta de leads sociais. Ter QR ou Twilio configurado não equivale a possuir este conector.
+4. **CRM e escala:** homologar o discador incorporado no domínio consumidor, validar contratos de eventos e medir mídia/capacidade antes de ampliar o uso. O CRM permanece fora desta intervenção.
+
+Essas pendências não são marcadas como concluídas pelos cards da interface nem pelos testes simulados.
