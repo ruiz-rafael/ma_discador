@@ -92,3 +92,11 @@ Ainda dependem de homologação real: áudio gravado de entrada/saída, transfer
 ### Participações e reentrada — 06/10/2026
 
 Entregue para as cadências de voz e WhatsApp: participação única, saída/retorno ao segmento, intervalo e evento; limite de participações e motivos permitidos; espera por resposta; histórico por execução; API com escopo próprio e teste sem inserir contatos. A reentrada mantém limites globais, descadastro, histórico e disponibilidade exigida pela fila. A configuração das campanhas existentes é preservada. Homologação externa de um ciclo completo continua dependendo de teste autorizado; a validação desta entrega usa serviços e bancos isolados, sem telefonia ou mensagens reais.
+
+### Cadastro de WhatsApp pela plataforma — 06/10/2026
+
+Assistente com dois caminhos: números da própria empresa (descoberta, cadastro adicional e código de verificação) e números de clientes (Embedded Signup Meta com validação da subconta dedicada). Inclui recuperação de cadastro sem confirmação, bloqueio de criação duplicada, configuração administrativa recolhida e vínculo manual avançado preservado.
+
+A ativação externa continua pendente: primeiro remetente via Self Sign-up, aprovação Meta/Tech Provider, parceria Twilio e subconta dedicada para clientes. Cadastro automático de vários workspaces/subcontas na mesma instalação não faz parte desta entrega. Consulte [operação e pré-requisitos](whatsapp-twilio.md).
+
+Validação automatizada: 384 testes / 2.952 asserções em SQLite e PostgreSQL, além de 11 testes JavaScript. Homologação com SMS e conta Meta reais não realizada nesta entrega.

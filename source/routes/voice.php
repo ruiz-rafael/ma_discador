@@ -35,6 +35,10 @@ Route::post('/internal/voice/audio/event', [A::class, 'event'])->middleware('thr
 
 Route::middleware(['auth', 'throttle:120,1'])->prefix('api/voice/whatsapp')->group(function () {
     $c = WhatsAppController::class;
+    $onboarding = \App\Http\Controllers\WhatsAppOnboardingController::class;
+    Route::match(['GET', 'PUT'], '/onboarding/settings', [$onboarding, 'settings']);
+    Route::get('/senders/{id}/onboarding', [$onboarding, 'status'])->whereNumber('id');
+    Route::post('/senders/{id}/onboarding/{action}', [$onboarding, 'action'])->whereNumber('id')->whereIn('action', ['discover', 'embedded', 'register', 'verify', 'webhook'])->middleware('throttle:10,1,wa-onboarding:');
     Route::get('/', [$c, 'index']);
     Route::post('/senders', [$c, 'sender']);
     Route::put('/senders/{id}', [$c, 'senderSid'])->whereNumber('id');

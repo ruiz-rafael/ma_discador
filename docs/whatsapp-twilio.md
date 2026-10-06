@@ -96,3 +96,40 @@ Sem credenciais e remetente real não se comprova cadastro, aprovação, tarifas
 Para reverter a interface/API, restaurar os arquivos e autoload do backup de código correspondente, limpar apenas o cache de rotas do MA e manter os assets antigos disponíveis. As novas tabelas podem permanecer sem uso: não removê-las ou restaurar o banco indiscriminadamente se já houver dados novos. A reversão local não exclui conteúdos publicados no provedor nem revoga credenciais.
 
 A conferência Chromium no domínio público passou em desktop e celular: remetente e template em rascunho, botões externos bloqueados sem credenciais, persistência dos dois modos de número, acesso anônimo bloqueado e diagnóstico do áudio existente disponível. Sem erros JavaScript. Os registros fictícios criados pela conferência foram removidos, com auditoria arquivada. A comparação anterior/posterior à publicação mostrou os mesmos IDs e horários de início de todos os containers e os mesmos hashes de configuração do PBX.
+
+## Cadastro assistido no MA — 06/10/2026
+
+Em **Cadências → Canais → WhatsApp**, selecione um número da API oficial. O painel oferece **Minha empresa** e **Empresa cliente**. O vínculo por Sender SID permanece em uma seção avançada recolhida.
+
+### Números da própria empresa
+
+1. No primeiro remetente da conta, use **Cadastrar primeiro número na Twilio** para concluir o Self Sign-up e autorizar a conta Meta. Essa etapa externa é exigida pela Twilio.
+2. Volte ao MA e clique em **Buscar número na Twilio**. A busca percorre os remetentes da conta configurada, encontra o número exato e vincula o SID automaticamente.
+3. Havendo um remetente ONLINE associado a uma WABA, números adicionais podem ser cadastrados pelo assistente. Informe o nome da empresa, escolha SMS ou ligação de verificação e confirme a autorização.
+4. Quando solicitado, informe o código de seis dígitos. Aguarde ao menos um minuto entre confirmações. Números Twilio compatíveis com SMS podem ter verificação automática.
+5. Consulte a conexão: somente o retorno ONLINE do provedor representa ativação. O assistente não envia mensagens de teste nem ativa cadências.
+
+O cadastro novo configura o webhook de recebimento do MA. A descoberta de um remetente existente não altera seu webhook: **Recebimento de mensagens → Direcionar recebimento para o MA** é a ação explícita para isso. Os callbacks de entrega continuam sendo configurados por mensagem pelo mecanismo existente.
+
+### Números de empresas clientes
+
+O assistente implementa Embedded Signup com o SDK oficial da Meta e registro pela Senders API da Twilio. Em **Configuração da plataforma · Tech Provider**, apenas o administrador pode informar App ID, Configuration ID do Embedded Signup v4, Partner Solution ID, versão Graph API habilitada no aplicativo e liberar o fluxo.
+
+Pré-requisitos externos: verificação empresarial, aplicativo Meta aprovado, parceria com a Twilio habilitada, domínio e login configurados conforme o guia oficial. O MA não aprova essas etapas. A caixa “habilitados” registra a configuração administrativa; a autorização real é validada pelos provedores durante o cadastro.
+
+Cada empresa precisa de uma subconta Twilio e WABA próprias. Nesta implantação, a conexão WhatsApp ainda é única e restrita ao workspace 1. O assistente exige que essa conexão já seja uma subconta dedicada à empresa do workspace. Ele **não cria workspaces/subcontas automaticamente nem troca a conta atual da Zyrex**, e bloqueia cadastrar uma WABA diferente daquela já vinculada à subconta. O provisionamento de vários clientes na mesma instalação continua sendo uma entrega separada de multitenancy; não se deve trocar as credenciais do ambiente atual para testar outro cliente.
+
+Com os pré-requisitos atendidos, o usuário prepara a conexão, clica em **Continuar com Facebook**, autoriza a empresa e confirma o número na janela Meta. Ao retornar, informa o nome de exibição e conclui a conexão. O servidor valida a sessão, o usuário, a conta, a WABA e a identidade devolvida pela Twilio. Tokens privados da Twilio não vão ao navegador.
+
+Para o primeiro número Twilio no Embedded Signup v4, o código deve ser recuperado nos registros de SMS da subconta; a Twilio pode exigir liberação específica. O assistente não altera o webhook de SMS/voz do número nem captura códigos automaticamente. A opção antiga `only_waba_sharing` não é utilizada.
+
+### Recuperação e isolamento
+
+- Reservas de cadastro são persistidas antes do POST ao provedor; solicitações concorrentes não criam outro cadastro para o mesmo remetente.
+- Uma criação sem confirmação fica bloqueada para repetição automática. **Buscar número na Twilio** reconcilia pelo número exato. Se o provedor não tiver criado o remetente, é necessária conferência operacional antes de desbloquear a tentativa desconhecida.
+- Recusas confirmadas permitem nova solicitação explícita após o intervalo mínimo. O código de verificação não é persistido.
+- Sessões Meta expiram em 20 minutos, pertencem ao usuário que as iniciou e não são expostas nas consultas de estado. A interface ignora eventos de domínios parecidos com Facebook e eventos recebidos fora de uma autorização ativa.
+- O fluxo fica restrito a administradores/supervisores. Agentes e outros workspaces não acessam as operações.
+- Contas, números, QR Code, mensagens e cadências existentes não são migrados pelo assistente.
+
+Referências oficiais consultadas: [cadastro de remetentes](https://www.twilio.com/docs/whatsapp/register-senders-using-api), [Senders API](https://www.twilio.com/docs/whatsapp/api/senders), [integração Tech Provider](https://www.twilio.com/docs/whatsapp/isv/tech-provider-program/integration-guide).
