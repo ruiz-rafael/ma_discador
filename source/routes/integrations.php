@@ -12,6 +12,7 @@ Route::get('/integrations/guide',fn()=>view('integration-guide'));
 Route::get('/integrations/reference',fn()=>view('integration-reference'));
 Route::get('/embed',function(\Illuminate\Http\Request $r){$origin=$r->query('origin');abort_unless(is_string($origin)&&DB::table('ma_integrations')->where('active',true)->where('embed_origin',$origin)->exists(),403);return response()->view('embed',['origin'=>$origin])->header('Content-Security-Policy',"frame-ancestors ".$origin)->header('Cache-Control','no-store')->header('Referrer-Policy','no-referrer');});
 Route::middleware([\App\Http\Middleware\EmbeddedAgent::class,'throttle:120,1'])->prefix('embed/api/voice')->group(function(){
+ $recording=\App\Http\Controllers\VoiceRecordingController::class;Route::get('/recordings/calls/{kind}/{id}',[$recording,'state'])->whereIn('kind',['inbound','outbound'])->whereUuid('id');Route::post('/recordings/{sid}/control',[$recording,'control'])->where('sid','RE[a-fA-F0-9]{32}');Route::get('/recordings/{sid}/audio',[$recording,'audio'])->where('sid','RE[a-fA-F0-9]{32}');
  Route::get('/operations/catalog',[VoiceOperationsController::class,'catalog']);Route::get('/operations/queues',[VoiceOperationsController::class,'queues']);
  Route::post('/queues/presence',[VoiceQueueController::class,'presence']);Route::post('/queues/heartbeat',[VoiceQueueController::class,'heartbeat']);
  Route::post('/operations/queues/{id}/claim',[VoiceOperationsController::class,'claim'])->whereNumber('id');

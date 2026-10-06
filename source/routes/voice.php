@@ -144,3 +144,12 @@ Route::middleware(['auth','throttle:60,1'])->prefix('api/voice/health')->group(f
 });
 
 Route::middleware(['auth','throttle:60,1'])->prefix('api/voice/leads')->group(function(){Route::get('/',[\App\Http\Controllers\SocialLeadController::class,'index']);Route::put('/{id}',[\App\Http\Controllers\SocialLeadController::class,'update'])->whereUuid('id');});
+
+Route::middleware(['auth','throttle:120,1'])->prefix('api/voice/recordings')->group(function(){
+ $c=\App\Http\Controllers\VoiceRecordingController::class;
+ Route::get('/queues/{id}',[$c,'queue'])->whereNumber('id');
+ Route::get('/calls/{kind}/{id}',[$c,'state'])->whereIn('kind',['inbound','outbound'])->whereUuid('id');
+ Route::post('/{sid}/control',[$c,'control'])->where('sid','RE[a-fA-F0-9]{32}');
+ Route::get('/{sid}/audio',[$c,'audio'])->where('sid','RE[a-fA-F0-9]{32}');
+});
+Route::post('/callbacks/twilio/voice/recordings/{kind}/{id}',[\App\Http\Controllers\VoiceRecordingController::class,'callback'])->whereIn('kind',['inbound','outbound'])->whereUuid('id')->middleware('throttle:120,1,recording-events:');

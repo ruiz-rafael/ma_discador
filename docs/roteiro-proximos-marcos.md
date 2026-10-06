@@ -81,3 +81,10 @@ Essas pendências não são marcadas como concluídas pelos cards da interface n
 A fila passa a oferecer rodízio ou prioridade para o atendente há mais tempo livre; filas existentes preservam a regra anterior. A homologação interna utiliza três agentes e telefonia simulada em banco separado, com concorrência real entre processos. Consulte [Operação e supervisão](operacao-supervisao.md#distribuição-entre-atendentes--06102026).
 
 A capacidade de produção permanece em uma chamada simultânea. A próxima homologação de escala deve verificar três conexões de áudio reais, qualidade, receptivo e transferência, limites da operadora e consumo. Os testes de distribuição não substituem essa etapa. Um modo preditivo exige ainda um mecanismo próprio de estimativa de discagem e controle de atendimentos sem agente; ele não está implementado por esta entrega.
+
+
+### Configuração da operação por fila — 06/10/2026
+
+Implementados horário próprio, tempo de oferta ao agente, pausa por ofertas receptivas perdidas, pausa opcional por perda da conexão receptiva, permissões de destinos e gravação Twilio API com acesso, pausa e retenção. A tela organiza essas opções por abas; a gravação permanece desativada nas filas existentes. Consulte [o guia da fila](operacao-supervisao.md#configurações-operacionais-da-fila--06102026).
+
+Ainda dependem de homologação real: áudio gravado de entrada/saída, transferência com gravação e comandos de pausa/retomada na operadora. Gravação no SIP/Asterisk permanece uma implementação futura, explicitamente indisponível na interface.

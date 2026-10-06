@@ -34,6 +34,7 @@ class VoiceLab
     public static function phone(string $input): string
     {
         $digits = preg_replace('/\D/', '', $input);
+        if (!str_starts_with(trim($input), '+') && preg_match('/^0(?:300|500|800|900)[0-9]{7}$/D', $digits)) $digits = substr($digits, 1);
         if (!str_starts_with(trim($input), '+') && in_array(strlen($digits), [10, 11])) $digits = '55'.$digits;
         if (!preg_match('/^[1-9][0-9]{7,14}$/', $digits)) throw ValidationException::withMessages(['phone' => 'Informe um telefone válido, com DDI e DDD.']);
         return '+'.$digits;

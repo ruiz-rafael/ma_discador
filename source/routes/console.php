@@ -16,3 +16,6 @@ Schedule::command('ma:inbox-sync')->everyMinute()->name('ma-inbox')->withoutOver
 Schedule::command('ma:events-deliver')->everyMinute()->name('ma-events')->withoutOverlapping(5);
 
 Schedule::command('ma:retention-archive')->dailyAt('03:30')->name('ma-retention')->withoutOverlapping(30);
+
+Schedule::call(fn()=>app(\App\Services\QueueOperationSettings::class)->sweep())->everyMinute()->name('voice-connection-monitor')->withoutOverlapping(5);
+Schedule::call(fn()=>app(\App\Services\VoiceRecordings::class)->purge())->hourly()->name('voice-recording-retention')->withoutOverlapping(30);

@@ -118,6 +118,7 @@ class VoiceQueue
             } else {
                 DB::table('voice_agent_presence')->insert($values + ['user_id' => $u, 'created_at' => now()]);
             }
+            if($status==='available')DB::table('voice_agent_queue_counters')->where('user_id',$u)->update(['missed_offers'=>0]);
             if ($status !== null) {
                 $this->audit($w, $u, 'presence', $u, ['status' => $status]);
             }

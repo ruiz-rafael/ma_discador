@@ -23,9 +23,9 @@ class ManualDial {
   foreach($origin['routes']as $route){
    if(!AgentAvailability::available($w,$u,$route['queue_id']))continue;
    $q=DB::table('voice_live_queues')->find($route['queue_id']);
-   if(QueueDestinations::reason($q,$destination)===null)return $q->id;
+   if(QueueOperationSettings::open($q)&&QueueDestinations::reason($q,$destination)===null)return $q->id;
   }
-  abort(409,'Nenhuma das suas filas online permite ligar para este destino com o número escolhido. Confira Gerenciar filas e as permissões de fixos e celulares.');
+  abort(409,'Nenhuma das suas filas online permite ligar para este destino com o número escolhido. Confira Gerenciar filas, os horários e as permissões de destino.');
  }
  public function reserve(int $w,int $u,array $d):array {return DB::transaction(function()use($w,$u,$d){
   DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();app(VoiceCalling::class)->expire();app(VoiceLiveQueue::class)->settle();
@@ -38,7 +38,7 @@ class ManualDial {
   abort_if(app(VoiceAgentCapacity::class)->busy($w,$u),409,'Conclua sua chamada, reserva ou tabulação antes de discar.');
   $presence=DB::table('voice_agent_presence')->where('user_id',$u)->first();abort_if($presence->available_after&&now()->lt($presence->available_after),409,'Aguarde o pós-atendimento.');
   $cfg=app(VoiceCallingConfig::class);abort_unless($cfg->status($q->calling_method)['ready'],503,'A telefonia desta fila precisa ser configurada.');abort_unless(in_array($number,$cfg->read()['allowed_recipients']??[],true),422,'Número fora dos destinos autorizados pelo administrador.');
-  QueueDestinations::check($q,$number);
+  QueueOperationSettings::check($q);QueueDestinations::check($q,$number);
   $contact=DB::table('voice_contacts')->where('workspace_id',$w)->where('phone',$number)->first();abort_unless($contact&&$contact->consent&&$contact->consent_evidence&&!$contact->suppressed_at,422,'Cadastre este contato com autorização antes de ligar. Contatos que pediram interrupção permanecem bloqueados.');
   $limit=app(OperationPolicy::class)->voiceReason($w)??app(VoiceEligibility::class)->globalReason($w,$contact->id);abort_if($limit,422,$limit);
   abort_if(DB::table('voice_audio_sessions')->whereIn('status',['pending','connecting','active'])->where('expires_at','>',now())->exists()||app(VoiceCapacity::class)->full(),409,'Há atendimento ou diagnóstico de áudio em andamento.');
