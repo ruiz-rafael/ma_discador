@@ -67,7 +67,9 @@ class VoiceCalling
             }
             if($reservation)$q=DB::table('voice_live_queues')->find($reservation->queue_id);
             if(isset($q)&&$q->channels_configured){abort_unless($q->calling_method===$method,422,'Use a telefonia definida na fila.');$t['caller_id']=app(QueueChannels::class)->origin($q,$t);}
-            abort_if(app(VoiceAgentCapacity::class)->inboundBusy($w,$user) || DB::table('voice_inbound_calls')->whereNull('capacity_released_at')->exists() || DB::table('voice_outbound_calls')->whereNull('capacity_released_at')->exists(), 409, 'Há ligação reservada, em andamento ou sem confirmação final.');
+            abort_if(app(VoiceAgentCapacity::class)->inboundBusy($w,$user) || DB::table('voice_outbound_calls')->where('workspace_id',$w)->where('user_id',$user)->whereNull('capacity_released_at')->exists() || app(VoiceCapacity::class)->full(), 409, 'Há ligação reservada, em andamento ou sem confirmação final.');
+            abort_if(DB::table('voice_outbound_calls')->where('workspace_id',$w)->where('contact_id',$contact->id)->whereNull('capacity_released_at')->exists(),409,'Contato já está em chamada.');
+            if(isset($campaign))abort_if(DB::table('voice_outbound_calls')->where('campaign_id',$campaign->id)->whereNull('capacity_released_at')->count()>=max(1,(int)($settings['concurrency']??1)),409,'Limite simultâneo da campanha atingido.');
             app(VoiceAudio::class)->expire();
             abort_if(DB::table('voice_audio_sessions')->whereIn('status', ['pending', 'connecting', 'active'])->exists(), 409, 'Finalize o teste interno de áudio antes de ligar.');
             abort_if(DB::table('voice_outbound_calls')->where('created_at', '>=', now()->startOfDay())->count() >= $p['daily_limit'], 429, 'Limite diário de tentativas atingido.');

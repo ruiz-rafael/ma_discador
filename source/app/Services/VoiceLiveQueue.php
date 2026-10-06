@@ -63,7 +63,8 @@ class VoiceLiveQueue
             abort_unless(AgentAvailability::selected($p,$id),409,'Você está offline nesta fila.');
             abort_if(DB::table('voice_live_reservations')->where('workspace_id', $w)->where('user_id', $u)->whereIn('status', self::ACTIVE)->exists() || DB::table('voice_queue_assignments')->where('workspace_id', $w)->where('user_id', $u)->where('status', 'active')->exists() || DB::table('voice_outbound_calls')->where('workspace_id', $w)->where('user_id', $u)->whereNull('capacity_released_at')->exists(), 409, 'Conclua sua reserva, chamada ou tabulação atual.');
             if ($p->available_after && CarbonImmutable::parse($p->available_after)->isFuture()) return ['reservation' => null, 'retry_after' => max(1, (int) now()->diffInSeconds(CarbonImmutable::parse($p->available_after))), 'message' => 'Aguarde o pós-atendimento.', 'reasons' => []];
-            if (DB::table('voice_inbound_calls')->whereNull('capacity_released_at')->exists() || DB::table('voice_outbound_calls')->whereNull('capacity_released_at')->exists()) return ['reservation' => null, 'retry_after' => 10, 'message' => 'Aguardando capacidade de telefonia.', 'reasons' => []];
+            if (app(VoiceCapacity::class)->full()) return ['reservation' => null, 'retry_after' => 10, 'message' => 'Aguardando capacidade de telefonia.', 'reasons' => []];
+            if(!app(QueueDistribution::class)->outboundTurn($q,$u))return ['reservation'=>null,'retry_after'=>5,'message'=>'Aguardando sua vez na distribuição da fila.','reasons'=>[]];
             $campaignIds=QueueRouting::campaigns($q);
             // Alternate eligible campaigns; preserve attempt rounds inside each campaign.
             $last=DB::table('voice_live_reservations')->where('queue_id',$id)->selectRaw('campaign_id,max(created_at) as last_at')->groupBy('campaign_id')->pluck('last_at','campaign_id');
@@ -93,6 +94,7 @@ class VoiceLiveQueue
                 }
                 $rid = (string) Str::uuid();
                 DB::table('voice_live_reservations')->insert(['id' => $rid, 'workspace_id' => $w, 'queue_id' => $id, 'campaign_id'=>$campaign->id, 'contact_id' => $c->id, 'user_id' => $u, 'idempotency_key' => $key, 'expires_at' => now()->addMinutes(3), 'created_at' => now(), 'updated_at' => now()]);
+                app(QueueDistribution::class)->record($q,$u,'outbound');
                 app(VoiceLab::class)->audit($w, $u, 'live_queue.reserved', $rid);
 
                 return ['reservation' => DB::table('voice_live_reservations')->find($rid)];

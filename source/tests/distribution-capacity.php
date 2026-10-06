@@ -1,0 +1,41 @@
+<?php
+/** Real concurrent service/database execution. Signaling is simulated; network/provider calls are forbidden. */
+require __DIR__.'/../vendor/autoload.php';$app=require __DIR__.'/../bootstrap/app.php';$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+use Illuminate\Support\Facades\{DB,Artisan,Http};
+use Illuminate\Support\Str;
+use App\Services\{InboundVoice,VoiceLiveQueue,VoiceCalling,QueueDistribution,VoiceCapacity};
+if(!app()->environment('testing')||config('database.default')!=='pgsql'||config('database.connections.pgsql.database')!=='milestones_qa')throw new RuntimeException('Isolated QA database required');
+Http::preventStrayRequests();
+config(['voice_capacity.simultaneous_calls'=>3,'voice_calling_test'=>['allowed_recipients'=>['+5511999990001','+5511999990002','+5511999990003','+5511999990004','+5511999990005','+5511999990006'],'daily_limit'=>50,'max_seconds'=>30,'ring_seconds'=>10,'caller_id_confirmed'=>true,'sip_username'=>'qa','sip_password'=>'qa-private','event_secret'=>str_repeat('b',64)],'twilio_voice_test'=>['account_sid'=>'AC'.str_repeat('a',32),'api_key'=>'SK'.str_repeat('b',32),'api_secret'=>'isolated-fixture-secret','auth_token'=>'isolated-fixture-token','application_sid'=>'AP'.str_repeat('c',32),'caller_id'=>'+12025550123','edge'=>'ashburn','enabled'=>true]]);
+function ensure(bool $ok,string $message):void{if(!$ok)throw new RuntimeException($message);}
+if(($argv[1]??'')==='worker'){
+ $n=(int)$argv[3];$kind=$argv[2];$start=microtime(true);$result=['kind'=>$kind];
+ try{
+  if($kind==='inbound'){$xml=app(InboundVoice::class)->receive(['AccountSid'=>'AC'.str_repeat('a',32),'CallSid'=>'CA'.str_pad((string)$n,32,'0',STR_PAD_LEFT),'From'=>'+5511999990000','To'=>'+12025550123']);$result+=['offered'=>str_contains($xml,'<Client'),'rejected'=>str_contains($xml,'<Reject')];}
+  else{$agent=[3,4,5][$n%3];$queue=(int)DB::table('voice_live_queues')->value('id');$reservation=app(VoiceLiveQueue::class)->claim(1,$agent,$queue,(string)Str::uuid())['reservation'];if($reservation){$grant=app(VoiceCalling::class)->reserve(1,$agent,['method'=>'programmable_voice','contact_id'=>$reservation->contact_id,'campaign_id'=>$reservation->campaign_id,'queue_reservation_id'=>$reservation->id,'idempotency_key'=>(string)Str::uuid(),'consent_evidence'=>'Isolated QA fixture']);$result['grant_id']=$grant['id'];}else $result['waiting']=true;}
+ }catch(\Symfony\Component\HttpKernel\Exception\HttpException $e){ensure(in_array($e->getStatusCode(),[409,429],true),'Unexpected HTTP '.$e->getStatusCode().': '.$e->getMessage());$result['blocked']=$e->getStatusCode();}
+ $result['ms']=round((microtime(true)-$start)*1000,2);echo json_encode($result);exit;
+}
+function seed():void{
+ Artisan::call('migrate:fresh',['--force'=>true]);$ids=[3,4,5];
+ foreach($ids as $id){App\Models\User::factory()->create(['id'=>$id,'name'=>'Agente Homologação '.($id-2),'voice_workspace_id'=>1,'voice_role'=>'agent']);DB::table('voice_agent_presence')->insert(['user_id'=>$id,'workspace_id'=>1,'status'=>'available','last_seen_at'=>now(),'available_since'=>now()->subMinutes(6-$id)]);DB::table('voice_inbound_devices')->insert(['user_id'=>$id,'workspace_id'=>1,'session_id'=>(string)Str::uuid(),'identity'=>'qa_agent_'.$id,'ready'=>true,'last_seen_at'=>now()]);}
+ $settings=['mode'=>'progressive','business_number'=>'+12025550123','number_mode'=>'separate','timezone'=>'UTC','days'=>[1,2,3,4,5,6,7],'start_time'=>'00:00','end_time'=>'23:59','max_attempts'=>5,'retry_minutes'=>1,'concurrency'=>3,'whatsapp_enabled'=>false,'whatsapp_delivery'=>'simulation'];
+ $campaign=DB::table('voice_campaigns')->insertGetId(['workspace_id'=>1,'name'=>'Concurrent isolated QA','status'=>'testing','settings'=>json_encode($settings),'created_at'=>now()]);
+ for($i=1;$i<=6;$i++){$phone='+551199999000'.$i;$contact=DB::table('voice_contacts')->insertGetId(['workspace_id'=>1,'name'=>'Synthetic '.$i,'phone'=>$phone,'original_phone'=>$phone,'consent'=>true,'consent_evidence'=>'Isolated QA fixture','source'=>'QA']);DB::table('voice_members')->insert(['campaign_id'=>$campaign,'contact_id'=>$contact]);}
+ $q=DB::table('voice_live_queues')->insertGetId(['workspace_id'=>1,'campaign_id'=>$campaign,'name'=>'QA concurrent','agent_ids'=>json_encode($ids),'direction'=>'mixed','status'=>'running','inbound_enabled'=>true,'calling_method'=>'programmable_voice','mode'=>'progressive','distribution_strategy'=>'round_robin','wrapup_enabled'=>false]);DB::table('voice_inbound_routes')->insert(['workspace_id'=>1,'queue_id'=>$q,'number'=>'+12025550123','enabled'=>true]);
+}
+function wave(array $kinds,int $startAt=0):array{
+ $out=[];$n=$startAt;foreach(array_chunk($kinds,6)as $batch){$jobs=[];foreach($batch as $kind){$pipes=[];$proc=proc_open([PHP_BINARY,__FILE__,'worker',$kind,(string)++$n],[1=>['pipe','w'],2=>['pipe','w']],$pipes);$jobs[]=[$proc,$pipes];}foreach($jobs as [$proc,$pipes]){$text=stream_get_contents($pipes[1]);$err=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);ensure(proc_close($proc)===0,'Worker failed: '.$err);$out[]=json_decode($text,true,flags:JSON_THROW_ON_ERROR);}}return $out;
+}
+function invariant():array{
+ $in=DB::table('voice_inbound_calls')->whereNull('capacity_released_at')->count();$out=DB::table('voice_outbound_calls')->whereNull('capacity_released_at')->count();ensure($in+$out<=3,'Global capacity exceeded');
+ $owners=DB::table('voice_inbound_offers as o')->join('voice_inbound_calls as c','c.id','=','o.call_id')->whereNull('c.capacity_released_at')->whereIn('o.status',['offered','answered','transfer_pending'])->pluck('o.user_id')->all();
+ $owners=array_merge($owners,DB::table('voice_live_reservations')->whereIn('status',['reserved','calling','tabulation'])->pluck('user_id')->all());ensure(count($owners)===count(array_unique($owners)),'Agent double assignment');
+ $contacts=DB::table('voice_live_reservations')->whereIn('status',['reserved','calling','tabulation'])->pluck('contact_id')->all();ensure(count($contacts)===count(array_unique($contacts)),'Contact double assignment');
+ return ['active_inbound'=>$in,'active_outbound'=>$out,'unique_busy_agents'=>count($owners),'duplicate_agent_assignments'=>0,'duplicate_contact_assignments'=>0];
+}
+$report=['mode'=>'isolated PostgreSQL: real service execution with synthetic telephony, no audio or provider calls','agents'=>[3,4,5],'concurrency_limit'=>3,'workers_per_wave'=>6,'scenarios'=>[]];
+foreach(['inbound','outbound','mixed']as $scenario){seed();$kinds=$scenario==='mixed'?array_merge(...array_fill(0,15,['inbound','outbound'])):array_fill(0,30,$scenario);$wall=microtime(true);$results=$scenario==='mixed'?array_merge(wave(['outbound','inbound']),wave(array_slice($kinds,2),2)):wave($kinds);$state=invariant();if($scenario==='mixed')ensure($state['active_inbound']>0&&$state['active_outbound']>0,'Mixed scenario must hold both directions concurrently');ensure($state['active_inbound']+$state['active_outbound']===3,'Three concurrent slots were not admitted: '.json_encode($results));if($scenario!=='mixed')ensure($state['unique_busy_agents']===3,'Expected three different agents');$durations=array_column($results,'ms');sort($durations);$report['scenarios'][$scenario]=$state+['requests'=>count($results),'p95_ms'=>$durations[(int)floor((count($durations)-1)*.95)],'wall_seconds'=>round(microtime(true)-$wall,2)];
+ if($scenario==='inbound'){$calls=DB::table('voice_inbound_calls')->get();foreach($calls as $c){$offer=DB::table('voice_inbound_offers')->where('call_id',$c->id)->first();app(InboundVoice::class)->offerStatus($offer->id,['AccountSid'=>$c->account_sid,'ParentCallSid'=>$c->call_sid,'CallSid'=>'CA'.str_pad((string)(1000+$c->user_id),32,'0',STR_PAD_LEFT),'CallStatus'=>'in-progress']);}ensure(DB::table('voice_inbound_calls')->where('status','answered')->count()===3,'Three answered calls not recorded');foreach($calls as $c)app(InboundVoice::class)->ended(['AccountSid'=>$c->account_sid,'CallSid'=>$c->call_sid,'CallStatus'=>'completed','CallDuration'=>15]);ensure(DB::table('voice_inbound_calls')->where('status','tabulation')->count()===3,'Tabulation did not retain all agents');$report['scenarios'][$scenario]['three_answers_and_three_tabulations']=true;}
+}
+Http::assertNothingSent();$report['no_provider_requests']=true;$report['production_unchanged']=true;echo json_encode($report,JSON_PRETTY_PRINT).PHP_EOL;

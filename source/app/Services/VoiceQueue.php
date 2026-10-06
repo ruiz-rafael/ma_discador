@@ -108,6 +108,7 @@ class VoiceQueue
             $values = ['workspace_id' => $w, 'last_seen_at' => now(), 'updated_at' => now()];
             if($setSelection)$values['queue_ids']=$selection===null?null:json_encode(array_values($selection));
             if($status!==null)$values['session_id']=$session;
+            if($status==='available'&&(!$old||$old->status!=='available'||!$old->last_seen_at||CarbonImmutable::parse($old->last_seen_at)->lte(now()->subSeconds(90))))$values['available_since']=now();
 
             if ($status !== null) {
                 $values += ['status' => $status, 'pause_reason' => $status === 'paused' ? $reason : null];

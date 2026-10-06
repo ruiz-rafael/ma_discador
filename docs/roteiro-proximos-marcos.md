@@ -74,3 +74,10 @@ Validação desta rodada: compilação Vite, oito testes existentes de áudio/mi
 4. **CRM e escala:** homologar o discador incorporado no domínio consumidor, validar contratos de eventos e medir mídia/capacidade antes de ampliar o uso. O CRM permanece fora desta intervenção.
 
 Essas pendências não são marcadas como concluídas pelos cards da interface nem pelos testes simulados.
+
+
+### Distribuição e concorrência interna — 06/10/2026
+
+A fila passa a oferecer rodízio ou prioridade para o atendente há mais tempo livre; filas existentes preservam a regra anterior. A homologação interna utiliza três agentes e telefonia simulada em banco separado, com concorrência real entre processos. Consulte [Operação e supervisão](operacao-supervisao.md#distribuição-entre-atendentes--06102026).
+
+A capacidade de produção permanece em uma chamada simultânea. A próxima homologação de escala deve verificar três conexões de áudio reais, qualidade, receptivo e transferência, limites da operadora e consumo. Os testes de distribuição não substituem essa etapa. Um modo preditivo exige ainda um mecanismo próprio de estimativa de discagem e controle de atendimentos sem agente; ele não está implementado por esta entrega.

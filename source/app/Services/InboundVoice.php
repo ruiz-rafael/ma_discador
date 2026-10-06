@@ -41,8 +41,8 @@ class InboundVoice {
    $queue=$route?DB::table('voice_live_queues')->where('workspace_id',$route->workspace_id)->find($route->queue_id):null;
    if(!$route||!QueueRouting::incoming($queue)||app(OperationPolicy::class)->voiceReason($route->workspace_id)){$xml->reject(['reason'=>'busy']);return (string)$xml;}
    if(DB::table('voice_inbound_calls')->where('call_sid',$d['CallSid'])->exists())return app(TwilioVoiceCalling::class)->hangup();
-   // The current homologation infrastructure reserves a single external call globally.
-   if(DB::table('voice_audio_sessions')->whereIn('status',['pending','connecting','active'])->where('expires_at','>',now())->exists() || DB::table('voice_outbound_calls')->whereNull('capacity_released_at')->exists() || DB::table('voice_inbound_calls')->whereNull('capacity_released_at')->exists()){$xml->reject(['reason'=>'busy']);return (string)$xml;}
+   // Shared admission across inbound and outbound; production default remains one.
+   if(DB::table('voice_audio_sessions')->whereIn('status',['pending','connecting','active'])->where('expires_at','>',now())->exists() || app(VoiceCapacity::class)->full()){$xml->reject(['reason'=>'busy']);return (string)$xml;}
    $id=(string)Str::uuid();DB::table('voice_inbound_calls')->insert(['id'=>$id,'workspace_id'=>$route->workspace_id,'route_id'=>$route->id,'queue_id'=>$route->queue_id,'account_sid'=>$d['AccountSid'],'call_sid'=>$d['CallSid'],'from_number'=>$d['From'],'to_number'=>$d['To'],'created_at'=>now(),'updated_at'=>now()]);
    app(VoiceLab::class)->audit($route->workspace_id,null,'inbound.received',$id);
    return $this->dispatch($id,$d['CallSid']);
@@ -65,13 +65,14 @@ class InboundVoice {
    $queue=DB::table('voice_live_queues')->where('workspace_id',$c->workspace_id)->find($c->queue_id);
    if(!QueueRouting::incoming($queue)||!$route->enabled || app(OperationPolicy::class)->get($c->workspace_id)['paused'] || now()->gte(\Carbon\CarbonImmutable::parse($c->created_at)->addSeconds($route->wait_seconds))){DB::table('voice_inbound_calls')->where('id',$id)->update(['status'=>'unavailable','updated_at'=>now()]);$xml->say('No momento não há atendentes disponíveis. Por favor, tente novamente mais tarde.',['language'=>'pt-BR']);$xml->hangup();return (string)$xml;}
    // Don't repeatedly ring a rejecting/unreachable agent during the same incoming call.
-   $tried=DB::table('voice_inbound_offers')->where('call_id',$id)->pluck('user_id')->all();$agent=$this->candidates($c)->first(fn($u)=>!in_array($u->id,$tried,true));
+   $tried=DB::table('voice_inbound_offers')->where('call_id',$id)->pluck('user_id')->all();$agent=app(QueueDistribution::class)->order($queue,$this->candidates($c)->filter(fn($u)=>!in_array($u->id,$tried,true)),'inbound')->first();
    if(!$agent){$xml->say('Aguarde, estamos procurando um atendente.',['language'=>'pt-BR']);$xml->pause(['length'=>5]);$xml->redirect(self::BASE.'/wait/'.$id,['method'=>'POST']);return (string)$xml;}
    $offer=$this->offer($c,$agent);return $this->render($offer);
   });
  }
  private function offer(object $c,object $agent,bool $transfer=false):string {
   $id=(string)Str::uuid();DB::table('voice_inbound_offers')->insert(['id'=>$id,'call_id'=>$c->id,'user_id'=>$agent->id,'identity'=>$agent->identity,'status'=>$transfer?'transfer_pending':'offered','created_at'=>now(),'updated_at'=>now()]);
+  app(QueueDistribution::class)->record(DB::table('voice_live_queues')->find($c->queue_id),$agent->id,'inbound');
   if(!$transfer)DB::table('voice_inbound_calls')->where('id',$c->id)->update(['status'=>'ringing','user_id'=>$agent->id,'updated_at'=>now()]);
   app(VoiceLab::class)->audit($c->workspace_id,$agent->id,$transfer?'inbound.transfer_reserved':'inbound.offered',$c->id,['offer_id'=>$id]);return $id;
  }

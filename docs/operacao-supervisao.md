@@ -174,3 +174,20 @@ O administrador inicia em **Visão geral** quando abre o MA sem um endereço esp
 No agente, **Discagem manual** abre um modal centralizado e adapta-se a telas menores. Clique no fundo e Escape não fecham o discador. Os estados da ligação, erro e resultado final permanecem nele. O teclado numérico é recolhido durante a preparação/chamada para dar prioridade ao acompanhamento. A tabulação permanece no mesmo modal. O botão × fecha a interface, preservando a chamada e o rascunho; Encerrar ligação é uma ação independente. Pausas automáticas por erro não fecham nem substituem o modal por uma caixa de status. A tela de fundo fica inerte enquanto a caixa está aberta, e o foco de teclado volta ao controle de origem ao fechar.
 
 O resumo da última chamada em Minha operação pode ser expandido para detalhes. A abertura de telas e cards não disca, não envia WhatsApp e não altera a disponibilidade. Homologação desta rodada com telefonia simulada e conferência pública somente de leitura; evidências privadas em `evidence/workspace-experience-20261005/`.
+
+
+### Distribuição entre atendentes — 06/10/2026
+
+Em **Filas de atendimento → Ver fila → Editar fila e vínculos → Permissões e pausas**, escolha **Regra de distribuição** e salve. A alteração exige fila de saída pausada e ausência de atendimentos ou tabulações pendentes, como as demais configurações da fila.
+
+- **Rodízio entre atendentes:** prioriza quem recebeu uma atribuição há mais turnos, entre os elegíveis. O registro de turnos é separado por canal e não muda com o heartbeat do navegador.
+- **Há mais tempo livre:** considera entrada em disponibilidade, fim da última chamada, pós-atendimento e última atribuição.
+- **Padrão por canal:** preserva o comportamento anterior das filas existentes. Novas filas sugerem rodízio.
+
+A regra vale para ofertas receptivas, reservas de saída progressiva e distribuição automática de conversas WhatsApp. Preview, discagem manual e transferência com destinatário escolhido mantêm a escolha explícita. No progressivo, participam do rodízio os navegadores que pediram trabalho nos últimos 15 segundos; um navegador que para de pedir não bloqueia a fila indefinidamente. Agentes sem elegibilidade, pausados ou offline são ignorados. Chamadas e tabulações pendentes impedem atribuir outra chamada ao mesmo agente. No WhatsApp continua valendo o limite de conversas abertas da rota.
+
+A configuração interna `MA_VOICE_SIMULTANEOUS_CALLS` limita conjuntamente chamadas de entrada e saída. O padrão e o ambiente em uso continuam em **1**; a homologação isolada usa **3**. Reservas de agentes e contatos, callbacks e contadores são protegidos pelo mesmo bloqueio transacional no PostgreSQL. Um limite configurável não constitui homologação de operadora, SIP, áudio, consumo ou modo preditivo. O modo implementado continua sendo progressivo.
+
+Foram criadas três contas de homologação com perfil de agente. As credenciais são privadas e não fazem parte do repositório. Evidências de testes isolados e publicação ficam em `evidence/queue-distribution-20261006/`. Os testes usam sinalização sintética, sem chamadas ou mensagens para clientes e sem colocar as contas reais online.
+
+Resultados: **341 testes e 2.724 asserções em cada banco (SQLite e PostgreSQL)**. Contenção PostgreSQL com 90 solicitações e até seis processos concorrentes: três ofertas receptivas a três agentes; três reservas de saída a três agentes; duas entradas junto com uma saída, sem duplicidade de agente ou contato. Foram verificados também três atendimentos e três tabulações receptivas sintéticos. Uma bateria adicional com 40 solicitações confirmou uma admissão e 39 rejeições quando a capacidade está em um. Não são medições de áudio nem de desempenho da operadora.

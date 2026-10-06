@@ -15,14 +15,18 @@ class ConversationInbox {
   });
  }
  public function distribute(string $id):void {
+  DB::transaction(function()use($id){DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();$this->distributeLocked($id);});
+ }
+ private function distributeLocked(string $id):void {
   $c=DB::table('wa_conversations')->find($id);if(!$c||$c->assigned_user_id||!$c->queue_id||$c->status!=='open')return;
   $route=DB::table('wa_inbox_routes')->where('sender_id',$c->sender_id)->where('enabled',true)->first();if(!$route)return;
   $q=DB::table('voice_live_queues')->where('workspace_id',$c->workspace_id)->where('id',$c->queue_id)->first();if(!$q)return;
   $agents=DB::table('users as u')->join('voice_agent_presence as p','p.user_id','=','u.id')->where('u.voice_workspace_id',$c->workspace_id)->where('u.voice_enabled',true)->whereIn('u.id',json_decode($q->agent_ids,true))->where('p.status','available')->where('p.last_seen_at','>',now()->subSeconds(90))->get(['u.id']);
   $counts=DB::table('wa_conversations')->where('workspace_id',$c->workspace_id)->where('status','open')->selectRaw('assigned_user_id,count(*) as n')->groupBy('assigned_user_id')->pluck('n','assigned_user_id');
   $agents=$agents->filter(fn($a)=>AgentAvailability::available($c->workspace_id,$a->id,$c->queue_id));
-  $agent=$agents->sort(fn($a,$b)=>(($counts[$a->id]??0)<=>($counts[$b->id]??0))?:($a->id<=>$b->id))->first(fn($a)=>($counts[$a->id]??0)<$route->max_open);
-  if($agent){DB::table('wa_conversations')->where('id',$id)->update(['assigned_user_id'=>$agent->id,'revision'=>$c->revision+1,'updated_at'=>now()]);app(VoiceLab::class)->audit($c->workspace_id,null,'conversation.distributed',$id,['user_id'=>$agent->id]);}
+  $agents=$agents->filter(fn($a)=>($counts[$a->id]??0)<$route->max_open)->sort(fn($a,$b)=>(($counts[$a->id]??0)<=>($counts[$b->id]??0))?:($a->id<=>$b->id));
+  $agent=app(QueueDistribution::class)->order($q,$agents,'whatsapp')->first();
+  if($agent){app(QueueDistribution::class)->record($q,$agent->id,'whatsapp');DB::table('wa_conversations')->where('id',$id)->update(['assigned_user_id'=>$agent->id,'revision'=>$c->revision+1,'updated_at'=>now()]);app(VoiceLab::class)->audit($c->workspace_id,null,'conversation.distributed',$id,['user_id'=>$agent->id]);}
  }
  public function visible(int $w,object $u):\Illuminate\Database\Query\Builder {
   $q=DB::table('wa_conversations')->where('workspace_id',$w);if(in_array($u->voice_role,['admin','supervisor'],true))return $q;
