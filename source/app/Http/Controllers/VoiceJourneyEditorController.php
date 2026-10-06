@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 class VoiceJourneyEditorController extends Controller
 {
     private const FIELDS = [
-        'entry' => ['list_kind', 'list_id', 'contact_ids', 'crm_campaign_id', 'segment_id'],
+        'entry' => ['list_kind', 'list_id', 'contact_ids', 'crm_campaign_id', 'segment_id', 'reentry'],
         'voice' => ['queue_id','mode', 'max_attempts', 'whatsapp_after', 'timezone', 'days', 'start_time', 'end_time', 'concurrency', 'script'],
         'wait' => ['retry_minutes'],
         'decision' => ['whatsapp_after'],
@@ -52,6 +52,7 @@ class VoiceJourneyEditorController extends Controller
                 } else {
                     $ids = $config['contact_ids'] ?? $ids;
                 }
+                abort_if(($config['reentry']['mode']??'')==='segment_return'&&!$sourceId,422,'Selecione um segmento para usar saída e retorno.');
                 unset($config['list_kind'], $config['list_id'], $config['contact_ids']);
             }
             $queueInput=array_key_exists('queue_id',$config)?['queue_id'=>$config['queue_id']]:[];unset($config['queue_id']);
@@ -86,6 +87,7 @@ class VoiceJourneyEditorController extends Controller
                 abort_if((clone $q)->where('status', 'running')->exists(), 409, 'Pause a fila antes de alterar o modo de discagem.');
                 $q->update(['mode' => $config['mode'], 'updated_at' => now()]);
             }
+            app(\App\Services\CadenceReentry::class)->sync(DB::table('voice_campaigns')->find($id),false);
             app(VoiceLab::class)->audit($w, $r->user()->id, 'journey.node.configured', $id, ['node' => $node]);
             return ['journey' => collect(app(VoiceJourneyOverview::class)->get($w))->firstWhere('id', $id)];
         });

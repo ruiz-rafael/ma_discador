@@ -215,6 +215,7 @@ class VoiceLists
         DB::transaction(function () use ($w, $u, $id, $status, $reason) {
             DB::table('voice_runtime')->where('id', 1)->lockForUpdate()->firstOrFail();
             $m = DB::table('voice_list_members as m')->join('voice_lists as l', 'l.id', '=', 'm.list_id')->where('l.workspace_id', $w)->where('m.id', $id)->select('m.*')->firstOrFail();
+            app(CadenceReentry::class)->membershipChanged('voice',$m->list_id,[$m->contact_id],$status==='active');
             DB::table('voice_list_members')->where('id',$id)->update(['status' => $status, 'reason' => $reason, 'updated_at' => now()]);
             if ($status === 'removed') {
                 DB::table('voice_followups')->where('workspace_id',$w)->where('contact_id',$m->contact_id)->whereIn('campaign_id',DB::table('voice_campaign_policies')->where('list_id',$m->list_id)->select('campaign_id'))->whereIn('status',['pending', 'blocked'])->update(['status' => 'cancelled', 'reason' => 'Contato retirado da lista.', 'updated_at' => now()]);

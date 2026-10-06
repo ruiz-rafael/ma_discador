@@ -36,11 +36,11 @@ class JourneyReplyAttribution
             // More than one journey (or a manual message) makes attribution ambiguous.
             $campaigns=(clone $q)->select('campaign_id')->distinct()->limit(2)->pluck('campaign_id');
             if ($campaigns->count()===1 && $campaigns->first()!==null) {
-                $original=$q->orderByDesc('created_at')->orderBy('id')->first();$kind='single_journey';
+                $cycles=(clone $q)->select('run_id')->distinct()->limit(2)->pluck('run_id');if($cycles->count()===1){$original=$q->orderByDesc('created_at')->orderBy('id')->first();$kind='single_journey';}
             }
         }
         DB::table('wa_messages')->where('id',$id)->whereNull('reply_attribution')->update([
-            'campaign_id'=>$original?->campaign_id,'reply_to_message_id'=>$original?->id,'reply_attribution'=>$kind,
+            'run_id'=>$original?->run_id,'campaign_id'=>$original?->campaign_id,'reply_to_message_id'=>$original?->id,'reply_attribution'=>$kind,
             'button_id'=>$button['id']??null,'button_label'=>$button['label']??null,
         ]);
     }

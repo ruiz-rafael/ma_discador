@@ -63,7 +63,7 @@ class WhatsAppQr
             if ($old) { abort_unless($old->request_hash === $hash, 409); return ['row' => $old, 'new' => false]; }
             app(OperationPolicy::class)->messages($w);
             $contact = DB::table('voice_contacts')->where('workspace_id', $w)->where('id', $d['contact_id'])->firstOrFail();
-            abort_unless($contact->consent && $contact->consent_evidence && !$contact->suppressed_at && !$contact->replied_at, 422, 'Contato sem autorização ou com abordagem interrompida.');
+            abort_unless($contact->consent && $contact->consent_evidence && !$contact->suppressed_at && !app(CadenceReentry::class)->replyBlocks($contact,$followup?DB::table('voice_followups')->where('id',$followup)->value('run_id'):null), 422, 'Contato sem autorização ou com abordagem interrompida.');
             if ($followup) { app(VoiceFollowups::class)->assertEligible($followup); }
             $c = $this->config();
             abort_unless(in_array($contact->phone, $c['allowed_recipients'] ?? [], true), 422, 'Destino fora da lista de homologação do WhatsApp QR.');
@@ -75,7 +75,7 @@ class WhatsAppQr
                 abort_unless(DB::table('voice_members')->where('campaign_id', $campaign->id)->where('contact_id', $contact->id)->exists(), 422);
             }
             $id = (string) Str::uuid();
-            DB::table('wa_messages')->insert(['id' => $id, 'workspace_id' => $w, 'sender_id' => $s->id, 'contact_id' => $contact->id, 'campaign_id' => $d['campaign_id'] ?? null, 'user_id' => $user, 'qr_template_id' => $templateId, 'interactive' => $templateId ? json_encode(['mode' => 'experimental_buttons', 'buttons' => $buttons]) : null, 'provider' => 'qr', 'direction' => 'outbound', 'idempotency_key' => $d['idempotency_key'], 'request_hash' => $hash, 'account_sid' => 'qr:'.$s->id, 'from_number' => $s->number, 'to_number' => $contact->phone, 'status' => 'sending', 'body' => $d['body'], 'consent_evidence' => $d['consent_evidence'], 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('wa_messages')->insert(['id' => $id, 'run_id'=>$followup?DB::table('voice_followups')->where('id',$followup)->value('run_id'):null, 'workspace_id' => $w, 'sender_id' => $s->id, 'contact_id' => $contact->id, 'campaign_id' => $d['campaign_id'] ?? null, 'user_id' => $user, 'qr_template_id' => $templateId, 'interactive' => $templateId ? json_encode(['mode' => 'experimental_buttons', 'buttons' => $buttons]) : null, 'provider' => 'qr', 'direction' => 'outbound', 'idempotency_key' => $d['idempotency_key'], 'request_hash' => $hash, 'account_sid' => 'qr:'.$s->id, 'from_number' => $s->number, 'to_number' => $contact->phone, 'status' => 'sending', 'body' => $d['body'], 'consent_evidence' => $d['consent_evidence'], 'created_at' => now(), 'updated_at' => now()]);
             return ['row' => DB::table('wa_messages')->find($id), 'new' => true];
         });
         if (!$m['new']) { return $m['row']; }
@@ -84,7 +84,7 @@ class WhatsAppQr
         try {
             if ($followup) { app(VoiceFollowups::class)->assertEligible($followup); }
             $contact = DB::table('voice_contacts')->find($m->contact_id);
-            if (app(OperationPolicy::class)->get($w)['paused'] || !$contact->consent || $contact->suppressed_at || $contact->replied_at || $contact->phone !== $m->to_number) {
+            if (app(OperationPolicy::class)->get($w)['paused'] || !$contact->consent || $contact->suppressed_at || app(CadenceReentry::class)->replyBlocks($contact,$m->run_id) || $contact->phone !== $m->to_number) {
                 DB::table('wa_messages')->where('id', $m->id)->update(['status' => 'cancelled', 'updated_at' => now()]);
             } else {
                 $payload = ['id' => $m->id, 'number' => $s->number, 'to' => $m->to_number, 'text' => $m->body];

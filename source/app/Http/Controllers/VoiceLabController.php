@@ -102,7 +102,8 @@ class VoiceLabController extends Controller
         $d = $r->validate([
             'queue_id'=>'sometimes|nullable|integer|min:1','name' => 'required|string|max:160', 'revision' => 'sometimes|integer|min:0',
             'contact_ids' => 'present|array|max:500', 'contact_ids.*' => 'integer|distinct',
-            'settings' => 'required|array:mode,crm_campaign_id,segment_id,business_number,number_mode,whatsapp_number,whatsapp_sender_id,timezone,days,start_time,end_time,max_attempts,retry_minutes,concurrency,script,whatsapp_enabled,whatsapp_after,whatsapp_delay,whatsapp_template_id,whatsapp_delivery,whatsapp_text,whatsapp_real_template_id,whatsapp_variables,whatsapp_qr_template_id,whatsapp_qr_buttons_confirmed',
+            'settings' => 'required|array:mode,crm_campaign_id,segment_id,business_number,number_mode,whatsapp_number,whatsapp_sender_id,timezone,days,start_time,end_time,max_attempts,retry_minutes,concurrency,script,whatsapp_enabled,whatsapp_after,whatsapp_delay,whatsapp_template_id,whatsapp_delivery,whatsapp_text,whatsapp_real_template_id,whatsapp_variables,whatsapp_qr_template_id,whatsapp_qr_buttons_confirmed,reentry',
+            'settings.reentry'=>'sometimes|array:mode,interval_days,max_participations,exit_reasons,reply_wait_hours',
             'settings.mode' => 'required|in:preview,progressive',
             'settings.crm_campaign_id' => 'nullable|string|max:160', 'settings.segment_id' => 'nullable|string|max:160',
             'settings.business_number' => ['nullable', 'string', 'regex:/^\+[1-9][0-9]{7,14}$/D'],
@@ -123,6 +124,7 @@ class VoiceLabController extends Controller
             'settings.whatsapp_variables' => 'sometimes|array|max:10',
             'settings.whatsapp_variables.*' => 'required|string|max:500',
         ]);
+        if(isset($d['settings']['reentry']))$d['settings']['reentry']=app(\App\Services\CadenceReentry::class)->validate($d['settings']['reentry']);
         $currentQueue=$id?\App\Services\QueueRouting::forCampaign($w,$id)->first():null;
         $chosenQueue=$currentQueue;
         if(array_key_exists('queue_id',$d))$chosenQueue=$d['queue_id']?DB::table('voice_live_queues')->where('workspace_id',$w)->where('direction','!=','inbound')->where('id',$d['queue_id'])->firstOrFail():null;
@@ -168,6 +170,7 @@ class VoiceLabController extends Controller
             $row = ['name' => $d['name'], 'settings' => json_encode($d['settings'], JSON_THROW_ON_ERROR), 'updated_at' => now()];
             if ($id) {
                 $old = $this->lab->get('voice_campaigns', $w, $id);
+                $oldSettings=json_decode($old->settings,true);if(isset($oldSettings['reentry'])&&!isset($d['settings']['reentry'])){$d['settings']['reentry']=$oldSettings['reentry'];$row['settings']=json_encode($d['settings']);}
                 abort_if(DB::table('voice_followups')->where('campaign_id', $id)->where('status', 'dispatching')->exists() || DB::table('voice_outbound_calls')->where('campaign_id', $id)->whereNull('capacity_released_at')->exists(), 409, 'Aguarde a conclusão das chamadas e envios em andamento.');
                 abort_unless(in_array($old->status, ['draft', 'paused']), 409, 'Pause a campanha antes de alterar a configuração.');
                 abort_if($this->lab->scope('voice_attempts', $w)->where('campaign_id', $id)->where('status', 'ringing')->where('expires_at', '>', now())->exists(), 409, 'Conclua as tentativas abertas antes de alterar a configuração.');
@@ -205,7 +208,7 @@ class VoiceLabController extends Controller
             }
             $this->lab->scope('voice_campaigns', $w)->where('id', $id)->update(['status' => $d['status'], 'revision' => $c->revision + 1, 'updated_at' => now()]);
             if (in_array($d['status'], ['completed', 'cancelled'])) {
-                $this->lab->scope('voice_followups', $w)->where('campaign_id', $id)->whereIn('status', ['pending', 'blocked'])->when(! $ruleChanged, fn ($q) => $q->whereNotIn('contact_id', $d['contact_ids']))->update(['status' => 'cancelled', 'reason' => 'Campanha encerrada.', 'updated_at' => now()]);
+                $this->lab->scope('voice_followups', $w)->where('campaign_id', $id)->whereIn('status', ['pending', 'blocked'])->update(['status' => 'cancelled', 'reason' => 'Campanha encerrada.', 'updated_at' => now()]);
                 $this->lab->scope('voice_actions', $w)->where('campaign_id', $id)->where('status', 'pending')->update(['status' => 'cancelled', 'reason' => 'Campanha encerrada.', 'updated_at' => now()]);
                 $this->lab->scope('voice_attempts', $w)->where('campaign_id', $id)->where('status', 'ringing')->update(['status' => 'cancelled', 'finished_at' => now(), 'updated_at' => now()]);
             }

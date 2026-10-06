@@ -30,6 +30,7 @@ class JourneyReports
         $q=DB::table(($calls?'voice_outbound_calls':'wa_messages').' as r')->where('r.workspace_id',$w)
             ->whereRaw("$time >= ?",[CarbonImmutable::parse($f['from'],'America/Sao_Paulo')->startOfDay()->utc()])
             ->whereRaw("$time < ?",[CarbonImmutable::parse($f['to'],'America/Sao_Paulo')->addDay()->startOfDay()->utc()]);
+        if (!empty($f['run_id']))$q->where('r.run_id',$f['run_id']);
         if (!empty($f['campaign_id'])) $q->where('r.campaign_id',$f['campaign_id']);
         if (!empty($f['day'])) {
             $q->whereRaw("$time >= ?",[CarbonImmutable::parse($f['day'],'America/Sao_Paulo')->startOfDay()->utc()])
@@ -90,8 +91,8 @@ class JourneyReports
         if(!empty($f['button_id']))$q->where('r.button_id',$f['button_id']);
         if(isset($f['button_label']))$q->where('r.button_label',$f['button_label']);
         $q->leftJoin('voice_contacts as p','p.id','=','r.contact_id')->leftJoin('voice_campaigns as c','c.id','=','r.campaign_id');
-        $fields=$call?['r.id','r.contact_id','r.campaign_id','r.status','r.destination','r.caller_id','r.method','r.bill_seconds','r.started_at','r.answered_at','r.ended_at','r.created_at','r.disposition_label','r.human_confirmed','r.disposition_notes','r.context_snapshot']
-            :['r.id','r.contact_id','r.campaign_id','r.direction','r.from_number','r.to_number','r.status','r.error_code','r.body','r.provider','r.created_at','r.updated_at','r.button_id','r.button_label','r.reply_attribution','r.reply_to_message_id'];
+        $fields=$call?['r.id','r.run_id','r.contact_id','r.campaign_id','r.status','r.destination','r.caller_id','r.method','r.bill_seconds','r.started_at','r.answered_at','r.ended_at','r.created_at','r.disposition_label','r.human_confirmed','r.disposition_notes','r.context_snapshot']
+            :['r.id','r.run_id','r.contact_id','r.campaign_id','r.direction','r.from_number','r.to_number','r.status','r.error_code','r.body','r.provider','r.created_at','r.updated_at','r.button_id','r.button_label','r.reply_attribution','r.reply_to_message_id'];
         $rows=$q->select(array_merge($fields,['p.name as contact_name','c.name as campaign_name']))
             ->selectRaw('(select mc.name from contacts mc join voice_audience_contacts a on a.contact_id=mc.id join voice_campaign_policies cp on cp.audience_id=a.audience_id where cp.campaign_id=r.campaign_id and a.voice_contact_id=r.contact_id order by mc.id limit 1) as audience_name')
             ->orderByDesc($call?DB::raw('COALESCE(r.started_at,r.created_at)'):'r.created_at')->orderBy('r.id')->paginate(25,['*'],'page',(int)($f['page']??1));
@@ -108,8 +109,8 @@ class JourneyReports
         $call=$kind==='calls';
         $m=DB::table($call?'voice_outbound_calls':'wa_messages')->where('workspace_id',$w)->where('id',$id)->firstOrFail();
         // Only public report fields. Never expose call grants, hashes, provider credentials or tokens.
-        $fields=$call?['id','contact_id','campaign_id','status','destination','caller_id','method','bill_seconds','created_at','started_at','answered_at','ended_at','dial_status','cause','disposition_label','human_confirmed','disposition_notes','context_snapshot']
-            :['id','contact_id','campaign_id','direction','provider','status','from_number','to_number','body','variables','interactive','error_code','created_at','updated_at','button_id','button_label','reply_attribution','reply_to_message_id'];
+        $fields=$call?['id','run_id','contact_id','campaign_id','status','destination','caller_id','method','bill_seconds','created_at','started_at','answered_at','ended_at','dial_status','cause','disposition_label','human_confirmed','disposition_notes','context_snapshot']
+            :['id','run_id','contact_id','campaign_id','direction','provider','status','from_number','to_number','body','variables','interactive','error_code','created_at','updated_at','button_id','button_label','reply_attribution','reply_to_message_id'];
         $record=array_intersect_key((array)$m,array_flip($fields));
         foreach(['variables','interactive','context_snapshot'] as $key)if(isset($record[$key]))$record[$key]=json_decode($record[$key],true);
         $events=$call?DB::table('voice_dispositions')->where('workspace_id',$w)->where('call_id',$id)->orderBy('revision')->limit(100)->get(['label','notes','human','revision','created_at'])

@@ -14,10 +14,10 @@ class VoiceCalling
         DB::table('voice_outbound_calls')->whereIn('status', ['dialing', 'answered'])->where('deadline_at', '<=', now())->update(['status' => 'unknown', 'updated_at' => now()]);
     }
 
-    public function contact(int $w, int $id, bool $manual = false): object
+    public function contact(int $w, int $id, bool $manual = false, ?string $run = null): object
     {
         $c = DB::table('voice_contacts')->where('workspace_id', $w)->where('id', $id)->firstOrFail();
-        abort_unless($c->consent && ! $c->suppressed_at && ($manual || ! $c->replied_at), 422, 'Contato sem autorização ou com abordagem interrompida.');
+        abort_unless($c->consent && ! $c->suppressed_at && ($manual || ! app(CadenceReentry::class)->replyBlocks($c,$run)), 422, 'Contato sem autorização ou com abordagem interrompida.');
 
         return $c;
     }
@@ -50,7 +50,8 @@ class VoiceCalling
             $limitReason = app(OperationPolicy::class)->voiceReason($w); abort_if($limitReason,429,$limitReason);
             $reservation = app(VoiceLiveQueue::class)->validateReservation($w, $user, $d);
             $manual=$reservation&&$reservation->kind==='manual';
-            $contact = $this->contact($w, $d['contact_id'],$manual);
+            $run=null;if(!empty($d['campaign_id'])){$campaign=DB::table('voice_campaigns')->where('workspace_id',$w)->find($d['campaign_id']);abort_unless($campaign,404);app(CadenceReentry::class)->sync($campaign);$run=app(CadenceReentry::class)->current($campaign->id,$d['contact_id']);}
+            $contact = $this->contact($w, $d['contact_id'],$manual,$run?->id);
             $global = app(VoiceEligibility::class)->globalReason($w, $contact->id); abort_if($global, 422, $global);
             app(VoiceQueue::class)->expire($w);
             abort_if(DB::table('voice_queue_assignments as a')->join('voice_queue_items as i', 'i.id', '=', 'a.item_id')->where('a.workspace_id', $w)->where('a.status', 'active')->where(fn ($q) => $q->where('a.user_id', $user)->orWhere('i.contact_id', $contact->id))->exists(), 409, 'Conclua a reserva simulada da fila antes de iniciar esta ligação real.');
@@ -78,7 +79,7 @@ class VoiceCalling
             $snapshot = ['queue_channels_id'=>(isset($q)&&$q->channels_configured)?$q->id:null,'contact_name'=>$profile->name, 'campaign_name'=>$campaign->name??null, 'agent_name'=>DB::table('users')->where('id',$user)->value('name'), 'origin_mode'=>$policy->origin_mode??'configured'];
             $id = (string) Str::uuid();
             $token = hash_hmac('sha256', $id, $p['event_secret']);
-            DB::table('voice_outbound_calls')->insert(['id' => $id, 'list_id'=>$policy->list_id??null, 'manual'=>$manual,'queue_id'=>$reservation->queue_id??null, 'context_snapshot'=>json_encode($snapshot), 'workspace_id' => $w, 'user_id' => $user, 'contact_id' => $contact->id, 'campaign_id' => $d['campaign_id'] ?? null, 'campaign_revision' => isset($campaign) ? $campaign->followup_revision : null, 'idempotency_key' => $d['idempotency_key'], 'request_hash' => $hash, 'grant_hash' => hash('sha256', $token), 'configuration_hash' => $config->fingerprint($method), 'method' => $method, 'provider_account' => $t['account_sid'], 'destination' => $contact->phone, 'caller_id' => $t['caller_id'], 'status' => 'pending', 'max_seconds' => $p['max_seconds'], 'ring_seconds' => $p['ring_seconds'], 'consent_evidence' => $d['consent_evidence'], 'grant_expires_at' => now()->addSeconds(45), 'deadline_at' => now()->addSeconds(45 + $p['max_seconds'] + $p['ring_seconds'] + 60), 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('voice_outbound_calls')->insert(['id' => $id, 'run_id'=>$run?->id, 'list_id'=>$policy->list_id??null, 'manual'=>$manual,'queue_id'=>$reservation->queue_id??null, 'context_snapshot'=>json_encode($snapshot), 'workspace_id' => $w, 'user_id' => $user, 'contact_id' => $contact->id, 'campaign_id' => $d['campaign_id'] ?? null, 'campaign_revision' => isset($campaign) ? $campaign->followup_revision : null, 'idempotency_key' => $d['idempotency_key'], 'request_hash' => $hash, 'grant_hash' => hash('sha256', $token), 'configuration_hash' => $config->fingerprint($method), 'method' => $method, 'provider_account' => $t['account_sid'], 'destination' => $contact->phone, 'caller_id' => $t['caller_id'], 'status' => 'pending', 'max_seconds' => $p['max_seconds'], 'ring_seconds' => $p['ring_seconds'], 'consent_evidence' => $d['consent_evidence'], 'grant_expires_at' => now()->addSeconds(45), 'deadline_at' => now()->addSeconds(45 + $p['max_seconds'] + $p['ring_seconds'] + 60), 'created_at' => now(), 'updated_at' => now()]);
             if ($reservation) DB::table('voice_live_reservations')->where('id',$reservation->id)->update(['call_id'=>$id,'status'=>'calling','updated_at'=>now()]);
             app(VoiceLab::class)->audit($w, $user, 'calling.reserved', $id);
 
@@ -113,7 +114,7 @@ class VoiceCalling
                     return ['allowed' => false];
                 }
                 try {
-                    $contact = $this->contact($m->workspace_id, $m->contact_id,(bool)$m->manual);
+                    $contact = $this->contact($m->workspace_id, $m->contact_id,(bool)$m->manual,$m->run_id);
                     app(VoiceEligibility::class)->assertDial($m);
                     app(VoiceProviderCatalog::class)->assertOrigin($m);
                 } catch (\Throwable) {

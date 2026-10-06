@@ -15,7 +15,7 @@ class JourneyReportsController extends Controller
     }
     private function filters(Request $r,int $w,bool $details=false): array
     {
-        $f=$r->validate(['campaign_id'=>'nullable|integer|min:1','from'=>'nullable|date_format:Y-m-d|after_or_equal:2020-01-01','to'=>'nullable|date_format:Y-m-d|after_or_equal:2020-01-01',
+        $f=$r->validate(['run_id'=>'nullable|uuid','campaign_id'=>'nullable|integer|min:1','from'=>'nullable|date_format:Y-m-d|after_or_equal:2020-01-01','to'=>'nullable|date_format:Y-m-d|after_or_equal:2020-01-01',
             'day'=>'nullable|date_format:Y-m-d','page'=>'sometimes|integer|min:1|max:100000',
             'metric'=>[$details?'required':'sometimes',Rule::in(JourneyReports::METRICS)],
             'button_id'=>'nullable|string|max:64','button_label'=>'nullable|string|max:100','phone'=>['nullable','regex:/^[+0-9]{2,20}$/D']]);
@@ -24,6 +24,7 @@ class JourneyReportsController extends Controller
         abort_if(!empty($f['day'])&&($f['day']<$f['from']||$f['day']>$f['to']),422,'Dia fora do período selecionado.');
         abort_if((!empty($f['button_id'])||isset($f['button_label']))&&($f['metric']??'')!=='button_clicks',422,'Filtro de botão exige o indicador de cliques.');
         if(!empty($f['campaign_id']))DB::table('voice_campaigns')->where('workspace_id',$w)->where('id',$f['campaign_id'])->firstOrFail();
+        if(!empty($f['run_id']))DB::table('voice_cadence_runs')->where('workspace_id',$w)->when(!empty($f['campaign_id']),fn($q)=>$q->where('campaign_id',$f['campaign_id']))->where('id',$f['run_id'])->firstOrFail();
         return $f;
     }
     public function index(Request $r,JourneyReports $reports)

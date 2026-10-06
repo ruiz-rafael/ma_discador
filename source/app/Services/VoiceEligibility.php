@@ -30,9 +30,10 @@ class VoiceEligibility
     public function reason(int $w, object $campaign, object $contact, ?string $exclude = null): ?string
     {
         $s = json_decode($campaign->settings, true);
+        $run=app(CadenceReentry::class)->current($campaign->id,$contact->id);
         $p = DB::table('voice_campaign_policies')->where('campaign_id', $campaign->id)->first();
         if ($reason = app(VoiceAudience::class)->reason($w, $p, $contact)) return $reason;
-        if (! $contact->consent || ! $contact->consent_evidence || $contact->suppressed_at || $contact->replied_at) {
+        if (! $contact->consent || ! $contact->consent_evidence || $contact->suppressed_at || app(CadenceReentry::class)->replyBlocks($contact,$run?->id)) {
             return 'Contato sem autorização ou com abordagem encerrada.';
         }
         if ($campaign->status !== 'testing') {
@@ -51,7 +52,8 @@ class VoiceEligibility
         if ($p?->list_id && ! DB::table('voice_list_members')->where('list_id', $p->list_id)->where('contact_id', $contact->id)->where('status', 'active')->exists()) {
             return 'Contato retirado da lista.';
         }
-        if (DB::table('voice_followups')->where('campaign_id', $campaign->id)->where('contact_id', $contact->id)->exists()) {
+        if(isset($s['reentry'])&&(!$run||app(CadenceReentry::class)->current($campaign->id,$contact->id)?->id!==$run->id))return 'Aguardando uma nova participação elegível na cadência.';
+        if (DB::table('voice_followups')->where('campaign_id', $campaign->id)->where('contact_id', $contact->id)->where('run_id',$run?->id)->exists()) {
             return 'Etapa de voz encerrada; consulte o WhatsApp.';
         }
         $all = DB::table('voice_outbound_calls')->where('workspace_id', $w)->where('contact_id', $contact->id);
@@ -64,7 +66,8 @@ class VoiceEligibility
         if ($reason = $this->globalReason($w, $contact->id, $exclude)) {
             return $reason;
         }
-        $calls = (clone $all)->where('campaign_id', $campaign->id);
+        $dailyCalls=(clone $all)->where('campaign_id',$campaign->id);
+        $calls = (clone $dailyCalls)->where('run_id',$run?->id);
         if ((clone $calls)->where(fn ($q) => $q->whereNotNull('answered_at')->orWhere('status', 'completed'))->exists()) {
             return 'Contato atendido; jornada de prospecção encerrada.';
         }
@@ -74,10 +77,10 @@ class VoiceEligibility
         }
         $day = CarbonImmutable::now($s['timezone'])->startOfDay()->utc();
         if ($p) {
-            if ((clone $started)->where('started_at', '>=', $day)->count() >= $p->daily_per_contact) {
+            if ((clone $dailyCalls)->whereNotNull('started_at')->where('started_at', '>=', $day)->count() >= $p->daily_per_contact) {
                 return 'Limite diário do contato na campanha atingido.';
             }
-            if ((clone $calls)->where('created_at', '>=', $day)->whereIn('status', ['failed', 'unknown'])->count() >= $p->technical_limit) {
+            if ((clone $dailyCalls)->where('created_at', '>=', $day)->whereIn('status', ['failed', 'unknown'])->count() >= $p->technical_limit) {
                 return 'Limite diário de falhas técnicas atingido; conferir a rota.';
             }
         }
@@ -109,6 +112,7 @@ class VoiceEligibility
         if (($s['whatsapp_delivery'] ?? '') !== 'automatic' && ! $call->queue_id && ! DB::table('voice_campaign_policies')->where('campaign_id', $campaign->id)->exists()) {
             return;
         }
+        if($call->run_id)abort_unless(app(CadenceReentry::class)->current($campaign->id,$call->contact_id)?->id===$call->run_id,422,'Participação encerrada ou substituída.');
         abort_unless($campaign->followup_revision === $call->campaign_revision, 422, 'Configuração alterada depois da reserva.');
         $reason = $this->reason($call->workspace_id, $campaign, DB::table('voice_contacts')->find($call->contact_id), $call->id);
         abort_if($reason,422,$reason);

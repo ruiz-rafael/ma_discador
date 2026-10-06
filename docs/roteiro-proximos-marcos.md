@@ -88,3 +88,7 @@ A capacidade de produção permanece em uma chamada simultânea. A próxima homo
 Implementados horário próprio, tempo de oferta ao agente, pausa por ofertas receptivas perdidas, pausa opcional por perda da conexão receptiva, permissões de destinos e gravação Twilio API com acesso, pausa e retenção. A tela organiza essas opções por abas; a gravação permanece desativada nas filas existentes. Consulte [o guia da fila](operacao-supervisao.md#configurações-operacionais-da-fila--06102026).
 
 Ainda dependem de homologação real: áudio gravado de entrada/saída, transferência com gravação e comandos de pausa/retomada na operadora. Gravação no SIP/Asterisk permanece uma implementação futura, explicitamente indisponível na interface.
+
+### Participações e reentrada — 06/10/2026
+
+Entregue para as cadências de voz e WhatsApp: participação única, saída/retorno ao segmento, intervalo e evento; limite de participações e motivos permitidos; espera por resposta; histórico por execução; API com escopo próprio e teste sem inserir contatos. A reentrada mantém limites globais, descadastro, histórico e disponibilidade exigida pela fila. A configuração das campanhas existentes é preservada. Homologação externa de um ciclo completo continua dependendo de teste autorizado; a validação desta entrega usa serviços e bancos isolados, sem telefonia ou mensagens reais.

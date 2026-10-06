@@ -68,10 +68,10 @@ class Segments {
   $setting=app(ListContacts::class)->settings($w,$kind,$list);if(($setting['mode']??'manual')!=='rules')return;
   DB::transaction(function()use($w,$kind,$list){app(ListContacts::class)->lock();$d=app(ListContacts::class)->settings($w,$kind,$list);if($d['mode']!=='rules')return;$ids=$this->preview($w,$kind,$list,$d)['ids'];
    if($kind==='automation'){
-    $removed=DB::table('audience_contact')->where('audience_id',$list)->whereNotIn('contact_id',$ids)->pluck('contact_id');foreach($removed as $id)app(VoiceAudience::class)->removed($list,$id);
+    $removed=DB::table('audience_contact')->where('audience_id',$list)->whereNotIn('contact_id',$ids)->pluck('contact_id');app(CadenceReentry::class)->membershipChanged($kind,$list,$removed->all(),false);app(CadenceReentry::class)->membershipChanged($kind,$list,$ids,true);foreach($removed as $id)app(VoiceAudience::class)->removed($list,$id);
     DB::table('audience_contact')->where('audience_id',$list)->whereNotIn('contact_id',$ids)->delete();foreach($ids as $id)DB::table('audience_contact')->insertOrIgnore(['audience_id'=>$list,'contact_id'=>$id]);
    }else {
-    $removed=DB::table('voice_list_members')->where('list_id',$list)->where('status','active')->whereNotIn('contact_id',$ids)->pluck('contact_id');
+    $removed=DB::table('voice_list_members')->where('list_id',$list)->where('status','active')->whereNotIn('contact_id',$ids)->pluck('contact_id');app(CadenceReentry::class)->membershipChanged($kind,$list,$removed->all(),false);app(CadenceReentry::class)->membershipChanged($kind,$list,$ids,true);
     DB::table('voice_followups')->whereIn('campaign_id',DB::table('voice_campaign_policies')->where('list_id',$list)->select('campaign_id'))->whereIn('contact_id',$removed)->whereIn('status',['pending','blocked'])->update(['status'=>'cancelled','reason'=>'Contato deixou as regras do segmento.','updated_at'=>now()]);
     DB::table('voice_list_members')->where('list_id',$list)->where('status','active')->whereNotIn('contact_id',$ids)->update(['status'=>'outside_rules','reason'=>'Fora das regras do segmento','updated_at'=>now()]);
     foreach($ids as $id){DB::table('voice_list_members')->where('list_id',$list)->where('contact_id',$id)->where('status','outside_rules')->update(['status'=>'active','reason'=>null,'updated_at'=>now()]);app(ListContacts::class)->link($w,$kind,$list,$id);}

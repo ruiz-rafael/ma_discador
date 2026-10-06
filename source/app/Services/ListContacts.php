@@ -160,6 +160,7 @@ class ListContacts
             $removed = DB::table('ma_list_membership_exclusions')->where('audience_id', $list)->where('contact_id', $id)->exists();
             $added = ! $removed && DB::table('audience_contact')->insertOrIgnore(['audience_id' => $list, 'contact_id' => $id]);
         }
+        if($added)app(CadenceReentry::class)->membershipChanged($kind,$list,[$id],true);
         return ['contact_id' => $id, 'added' => (bool) $added, 'membership_removed' => (bool) $removed];
     }
     public function existing(int $w, string $kind, int $list, array $ids): array
@@ -177,6 +178,7 @@ class ListContacts
     {
         DB::transaction(function () use ($w, $kind, $list, $contact) {
             $this->lock(); $this->list($w, $kind, $list);
+            app(CadenceReentry::class)->membershipChanged($kind,$list,[$contact],false);
             if ($kind === 'voice') {
                 $m = DB::table('voice_list_members')->where('list_id', $list)->where('contact_id', $contact)->firstOrFail();
                 DB::table('voice_list_members')->where('id', $m->id)->update(['status' => 'removed', 'reason' => 'Retirado no gerenciamento de listas', 'updated_at' => now()]);

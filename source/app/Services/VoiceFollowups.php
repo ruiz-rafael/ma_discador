@@ -21,26 +21,30 @@ class VoiceFollowups
     {
         $call = DB::table('voice_outbound_calls')->find($id);
         if (!$call || !$call->started_at) { return; }
+        $run=$call->run_id?DB::table('voice_cadence_runs')->find($call->run_id):null;
         if ($call->answered_at || $call->status === 'completed') {
             DB::table('voice_followups')->where('workspace_id', $call->workspace_id)->where('contact_id', $call->contact_id)->whereIn('status', ['pending', 'blocked'])->update(['status' => 'cancelled', 'reason' => 'Contato atendido por voz.', 'updated_at' => now()]);
+            if($run)app(CadenceReentry::class)->reconcile($run);
             return;
         }
+        if($run&&!in_array($run->status,['active','waiting'],true))return;
         if (!$call->campaign_id || !$call->ended_at) { return; }
         $campaign = DB::table('voice_campaigns')->where('workspace_id', $call->workspace_id)->where('id', $call->campaign_id)->first();
         if (!$campaign) { return; }
         $s = json_decode($campaign->settings, true);
-        if ($call->status !== 'no_answer' || empty($s['whatsapp_enabled']) || ($s['whatsapp_delivery'] ?? 'simulation') !== 'automatic' || $call->campaign_revision !== $campaign->followup_revision) { return; }
-        $calls = DB::table('voice_outbound_calls')->where('workspace_id', $call->workspace_id)->where('campaign_id', $campaign->id)->where('contact_id', $call->contact_id)->where('campaign_revision', $campaign->followup_revision)->where('destination', $call->destination)->whereNotNull('started_at');
+        if ($call->status !== 'no_answer' || empty($s['whatsapp_enabled']) || ($s['whatsapp_delivery'] ?? 'simulation') !== 'automatic' || $call->campaign_revision !== $campaign->followup_revision) { if($run)app(CadenceReentry::class)->reconcile($run);return; }
+        $calls = DB::table('voice_outbound_calls')->where('workspace_id', $call->workspace_id)->where('campaign_id', $campaign->id)->where('contact_id', $call->contact_id)->where('run_id',$call->run_id)->where('campaign_revision', $campaign->followup_revision)->where('destination', $call->destination)->whereNotNull('started_at');
         if ((clone $calls)->where(fn ($q) => $q->whereNotNull('answered_at')->orWhere('status', 'completed'))->exists()) { return; }
         $missed = (clone $calls)->where('status', 'no_answer')->whereNull('answered_at')->whereNotNull('ended_at')->count();
-        if ($missed < (int) $s['whatsapp_after']) { return; }
-        DB::table('voice_followups')->insertOrIgnore(['id' => (string) Str::uuid(), 'workspace_id' => $call->workspace_id, 'campaign_id' => $campaign->id, 'contact_id' => $call->contact_id, 'user_id' => $call->user_id, 'call_id' => $call->id, 'campaign_revision' => $campaign->followup_revision, 'settings' => json_encode($s), 'destination' => $call->destination, 'status' => 'pending', 'due_at' => now()->addMinutes($s['whatsapp_delay']), 'created_at' => now(), 'updated_at' => now()]);
+        if ($missed < (int) $s['whatsapp_after']) { if($run)app(CadenceReentry::class)->reconcile($run);return; }
+        DB::table('voice_followups')->insertOrIgnore(['id' => (string) Str::uuid(), 'run_id'=>$call->run_id,'cycle_key'=>$call->run_id??'legacy', 'workspace_id' => $call->workspace_id, 'campaign_id' => $campaign->id, 'contact_id' => $call->contact_id, 'user_id' => $call->user_id, 'call_id' => $call->id, 'campaign_revision' => $campaign->followup_revision, 'settings' => json_encode($s), 'destination' => $call->destination, 'status' => 'pending', 'due_at' => now()->addMinutes($s['whatsapp_delay']), 'created_at' => now(), 'updated_at' => now()]);
     }
 
     public function assertEligible(string $id): object
     {
         $f = DB::table('voice_followups')->find($id);
         abort_unless($f && in_array($f->status, ['pending', 'blocked', 'dispatching']), 422, 'Passo de WhatsApp encerrado.');
+        if($f->run_id)abort_unless(app(CadenceReentry::class)->current($f->campaign_id,$f->contact_id)?->id===$f->run_id,422,'Participação encerrada.');
         $campaign = DB::table('voice_campaigns')->where('workspace_id', $f->workspace_id)->where('id', $f->campaign_id)->firstOrFail();
         $s = json_decode($campaign->settings, true);
         $effective=app(QueueChannels::class)->apply(QueueRouting::forCampaign($f->workspace_id,$f->campaign_id)->first(),$s);
@@ -49,7 +53,7 @@ class VoiceFollowups
         abort_unless($campaign->status === 'testing', 422, 'Campanha pausada ou encerrada.');
         abort_unless(app(VoiceLab::class)->window($s), 422, 'Fora do horário da campanha.');
         $c = DB::table('voice_contacts')->where('workspace_id', $f->workspace_id)->where('id', $f->contact_id)->firstOrFail();
-        abort_unless($c->consent && $c->consent_evidence && !$c->suppressed_at && !$c->replied_at && $c->phone === $f->destination, 422, 'Contato indisponível, sem autorização ou com telefone alterado.');
+        abort_unless($c->consent && $c->consent_evidence && !$c->suppressed_at && !app(CadenceReentry::class)->replyBlocks($c,$f->run_id) && $c->phone === $f->destination, 422, 'Contato indisponível, sem autorização ou com telefone alterado.');
         abort_unless(DB::table('voice_members')->where('campaign_id', $f->campaign_id)->where('contact_id', $c->id)->exists(), 422, 'Contato removido da campanha.');
         abort_if(DB::table('voice_outbound_calls')->where('workspace_id', $f->workspace_id)->where('contact_id', $c->id)->where(function ($q) use ($f) {
             $q->whereNull('capacity_released_at')->orWhere(fn ($q) => $q->where('created_at', '>=', $f->created_at)->where(fn ($q) => $q->whereNotNull('answered_at')->orWhere('status', 'completed')));

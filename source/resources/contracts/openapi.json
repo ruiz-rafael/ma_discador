@@ -1582,6 +1582,78 @@
           }
         }
       }
+    },
+    "/journeys/{id}/entries": {
+      "post": {
+        "summary": "Iniciar participação por evento na cadência de voz e WhatsApp",
+        "description": "Exige journeys:write e acesso ao segmento vinculado. Não disca diretamente. Eventos repetidos retornam o mesmo resultado, inclusive bloqueios. Não enfileira reentradas durante uma participação ativa.",
+        "security": [
+          {
+            "integrationToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "contact_id",
+                  "event_key"
+                ],
+                "properties": {
+                  "contact_id": {
+                    "type": "integer",
+                    "description": "ID do contato de voz no workspace"
+                  },
+                  "event_key": {
+                    "type": "string",
+                    "maxLength": 160,
+                    "example": "pedido:456"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resultado: eligible, run_id e participation; ou reason. duplicate indica evento anterior."
+          },
+          "401": {
+            "description": "Credencial inválida"
+          },
+          "403": {
+            "description": "Escopo ou segmento não autorizado"
+          },
+          "409": {
+            "description": "Chave reutilizada com outro conteúdo"
+          },
+          "422": {
+            "description": "Payload inválido"
+          }
+        }
+      }
     }
   },
   "webhooks": {

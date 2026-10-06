@@ -153,3 +153,5 @@ Route::middleware(['auth','throttle:120,1'])->prefix('api/voice/recordings')->gr
  Route::get('/{sid}/audio',[$c,'audio'])->where('sid','RE[a-fA-F0-9]{32}');
 });
 Route::post('/callbacks/twilio/voice/recordings/{kind}/{id}',[\App\Http\Controllers\VoiceRecordingController::class,'callback'])->whereIn('kind',['inbound','outbound'])->whereUuid('id')->middleware('throttle:120,1,recording-events:');
+
+Route::middleware(["auth", "throttle:60,1"])->prefix("api/voice/journeys")->group(function(){ $c=\App\Http\Controllers\CadenceReentryController::class; Route::get("/{id}/executions",[$c,"runs"])->whereNumber("id");Route::get("/{id}/executions/{run}",[$c,"details"])->whereNumber("id")->whereUuid("run");Route::post("/{id}/entries/preview",[$c,"preview"])->whereNumber("id");});

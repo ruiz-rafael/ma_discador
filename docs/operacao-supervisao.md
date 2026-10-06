@@ -212,3 +212,30 @@ O prazo é de 1 a 365 dias. Ao vencer, o acesso ao áudio é negado imediatament
 Nenhuma fila, chamada ou gravação foi ativada para esta entrega. Evidências privadas em `evidence/queue-settings-20261006/`.
 
 Validação: rodada completa com 351 testes e 2.785 asserções em SQLite e PostgreSQL; após os ajustes finais de contador e retenção, os 10 testes específicos passaram novamente nos dois bancos (63 asserções). O navegador verifica gravação/pausa no modal, persistência dos formulários, mensagens de pausa e adaptação a celular com telefonia simulada. Nenhuma mídia real foi gravada nesta validação.
+
+### Reentrada nas cadências de voz e WhatsApp — 06/10/2026
+
+Em **Cadências → abrir a cadência → Público da jornada → Entrada e reentrada**, configure e salve com a cadência pausada. O segmento continua sendo a origem do público; concluir uma participação não remove seu cadastro nem o vínculo com o segmento. A política pertence à cadência e não à fila.
+
+- **Uma única vez:** admite uma participação por contato.
+- **Ao sair e voltar ao segmento:** exige uma transição real de saída e retorno ao segmento vinculado; permanecer nele não reinicia a jornada. Saídas por regras e remoções explícitas são observadas. Uma exclusão manual continua exigindo restauração explícita.
+- **Após um intervalo:** espera de 1 a 3.650 dias desde o encerramento anterior e reavalia se o contato ainda está no público.
+- **Por novo evento:** exige uma requisição autorizada por ocorrência de negócio. Eventos duplicados retornam o primeiro resultado. Eventos bloqueados durante uma execução não são guardados para disparo posterior; um novo evento só deve representar uma nova ocorrência real.
+
+Nas opções de reentrada, o limite de 1 a 100 participações inclui a primeira e o ciclo histórico anterior. Escolha quais encerramentos permitem voltar: atendimento por voz, resposta WhatsApp, esgotamento de tentativas, WhatsApp sem resposta, falha confirmada de mensagem, saída do segmento ou cancelamento. O padrão sugere três participações e permite esgotamento, ausência de resposta e saída do segmento; o modo sugerido inicialmente é **uma única vez**. Nada é habilitado automaticamente nas campanhas existentes.
+
+Cada participação possui um identificador e número sequencial, chamadas, follow-up e mensagens próprios. As cinco tentativas, por exemplo, passam a pertencer à participação, sem apagar as cinco do ciclo anterior. Limites diários da campanha, limites globais do contato, restrições de números e consentimento continuam cumulativos e podem impedir novas chamadas mesmo quando a reentrada é elegível. Os estados da fila e a disponibilidade dos agentes continuam necessários para discar.
+
+O primeiro salvamento da política organiza o histórico real anterior como participação #1, preservando resultados e tentativas. A política de retorno é reavaliada para a próxima admissão; a janela de espera por WhatsApp é registrada em cada participação. A configuração não reabre uma execução concluída e não redefine a revisão dos templates.
+
+A espera por resposta ao WhatsApp é de 1 a 720 horas (sugestão: 24). Começa quando o acompanhamento confirma que a mensagem foi enviada, entregue ou lida. Após esse prazo, encerra como sem resposta. Mensagens bloqueadas, em processamento ou de resultado incerto não encerram automaticamente como sem resposta; exigem resolução. Atendimento ou resposta encerra a abordagem e cancela passos pendentes. Respostas ambíguas entre participações não ganham atribuição artificial no relatório, mas continuam interrompendo a prospecção por segurança.
+
+Nunca há duas participações ativas da mesma cadência para o mesmo contato: transação e índice único garantem isso. Chamada, reserva e tabulação pendentes impedem reentrada. Uma conversa WhatsApp com resposta e ainda aberta também impede nova entrada. A reentrada não apaga `replied_at` nem remove um descadastro; utiliza o contexto autorizado da nova participação, sem liberar abordagens avulsas ou outras cadências.
+
+**Histórico de participações**, no cartão Entrada, mostra o número do ciclo, resultado, chamadas e mensagens; ao abrir uma participação, exibe seus detalhes. O relatório existente aceita `run_id` como filtro e devolve esse identificador nos registros. Os totais por jornada continuam incluindo todas as participações.
+
+**Evento:** `POST /api/v1/journeys/{id}/entries`, com `Authorization: Bearer <credencial>`, `Idempotency-Key: <UUID>` e `{"contact_id":123,"event_key":"pedido:456"}`. Exige o novo escopo `journeys:write`, workspace correspondente e autorização da integração para o segmento vinculado. A chave de negócio é única na cadência e não pode ser reutilizada para outro contato. Consulte o contrato em `/integrations/openapi.json`. O webhook de cadastro de segmento continua atualizando atributos; ele não é, por si só, um evento de reentrada. O integrador pode atualizar o contato e então enviar o evento de negócio.
+
+No modo por evento, **Testar sem inserir na jornada** verifica a configuração salva e informa o motivo de bloqueio; não cria participação, chamada, mensagem ou recibo de evento. A reavaliação automática ocorre a cada minuto e antes da reserva progressiva. Estas opções pertencem ao construtor das cadências de voz e WhatsApp; gatilhos do construtor de automação MA continuam seguindo seu motor de eventos existente.
+
+Validação desta entrega: 370 testes e 2.874 asserções em SQLite e PostgreSQL; depois do ajuste final, 19 testes específicos e 87 asserções passaram novamente em cada banco. Concorrência PostgreSQL com 40 pedidos, quatro processos e uma admissão por ciclo. Navegador validado em desktop e celular, incluindo as quatro opções, salvamento, erro recuperável, histórico e prévia de evento. Nenhuma chamada ou mensagem externa foi usada. Evidências privadas em `evidence/reentry-20261006/`.

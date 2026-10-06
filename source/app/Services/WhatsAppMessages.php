@@ -55,7 +55,7 @@ class WhatsAppMessages
             if ($followup) { app(VoiceFollowups::class)->assertEligible($followup); }
             app(OperationPolicy::class)->messages($w);
             $contact = DB::table('voice_contacts')->where('workspace_id', $w)->where('id', $d['contact_id'])->lockForUpdate()->firstOrFail();
-            abort_unless($contact->consent && ! $contact->suppressed_at && ! $contact->replied_at, 422, 'Contato sem autorização ou com abordagem interrompida.');
+            abort_unless($contact->consent && ! $contact->suppressed_at && ! app(CadenceReentry::class)->replyBlocks($contact,$followup?DB::table('voice_followups')->where('id',$followup)->value('run_id'):null), 422, 'Contato sem autorização ou com abordagem interrompida.');
             abort_unless(in_array($contact->phone, $c['allowed_recipients'], true), 422, 'Destino não está na lista privada de homologação.');
             if (! empty($d['campaign_id'])) {
                 $campaign = DB::table('voice_campaigns')->where('workspace_id', $w)->where('id', $d['campaign_id'])->firstOrFail();
@@ -65,7 +65,7 @@ class WhatsAppMessages
             }
             abort_if(DB::table('wa_messages')->where('account_sid', $c['account_sid'])->where('direction', 'outbound')->where('created_at', '>=', now()->startOfDay())->count() >= $c['daily_limit'], 429, 'Limite diário de homologação atingido.');
             $id = (string) Str::uuid();
-            DB::table('wa_messages')->insert(['id' => $id, 'workspace_id' => $w, 'sender_id' => $sender->id, 'contact_id' => $contact->id, 'campaign_id' => $d['campaign_id'] ?? null, 'user_id' => $user, 'template_id' => $template->id, 'direction' => 'outbound', 'idempotency_key' => $d['idempotency_key'], 'request_hash' => $hash, 'account_sid' => $c['account_sid'], 'from_number' => $sender->number, 'to_number' => $contact->phone, 'status' => 'sending', 'variables' => json_encode((object) $d['variables']), 'consent_evidence' => $d['consent_evidence'], 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('wa_messages')->insert(['id' => $id, 'run_id'=>$followup?DB::table('voice_followups')->where('id',$followup)->value('run_id'):null, 'workspace_id' => $w, 'sender_id' => $sender->id, 'contact_id' => $contact->id, 'campaign_id' => $d['campaign_id'] ?? null, 'user_id' => $user, 'template_id' => $template->id, 'direction' => 'outbound', 'idempotency_key' => $d['idempotency_key'], 'request_hash' => $hash, 'account_sid' => $c['account_sid'], 'from_number' => $sender->number, 'to_number' => $contact->phone, 'status' => 'sending', 'variables' => json_encode((object) $d['variables']), 'consent_evidence' => $d['consent_evidence'], 'created_at' => now(), 'updated_at' => now()]);
 
             return ['row' => DB::table('wa_messages')->find($id), 'created' => true];
         });
@@ -78,7 +78,7 @@ class WhatsAppMessages
         try {
             if ($followup) { app(VoiceFollowups::class)->assertEligible($followup); }
             $latest = DB::table('voice_contacts')->find($m->contact_id);
-            if (app(OperationPolicy::class)->get($w)['paused'] || ! $latest->consent || $latest->suppressed_at || $latest->replied_at) {
+            if (app(OperationPolicy::class)->get($w)['paused'] || ! $latest->consent || $latest->suppressed_at || app(CadenceReentry::class)->replyBlocks($latest,$m->run_id)) {
                 DB::table('wa_messages')->where('id', $m->id)->update(['status' => 'cancelled', 'updated_at' => now()]);
 
                 return DB::table('wa_messages')->find($m->id);

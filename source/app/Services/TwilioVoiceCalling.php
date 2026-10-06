@@ -32,7 +32,7 @@ class TwilioVoiceCalling
                 return $this->hangup();
             }
             try {
-                $contact = app(VoiceCalling::class)->contact($m->workspace_id, $m->contact_id,(bool)$m->manual);
+                $contact = app(VoiceCalling::class)->contact($m->workspace_id, $m->contact_id,(bool)$m->manual,$m->run_id);
                 app(VoiceEligibility::class)->assertDial($m);
                 app(VoiceProviderCatalog::class)->assertOrigin($m);
             } catch (\Throwable) {
