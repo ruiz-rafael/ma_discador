@@ -100,3 +100,9 @@ Assistente com dois caminhos: números da própria empresa (descoberta, cadastro
 A ativação externa continua pendente: primeiro remetente via Self Sign-up, aprovação Meta/Tech Provider, parceria Twilio e subconta dedicada para clientes. Cadastro automático de vários workspaces/subcontas na mesma instalação não faz parte desta entrega. Consulte [operação e pré-requisitos](whatsapp-twilio.md).
 
 Validação automatizada: 384 testes / 2.952 asserções em SQLite e PostgreSQL, além de 11 testes JavaScript. Homologação com SMS e conta Meta reais não realizada nesta entrega.
+
+### Voz própria — 07/10/2026
+
+Estúdio Kokoro com templates, variáveis, prévia e biblioteca privada; arquivos MP3/WAV/OGG e envio manual de áudio em conversas elegíveis via QR ou Twilio. Síntese executada na VM sem créditos TTS da Twilio. Consulte [escopo e operação](voz-whatsapp-ia.md#estúdio-de-voz-próprio--07102026).
+
+A próxima etapa é AMD e recado na caixa postal: classificação humano/máquina/inconclusivo, vínculo do áudio na cadência, regras de continuidade e métricas específicas. Geração de voz não equivale à implementação dessa classificação. Áudio conversacional em tempo real e discagem preditiva também permanecem etapas distintas.

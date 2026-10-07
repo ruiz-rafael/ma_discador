@@ -20,7 +20,7 @@ class VoiceAccess
         $path = $r->path();
         $recordRead=$r->isMethod('GET')&&preg_match('~^api/voice/recordings/(?:calls/(?:inbound|outbound)/[a-f0-9-]+|RE[a-fA-F0-9]{32}/audio)$~D',$path);
         $recordWrite=$r->isMethod('POST')&&preg_match('~^api/voice/recordings/RE[a-fA-F0-9]{32}/control$~D',$path);
-        $read = $r->isMethod('GET') && preg_match('~^api/(?:bootstrap|voice/(?:conversations(?:/[a-f0-9-]+)?|inbound|calling|audio|audio/authorize|operations/(?:catalog|queues|reports|export|calls/[a-f0-9-]+/history)))$~D', $path);
+        $read = $r->isMethod('GET') && preg_match('~^api/(?:bootstrap|voice/(?:conversations(?:/[a-f0-9-]+(?:/media/[a-f0-9-]+)?)?|inbound|calling|audio|audio/authorize|operations/(?:catalog|queues|reports|export|calls/[a-f0-9-]+/history)))$~D', $path);
         $write = $r->isMethod('POST') && preg_match('~^api/(?:logout|voice/(?:conversations/[a-f0-9-]+/(?:assign|read|send)|inbound/(?:token|device|calls/[a-f0-9-]+/(?:transfer|reconcile|disposition))|queues/(?:presence|heartbeat)|operations/(?:wrapup/finish|manual-reservations|queues/\d+/claim|reservations/[a-f0-9-]+/cancel|calls/[a-f0-9-]+/disposition)|calling/calls(?:/[a-f0-9-]+/(?:cancel|reconcile))?|audio/sessions(?:/[a-f0-9-]+/(?:abandon|metrics))?))$~D', $path);
         abort_unless($read || $write || $recordRead || $recordWrite, 403, 'Esta área é reservada à supervisão. Use Minha operação para atender.');
         return $next($r);

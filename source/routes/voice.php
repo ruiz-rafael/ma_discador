@@ -134,6 +134,7 @@ Route::post('/callbacks/twilio/voice/inbound/{kind}/{id?}',[\App\Http\Controller
 
 Route::middleware(['auth','throttle:120,1'])->prefix('api/voice/conversations')->group(function(){
  $c=\App\Http\Controllers\ConversationController::class;
+ Route::get('/{id}/media/{message}',[$c,'audio'])->whereUuid('id')->whereUuid('message');
  Route::get('/',[$c,'index']);Route::post('/routes',[$c,'route']);Route::get('/{id}',[$c,'show'])->whereUuid('id');
  foreach(['assign','read','send'] as $a)Route::post('/{id}/'.$a,[$c,$a])->whereUuid('id')->middleware('throttle:30,1,inbox-write:');
 });
@@ -159,3 +160,11 @@ Route::middleware(['auth','throttle:120,1'])->prefix('api/voice/recordings')->gr
 Route::post('/callbacks/twilio/voice/recordings/{kind}/{id}',[\App\Http\Controllers\VoiceRecordingController::class,'callback'])->whereIn('kind',['inbound','outbound'])->whereUuid('id')->middleware('throttle:120,1,recording-events:');
 
 Route::middleware(["auth", "throttle:60,1"])->prefix("api/voice/journeys")->group(function(){ $c=\App\Http\Controllers\CadenceReentryController::class; Route::get("/{id}/executions",[$c,"runs"])->whereNumber("id");Route::get("/{id}/executions/{run}",[$c,"details"])->whereNumber("id")->whereUuid("run");Route::post("/{id}/entries/preview",[$c,"preview"])->whereNumber("id");});
+
+Route::middleware(['auth','throttle:60,1'])->prefix('api/voice/speech')->group(function(){
+ $c=\App\Http\Controllers\SpeechStudioController::class;
+ Route::get('/',[$c,'index']);Route::post('/templates',[$c,'save']);Route::put('/templates/{id}',[$c,'save'])->whereUuid('id');
+ Route::post('/generate',[$c,'generate'])->middleware('throttle:6,1,speech-generate:');
+ Route::get('/assets/{id}',[$c,'asset'])->whereUuid('id');Route::get('/assets/{id}/{format}',[$c,'audio'])->whereUuid('id')->whereIn('format',['wav','mp3','ogg']);
+});
+Route::get('/media/speech/{workspace}/{id}/{format}',[\App\Http\Controllers\SpeechStudioController::class,'delivery'])->whereNumber('workspace')->whereUuid('id')->whereIn('format',['wav','mp3','ogg'])->middleware(['signed','throttle:120,1,speech-delivery:'])->name('speech.delivery');

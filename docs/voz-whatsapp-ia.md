@@ -98,3 +98,41 @@ Para desfazer a interface, restaurar somente os arquivos do MA guardados em `bac
 ## Atualização: números e WhatsApp via Twilio
 
 Cada campanha agora permite número único ou números separados. A aba WhatsApp prepara remetentes de outra operadora ou Twilio, templates de texto e testes manuais pela API Twilio. O cadastro/credenciais, a aprovação e a homologação reais dependem da conta do fornecedor. Cadências continuam simuladas; CRM preservado. Consulte [documentação WhatsApp](whatsapp-twilio.md).
+
+## Estúdio de voz próprio — 07/10/2026
+
+Disponível em **Cadências → Canais → Voz e áudios**, para administradores e supervisores. O processamento usa Kokoro-82M v1.0 em um serviço privado do MA, com ONNX em CPU. Não depende de credenciais ou geração de fala da Twilio. O modelo usa Apache 2.0 e o wrapper `kokoro-onnx` usa MIT; há custo de infraestrutura, mesmo sem licença por minuto/caractere. Licenças e identificação dos artefatos estão em `speech/`.
+
+O editor permite salvar templates versionados, escolher Dora, Alex ou Santa em português brasileiro, ajustar a velocidade e preencher variáveis como `{primeiro_nome}` e `{empresa}`. Variáveis são substituídas uma vez, sem execução de expressões. Gerar uma prévia não insere contatos nem inicia chamadas, filas ou mensagens. O arquivo gerado mantém o texto daquela geração; editar o template não altera áudios anteriores.
+
+Os formatos são MP3 mono/24 kHz para prévia, WAV PCM16 mono/8 kHz para telefonia e OGG/Opus mono/48 kHz para WhatsApp. Os áudios expiram em 30 dias; a rotina horária remove arquivos e texto personalizado da biblioteca, preservando os templates. Há limite inicial de 100 gerações por workspace/dia, um processamento simultâneo, até 1.200 caracteres no template, 1.500 após personalização e 120 segundos de áudio. Áudios idênticos ainda disponíveis são reutilizados. Esses limites protegem a VM de testes e não significam capacidade de geração em tempo real para muitas chamadas.
+
+### Uso em WhatsApp
+
+Depois de ouvir a prévia, abra **Enviar este áudio pelo WhatsApp**, escolha a conversa e clique explicitamente em **Enviar áudio agora**. A conversa deve estar aberta, atribuída ao usuário e ter recebido mensagem nas últimas 24 horas. Mantêm-se os bloqueios por descadastro, limite diário, pausa da supervisão e lista de homologação do canal.
+
+O envio usa o número da conversa: QR envia OGG/Opus como mensagem de voz; Twilio usa mídia com URL assinada e temporária. O histórico de Conversas exibe o áudio, seu texto e o status retornado pelo canal. Uma repetição da mesma operação não cria outro envio; resultado desconhecido exige conferência, sem repetição automática. O template de voz da biblioteca não é um template WhatsApp aprovado pela Meta e não abre uma janela de atendimento.
+
+A implementação de transporte foi validada com provedores simulados. A aparência do áudio em celulares via QR/Twilio e a entrega externa ainda requerem homologação autorizada; esta entrega não enviou mensagens reais.
+
+### Telefonia e caixa postal: escopo
+
+O WAV permite reutilizar a síntese com Asterisk/SIP; a entrega assinada também serve como base para reprodução por provedor. Esta entrega **não altera o fluxo das chamadas nem ativa recados de caixa postal automaticamente**. A ligação do template à cadência, a reprodução após detecção e a distinção entre humano, caixa postal e resultado inconclusivo continuam sendo a próxima etapa de telefonia.
+
+Kokoro faz síntese de voz; não identifica quem atendeu. AMD é um mecanismo separado (Twilio ou Asterisk), sujeito a erro e latência. Os resultados históricos de rede não devem ser reinterpretados como confirmação de atendimento humano. Antes de ativar o recurso, deve-se ajustar o encerramento/reentrada da participação, cancelamento de WhatsApp, contagem de tentativas e relatórios para usar a classificação confirmada. Uma classificação inconclusiva precisa permanecer explícita. Não habilitar este comportamento nas campanhas existentes sem configuração própria.
+
+### Instalação e isolamento
+
+O arquivo `deploy/compose.speech.yaml` complementa o compose do MA. O serviço não publica portas externas e roda com usuário 82, raiz somente leitura, até 1 CPU e 1,5 GiB de RAM. O diretório temporário precisa permitir mapeamento executável porque o phonemizer carrega uma cópia da biblioteca eSpeak; nenhum código enviado pelo usuário é executado.
+
+Preparar, exclusivamente no projeto MA:
+
+- `speech-runtime/models/kokoro-v1.0.onnx` e `voices-v1.0.bin`, do release `model-files-v1.1` de `thewh1teagle/kokoro-onnx`; conferir SHA-256 em `speech/NOTICE.txt`.
+- `speech-runtime/service.env`, modo 600, com `SPEECH_TOKEN` aleatório de pelo menos 32 caracteres.
+- `source/storage/app/private/voice/speech.json`, modo 600, usuário 82, com `url` igual a `http://speech:8091` e o mesmo `token`.
+- `source/storage/app/private/speech`, usuário 82, modo 700, compartilhado somente pelo app e o serviço de voz.
+- Executar a migração `2026_10_07_000001_add_speech_studio.php` e compilar os assets. Subir apenas `speech` com o compose complementar; não recriar serviços dos demais projetos.
+
+O conector QR com suporte a áudio mantém seu volume de sessão e usa a imagem `zyrex-ma-whatsapp-qr:audio-20261007`. A atualização não altera números, filas, campanhas ou disponibilidade dos agentes.
+
+Validação: 400 testes e 3.058 asserções em SQLite e PostgreSQL, 11 testes JavaScript da aplicação e 11 do conector QR. Após a revisão final, os 19 testes de estúdio/conversas passaram novamente, com 132 asserções. Navegador desktop e celular validaram template, personalização, geração, player, download e envio simulado com a mesma chave de operação. As três vozes geraram arquivos reais dentro do serviço local; codecs, frequências e canais foram conferidos. A prévia final no navegador reproduz 6,73 segundos com dados fictícios. Não houve ligação ou mensagem externa de homologação.

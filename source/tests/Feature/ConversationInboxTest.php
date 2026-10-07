@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\{DB,Http};
 use Illuminate\Support\Str;
 use Tests\TestCase;
 class ConversationInboxTest extends TestCase {
- use RefreshDatabase;private User $user;private int $sender;private int $contact;
+ use RefreshDatabase;private User $user;private int $sender;private int $contact;private ?string $speechRoot=null;
  protected function setUp():void{parent::setUp();Http::preventStrayRequests();$this->user=User::factory()->create(['voice_workspace_id'=>1,'voice_role'=>'admin']);$this->actingAs($this->user);$this->sender=DB::table('wa_senders')->insertGetId(['workspace_id'=>1,'provider'=>'qr','label'=>'QA','number'=>'+5511000000000','ownership'=>'external']);$this->contact=DB::table('voice_contacts')->insertGetId(['workspace_id'=>1,'name'=>'Pessoa QA','phone'=>'+5511999990000','original_phone'=>'+5511999990000','source'=>'QA','consent'=>true,'consent_evidence'=>'Authorized test','replied_at'=>now()]);config(['whatsapp_qr_test'=>['token'=>str_repeat('a',32),'url'=>'http://qr.test','allowed_recipients'=>['+5511999990000'],'daily_limit'=>10]]);}
  private function inbound():string{$id=(string)Str::uuid();DB::table('wa_messages')->insert(['id'=>$id,'workspace_id'=>1,'sender_id'=>$this->sender,'contact_id'=>$this->contact,'direction'=>'inbound','provider'=>'qr','idempotency_key'=>$id,'request_hash'=>hash('sha256',$id),'account_sid'=>'qr:'.$this->sender,'from_number'=>'+5511999990000','to_number'=>'+5511000000000','status'=>'received','body'=>'Olá','created_at'=>now(),'updated_at'=>now()]);return $id;}
  private function conversation():string{$id=app(ConversationInbox::class)->record($this->inbound());DB::table('wa_conversations')->where('id',$id)->update(['assigned_user_id'=>$this->user->id]);return $id;}
@@ -40,6 +40,32 @@ class ConversationInboxTest extends TestCase {
   $private=(string)Str::uuid();DB::table('wa_conversations')->insert(['id'=>$private,'workspace_id'=>1,'sender_id'=>$this->sender,'phone'=>'+5511999990022','status'=>'open','assigned_user_id'=>$this->user->id,'last_inbound_at'=>now()]);$other=DB::table('wa_senders')->insertGetId(['workspace_id'=>1,'provider'=>'qr','label'=>'Privado','number'=>'+5511000000001','ownership'=>'external']);
   $this->actingAs($agent)->getJson('/api/voice/conversations?sender_id='.$this->sender)->assertJsonPath('rows.total',1)->assertJsonPath('senders.0.counts.total',1)->assertJsonPath('senders.0.counts.unread',1)->assertJsonCount(1,'senders');$this->getJson('/api/voice/conversations?sender_id='.$other)->assertNotFound();$this->getJson('/api/voice/conversations/'.$private)->assertNotFound();
   $this->postJson('/api/voice/conversations/'.$id.'/read')->assertOk();$this->getJson('/api/voice/conversations?status=closed')->assertJsonPath('rows.total',0)->assertJsonPath('senders.0.counts.total',1)->assertJsonPath('senders.0.counts.unread',0);$this->actingAs($this->user)->getJson('/api/voice/conversations?sender_id='.$other)->assertOk()->assertJsonPath('rows.total',0)->assertJsonCount(2,'senders');Http::assertNothingSent();
+ }
+
+ protected function tearDown():void {if($this->speechRoot)\Illuminate\Support\Facades\File::deleteDirectory($this->speechRoot);parent::tearDown();}
+ private function audioAsset():string {
+  $this->speechRoot??=sys_get_temp_dir().'/ma-inbox-audio-'.Str::uuid();config(['speech_test.root'=>$this->speechRoot]);$id=(string)Str::uuid();
+  DB::table('speech_assets')->insert(['id'=>$id,'workspace_id'=>1,'user_id'=>$this->user->id,'name'=>'QA','body'=>'Olá, Marina. Retorne quando puder.','voice'=>'pf_dora','speed'=>1,'fingerprint'=>hash('sha256',$id),'status'=>'ready','expires_at'=>now()->addDays(30),'created_at'=>now(),'updated_at'=>now()]);
+  $dir=$this->speechRoot.'/1/'.$id;mkdir($dir,0700,true);file_put_contents($dir.'/audio.ogg','OggS'.str_repeat('0',24).'OpusHead'.str_repeat('0',100));file_put_contents($dir.'/audio.mp3',str_repeat('a',100));return $id;
+ }
+ public function test_qr_audio_uses_generated_bytes_and_never_resends_same_request():void {
+  $c=$this->conversation();$a=$this->audioAsset();Http::fake(['http://qr.test/sessions/*/messages'=>Http::response(['status'=>'sent','reference'=>'qa-audio']), 'http://qr.test/sessions/*'=>Http::response(['status'=>'connected','number'=>'+5511000000000','capabilities'=>['audio'=>true]])]);$d=['idempotency_key'=>(string)Str::uuid(),'speech_asset_id'=>$a];
+  $mid=$this->postJson('/api/voice/conversations/'.$c.'/send',$d)->assertOk()->assertJsonPath('status','sent')->json('id');$this->postJson('/api/voice/conversations/'.$c.'/send',$d)->assertOk()->assertJsonPath('id',$mid);Http::assertSentCount(2);
+  Http::assertSent(fn($r)=>$r->method()==='POST'&&isset($r['audio']['base64'])&&str_starts_with(base64_decode($r['audio']['base64']),'OggS'));
+  $this->assertDatabaseHas('wa_messages',['id'=>$mid,'speech_asset_id'=>$a,'body'=>'Áudio: Olá, Marina. Retorne quando puder.']);$this->get('/api/voice/conversations/'.$c.'/media/'.$mid)->assertOk()->assertHeader('Content-Type','audio/mpeg');$this->assertDatabaseCount('voice_outbound_calls',0);
+  $agent=User::factory()->create(['voice_workspace_id'=>1,'voice_role'=>'agent']);$this->actingAs($agent)->get('/api/voice/conversations/'.$c.'/media/'.$mid)->assertNotFound();DB::table('wa_conversations')->where('id',$c)->update(['assigned_user_id'=>$agent->id]);$this->get('/api/voice/conversations/'.$c.'/media/'.$mid)->assertOk();
+ }
+ public function test_audio_rejects_other_workspace_expired_window_and_expired_asset_without_sending():void {
+  $c=$this->conversation();$a=$this->audioAsset();$d=['idempotency_key'=>(string)Str::uuid(),'speech_asset_id'=>$a];DB::table('speech_assets')->where('id',$a)->update(['workspace_id'=>2]);$this->postJson('/api/voice/conversations/'.$c.'/send',$d)->assertNotFound();DB::table('speech_assets')->where('id',$a)->update(['workspace_id'=>1,'expires_at'=>now()->subMinute()]);$this->postJson('/api/voice/conversations/'.$c.'/send',$d)->assertConflict();DB::table('speech_assets')->where('id',$a)->update(['expires_at'=>now()->addDay()]);DB::table('wa_conversations')->where('id',$c)->update(['last_inbound_at'=>now()->subHours(25)]);$this->postJson('/api/voice/conversations/'.$c.'/send',$d)->assertUnprocessable();Http::assertNothingSent();$this->assertDatabaseCount('wa_messages',1);
+ }
+ public function test_unavailable_qr_audio_capability_cancels_before_send():void {
+  $c=$this->conversation();$a=$this->audioAsset();Http::fake(['http://qr.test/sessions/*'=>Http::response(['status'=>'connected','number'=>'+5511000000000','capabilities'=>[]])]);$this->postJson('/api/voice/conversations/'.$c.'/send',['idempotency_key'=>(string)Str::uuid(),'speech_asset_id'=>$a])->assertUnprocessable();Http::assertSentCount(1);Http::assertNotSent(fn($r)=>$r->method()==='POST');$this->assertDatabaseHas('wa_messages',['speech_asset_id'=>$a,'status'=>'cancelled']);
+ }
+ public function test_twilio_audio_uses_expiring_media_url_without_tts():void {
+  $c=$this->conversation();$a=$this->audioAsset();$sid='AC'.str_repeat('a',32);$sender='XE'.str_repeat('b',32);$message='SM'.str_repeat('c',32);
+  DB::table('wa_senders')->where('id',$this->sender)->update(['provider'=>'twilio','provider_sid'=>$sender]);config(['whatsapp_test_connection'=>['account_sid'=>$sid,'auth_token'=>str_repeat('x',32),'api_key'=>'SK'.str_repeat('d',32),'api_secret'=>str_repeat('s',32),'allowed_recipients'=>['+5511999990000'],'daily_limit'=>10]]);
+  Http::fake(['https://messaging.twilio.com/v2/Channels/Senders/*'=>Http::response(['sid'=>$sender,'sender_id'=>'whatsapp:+5511000000000','status'=>'ONLINE']), 'https://api.twilio.com/2010-04-01/Accounts/*/Messages.json'=>Http::response(['account_sid'=>$sid,'sid'=>$message,'status'=>'accepted'])]);
+  $this->postJson('/api/voice/conversations/'.$c.'/send',['idempotency_key'=>(string)Str::uuid(),'speech_asset_id'=>$a])->assertOk()->assertJsonPath('status','accepted');Http::assertSentCount(2);Http::assertSent(fn($r)=>$r->method()==='POST'&&str_contains($r['MediaUrl']??'', '/media/speech/1/'.$a.'/ogg?')&&str_contains($r['MediaUrl'],'signature=')&&!isset($r['Body']));$this->assertDatabaseHas('wa_messages',['speech_asset_id'=>$a,'status'=>'accepted']);
  }
 
 }

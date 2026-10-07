@@ -3,6 +3,7 @@ import {ref,computed,onMounted,defineAsyncComponent,watch} from 'vue'
 import VoiceQueuePanel from './VoiceQueuePanel.vue'
 import VoiceAudioPanel from './VoiceAudioPanel.vue'
 import VoiceCallingPanel from './VoiceCallingPanel.vue'
+const SpeechStudioPanel=defineAsyncComponent(()=>import('./SpeechStudioPanel.vue'))
 const JourneyDashboard=defineAsyncComponent(()=>import('./JourneyDashboard.vue'))
 const VoiceOperationsPanel=defineAsyncComponent(()=>import('./VoiceOperationsPanel.vue'))
 import VoiceTwilioPanel from './VoiceTwilioPanel.vue'
@@ -13,7 +14,7 @@ import {Phone,Plus,RefreshCw,FileText,Upload,Play,Pause,Settings2,X,ShieldCheck,
 const props=defineProps({focusId:Number,section:{type:String,default:'flow'},initialSub:{type:String,default:''}});const emit=defineEmits(['catalog','journey','changed','lists','section','back'])
 const canvas=ref(null),pendingLeave=ref(null)
 const sectionTitles={flow:'Fluxo da cadência',create:'Nova cadência de voz',queues:'Supervisão',channels:'Canais',reports:'Relatórios',tests:'Testes'}
-const sectionTabs={flow:[],create:[],queues:[['operations','Filas e regras'],['calling','Chamadas avulsas']],channels:[['whatsapp','WhatsApp'],['twilio','Twilio e telefonia'],['origins','Números de saída']],reports:[['dashboard','Dashboard por jornada'],['operations','Chamadas e tabulação'],['cadence','WhatsApp e histórico']],tests:[['agent','Simular atendimento'],['queues','Simular filas'],['audio','Áudio no navegador'],['contacts','Contatos de teste'],['imports','Importação XLSX'],['reference','Documento e roteiro']]}
+const sectionTabs={flow:[],create:[],queues:[['operations','Filas e regras'],['calling','Chamadas avulsas']],channels:[['whatsapp','WhatsApp'],['twilio','Twilio e telefonia'],['origins','Números de saída'],['speech','Voz e áudios']],reports:[['dashboard','Dashboard por jornada'],['operations','Chamadas e tabulação'],['cadence','WhatsApp e histórico']],tests:[['agent','Simular atendimento'],['queues','Simular filas'],['audio','Áudio no navegador'],['contacts','Contatos de teste'],['imports','Importação XLSX'],['reference','Documento e roteiro']]}
 const tabs=computed(()=>sectionTabs[props.section]||[])
 function requestLeave(fn){if(busy.value){pendingLeave.value=fn;return}if(dialog.value&&!window.confirm('Fechar o formulário e descartar as alterações não salvas?'))return;if(canvas.value)canvas.value.requestLeave(fn);else fn()}
 defineExpose({requestLeave})
@@ -87,6 +88,7 @@ function changedImport(){importResult.value=null}
    <JourneyDashboard v-if="tab==='dashboard'" :campaign-id="section==='flow'?journeyId:undefined" :campaigns="data.campaigns" @back="tab='journey'"/>
    <VoiceOperationsPanel v-if="['operations','origins','imports'].includes(tab)" :key="tab" :initial-tab="tab==='origins'?'origins':tab==='imports'?'lists':operationsTab" :allowed-tabs="section==='queues'?['live','policies']:section==='reports'?['reports']:tab==='origins'?['origins']:['lists']"/>
    <VoiceQueuePanel v-if="tab==='queues'"/>
+   <SpeechStudioPanel v-if="tab==='speech'"/>
    <VoiceTwilioPanel v-if="tab==='twilio'"/>
    <WhatsAppPanel v-if="tab==='whatsapp'" @changed="refresh"/>
    <template v-if="tab==='reference'">

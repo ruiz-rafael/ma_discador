@@ -6,6 +6,7 @@ import pino from 'pino';
 import QRCode from 'qrcode';
 import {Store,phone,authorized,hasLinkedSession} from './store.mjs';
 import {buttons,inboundContent,transmit} from './interactive.mjs';
+import {audioPayload,transmitAudio} from './audio.mjs';
 process.umask(0o077);
 const cfg=JSON.parse(await readFile(process.env.CONFIG_PATH||'/run/qr-config.json','utf8'));
 if(!/^[a-f0-9]{64}$/.test(cfg.key)||!cfg.token||cfg.token.length<32)throw new Error('Invalid private configuration');
@@ -71,10 +72,10 @@ async function connect(s) {
  }));
  }finally{s.connecting=false;}
 }
-function info(s){return{capabilities:{experimental_buttons:true},status:s.status,number:s.number,qr:s.status==='qr'&&Date.now()-s.qrAt<55000?s.qr:null};}
+function info(s){return{capabilities:{experimental_buttons:true,audio:true},status:s.status,number:s.number,qr:s.status==='qr'&&Date.now()-s.qrAt<55000?s.qr:null};}
 async function send(s,b){
  if(!/^[a-f0-9-]{36}$/.test(b.id)||!validPhone(b.to)||typeof b.text!=='string'||!b.text.trim()||b.text.length>6000)throw new Error('Mensagem inválida.');
- const data=[b.to,b.text,b.number];
+ const data=[b.to,b.text,b.number];const audio=b.audio?audioPayload(b.audio):null;if(audio){if(b.interactive)throw Error('Áudio e botões devem ser enviados separadamente.');data.push(audio.hash);}
  if(b.interactive){if(b.interactive.mode!=='experimental_buttons')throw new Error('Invalid mode');b.interactive={mode:'experimental_buttons',buttons:buttons(b.interactive.buttons)};data.push(b.interactive);}
  const hash=JSON.stringify(data);
  const old=s.saved.messages[b.id];if(old){if(old.hash!==hash)throw new Error('Identificação já utilizada.');return old;}
@@ -86,11 +87,11 @@ async function send(s,b){
  if(total>=(cfg.daily_limit||10))throw new Error('Limite diário atingido.');
  // Durable reservation before socket I/O. Restart or HTTP timeout cannot resend it.
  const m={status:'unknown',hash,day,reference:randomUUID().replaceAll('-','').toUpperCase()};s.saved.messages[b.id]=m;await persist(s);
- try{await transmit(s.socket,b.to.slice(1)+'@s.whatsapp.net',b.text,m.reference,b.interactive,generateWAMessageFromContent);m.status='sent';await event(s,{kind:'status',message_id:b.id,reference:m.reference,status:'sent'});}
+ try{if(audio)await transmitAudio(s.socket,b.to.slice(1)+'@s.whatsapp.net',audio,m.reference);else await transmit(s.socket,b.to.slice(1)+'@s.whatsapp.net',b.text,m.reference,b.interactive,generateWAMessageFromContent);m.status='sent';await event(s,{kind:'status',message_id:b.id,reference:m.reference,status:'sent'});}
  catch{await persist(s);}
  return m;
 }
-async function body(req){let value='';for await(const chunk of req){value+=chunk;if(value.length>32768)throw new Error('Corpo excessivo.');}return value?JSON.parse(value):{};}
+async function body(req){let value='';for await(const chunk of req){value+=chunk;if(value.length>1600000)throw new Error('Corpo excessivo.');}return value?JSON.parse(value):{};}
 const server=http.createServer(async(req,res)=>{
  res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');
  const reply=(code,data)=>{res.writeHead(code);res.end(JSON.stringify(data));};

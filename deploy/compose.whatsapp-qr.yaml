@@ -1,6 +1,6 @@
 services:
   whatsapp-qr:
-    image: zyrex-ma-whatsapp-qr:buttons-20261004
+    image: zyrex-ma-whatsapp-qr:audio-20261007
     build: ./whatsapp-qr
     restart: unless-stopped
     init: true
