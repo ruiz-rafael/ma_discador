@@ -102,6 +102,7 @@ class VoiceQueue
             $this->expire($w);
             $old = DB::table('voice_agent_presence')->where('user_id', $u)->first();
             abort_unless(DB::table('users')->where('id',$u)->where('voice_workspace_id',$w)->where('voice_enabled',true)->exists(),403,'Atendente desativado.');
+            if($old?->session_id&&$old->session_id!==$session&&app(VoiceAgentCapacity::class)->busy($w,$u))abort(409,'Há um atendimento em outra aba. Conclua a chamada e a tabulação naquela conexão.');
             if($status===null&&$old?->session_id&&$old->session_id!==$session)abort(409,'Esta aba não controla sua disponibilidade.');
             if($old?->session_id && $old->session_id!==$session && $old->status!=='offline' && $old->last_seen_at && CarbonImmutable::parse($old->last_seen_at)->gt(now()->subSeconds(90)))abort(409,'Sua disponibilidade está sendo controlada em outra aba. Fique offline naquela aba antes de usar esta.');
             if($setSelection)AgentAvailability::validateSelection($w,$u,$selection);

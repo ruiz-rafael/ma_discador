@@ -239,3 +239,13 @@ Nunca há duas participações ativas da mesma cadência para o mesmo contato: t
 No modo por evento, **Testar sem inserir na jornada** verifica a configuração salva e informa o motivo de bloqueio; não cria participação, chamada, mensagem ou recibo de evento. A reavaliação automática ocorre a cada minuto e antes da reserva progressiva. Estas opções pertencem ao construtor das cadências de voz e WhatsApp; gatilhos do construtor de automação MA continuam seguindo seu motor de eventos existente.
 
 Validação desta entrega: 370 testes e 2.874 asserções em SQLite e PostgreSQL; depois do ajuste final, 19 testes específicos e 87 asserções passaram novamente em cada banco. Concorrência PostgreSQL com 40 pedidos, quatro processos e uma admissão por ciclo. Navegador validado em desktop e celular, incluindo as quatro opções, salvamento, erro recuperável, histórico e prévia de evento. Nenhuma chamada ou mensagem externa foi usada. Evidências privadas em `evidence/reentry-20261006/`.
+
+## Discagem manual e disponibilidade — 07/10/2026
+
+O atendente pode abrir o teclado e fazer uma ligação manual estando **offline ou pausado nas filas**. Escolhe um número de saída habilitado; a rota é resolvida entre as filas atribuídas pelo administrador, mesmo que não estejam selecionadas para disponibilidade automática. Horários, permissões de destino, autorização do contato, limites, capacidade, tabulação e pós-atendimento continuam aplicáveis.
+
+A chamada manual não coloca o atendente online, não atualiza uma presença expirada, não habilita filas e não inicia cadências ou WhatsApp automático. Uma chamada manual em andamento ocupa o atendente e impede distribuição concorrente. Outra aba que esteja controlando uma presença online/pausada vigente continua protegida contra tomada de sessão.
+
+**Chamadas automáticas de campanhas e jornadas continuam exigindo atendente online, disponível e selecionado na fila.** Estar autenticado ou fazer uma ligação manual não satisfaz esse requisito.
+
+Validação: 389 testes e 2.989 asserções em cada banco (SQLite e PostgreSQL), 11 testes de JavaScript e build de produção. No navegador, discagens simuladas offline e pausadas mantiveram a presença original, sem reservas automáticas; o modal permaneceu aberto até a ação do usuário. Nenhuma chamada ou mensagem real foi enviada. Evidências privadas em `evidence/manual-offline-20261007/`.
