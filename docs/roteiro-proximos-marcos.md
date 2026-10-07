@@ -106,3 +106,8 @@ Validação automatizada: 384 testes / 2.952 asserções em SQLite e PostgreSQL,
 Estúdio Kokoro com templates, variáveis, prévia e biblioteca privada; arquivos MP3/WAV/OGG e envio manual de áudio em conversas elegíveis via QR ou Twilio. Síntese executada na VM sem créditos TTS da Twilio. Consulte [escopo e operação](voz-whatsapp-ia.md#estúdio-de-voz-próprio--07102026).
 
 A próxima etapa é AMD e recado na caixa postal: classificação humano/máquina/inconclusivo, vínculo do áudio na cadência, regras de continuidade e métricas específicas. Geração de voz não equivale à implementação dessa classificação. Áudio conversacional em tempo real e discagem preditiva também permanecem etapas distintas.
+
+
+### Comparação de vozes PT-BR — 07/10/2026
+
+O estúdio mantém Kokoro e acrescenta Chatterbox PT-BR em serviço privado separado. Templates guardam motor/voz; a comparação gera o mesmo texto com dois players e downloads. Chatterbox usa processamento CPU com limite próprio e liberação de memória por trabalho; aguardar minutos pela prévia é esperado. Não altera filas, chamadas, regras de caixa postal ou mensagens automáticas. AMD e vínculo do recado à cadência continuam sendo a etapa de telefonia indicada acima.

@@ -1,0 +1,227 @@
+[
+  {
+    "path": "chatterbox/src/chatterbox/__init__.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/__init__.py",
+    "sha256": "1bba4210a5920507896a96b96a266ce630ae18164d3aa3eeb354a8f8be6dc1e9"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/utils.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/utils.py",
+    "sha256": "13a8877860dcc1429248f72eda78bbeed1a294dce971c693ff362a479847bcb6"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/tts.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/tts.py",
+    "sha256": "8171ab702d1d965be94c36434e6bbdda7790a124553cbf503525410e11c477f9"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/vc.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/vc.py",
+    "sha256": "61ef544bbfbb0cbcbd2cf40fced02ddd41d3d94951e37ae33f6a66f9882a49a4"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/__init__.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/__init__.py",
+    "sha256": "1eb98b785c481502e515676da0e65afbfd8fa2254ae303b6fa9714db6a52730c"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/const.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/const.py",
+    "sha256": "9fa86ee94de3354b8e32f8d09d96748916a9aa5d23262e4a27ea8376fb0e165a"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/flow.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/flow.py",
+    "sha256": "6305c5d4b6e9727c65b2e3a56fedafab1e798595bf5f3644458be1594459e969"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/decoder.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/decoder.py",
+    "sha256": "a548f097a15cb89289b498978f7876cdadfd99904bd4e48fcea5225aa99a24be"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/f0_predictor.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/f0_predictor.py",
+    "sha256": "917825eec353b9601b9f7af0c0e3603eb1061d8b641539225e78c910d7bc2255"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/flow_matching.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/flow_matching.py",
+    "sha256": "5898d2a3ea41230126177ca7339f19ebd7b329f575b220fa14cbab82def45e0d"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/hifigan.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/hifigan.py",
+    "sha256": "e49f4723323937493ecf5f6c7f1934f57766ef46c74eaf7c60bf456a1c6fe897"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/s3gen.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/s3gen.py",
+    "sha256": "a5193548324b2849240f3632e347d8f7eb4e8f09a2e1bb6db968332351e54944"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/xvector.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/xvector.py",
+    "sha256": "c7c759920cbf1aac9f12e0a15c1bf3d38da51ca9d3ea7a7b53cf740c86fe17fa"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3tokenizer/__init__.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3tokenizer/__init__.py",
+    "sha256": "7357ce9a0349bae51e8e8cabcdd01ba8534dd6a2373c1e092291ecb716414fe0"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3tokenizer/s3tokenizer.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3tokenizer/s3tokenizer.py",
+    "sha256": "76eae9f95b14608c4847c9d7acfcf08138c365640b0d4589de01e742b0e5eb43"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/t3/__init__.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/t3/__init__.py",
+    "sha256": "cfecc1c7df7d22398157d40605abfa64f30ef9b697190dc4f57b229299f70538"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/t3/llama_configs.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/t3/llama_configs.py",
+    "sha256": "02197c316d02359a96e1cf6c3c7ab0cf55ec145e165524e9edd6fe90384a4f74"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/t3/t3.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/t3/t3.py",
+    "sha256": "110bea7e9ad6dd0b81f50e5165ab446bcd0f6446444473d333ebc5f9132decfe"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/tokenizers/tokenizer.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/tokenizers/tokenizer.py",
+    "sha256": "47cdd749f083a520744b0e2ccbaa6b659042a62e611de3c359a60b33bb6b5b33"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/tokenizers/__init__.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/tokenizers/__init__.py",
+    "sha256": "4d115c77deb2419d6174596f0dad9db560a8fb3a6647e3db3b405fb5db4ddf96"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/voice_encoder/voice_encoder.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/voice_encoder/voice_encoder.py",
+    "sha256": "4b12e9d49cbb7ce81e6731c02d4f37a9b763ef7419dba95a7e66ea078d49a9c3"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/voice_encoder/config.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/voice_encoder/config.py",
+    "sha256": "0b41d794a16fd94929b37fd229dc61d3634178a11046a6b5834e109109a8e3c8"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/voice_encoder/__init__.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/voice_encoder/__init__.py",
+    "sha256": "adf1bcef74e90dae0fcb5c2945103cbc0bd9af15cc9be4288f960ad7d22ce678"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/voice_encoder/melspec.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/voice_encoder/melspec.py",
+    "sha256": "0f5fea173841c5150fa6ea9236160798c8ee24afba724d65da61dce78a4d48e8"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/t3/inference/t3_hf_backend.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/t3/inference/t3_hf_backend.py",
+    "sha256": "2d8407cf500ec1e6b707b060861145bb7802741328d76ec341280c06c7f3f2b5"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/t3/modules/cond_enc.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/t3/modules/cond_enc.py",
+    "sha256": "6766fd85d9c4db1b606169773382177055df784cb2f52c9f43fa34ade1255434"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/t3/modules/t3_config.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/t3/modules/t3_config.py",
+    "sha256": "8f3e31b45715dddf3c2b4504acee0544b0172f9155c1f3877314b9fa768c4e5e"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/t3/modules/learned_pos_emb.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/t3/modules/learned_pos_emb.py",
+    "sha256": "2ec5b09ce94d71261e9c25833a08f666bd6e2d5439b2314123e035c02df8b7af"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/t3/modules/perceiver.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/t3/modules/perceiver.py",
+    "sha256": "f9c4b0130652e94d05873ead931ecd399a9dd644b7a17edf1b76d7d7f2bfbf42"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/matcha/text_encoder.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/matcha/text_encoder.py",
+    "sha256": "a1e993ad219d95dee864e010d8415e7057abb6131a21550093d83db0279b01cb"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/matcha/decoder.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/matcha/decoder.py",
+    "sha256": "a9f35df7b3eb1c7defb8744626b32ef0504a519a066f3240fde90393a39b3488"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/matcha/flow_matching.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/matcha/flow_matching.py",
+    "sha256": "56614b92aad52f713c198ae089d47e6a7df13450f3cf5d1144f65fb34c35107d"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/matcha/transformer.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/matcha/transformer.py",
+    "sha256": "66ff2092d974a99b251b9d8e5c08bbcecceaedfaf41e2bd8af2b4bc7a56dcbea"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/transformer/__init__.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/transformer/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/transformer/convolution.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/transformer/convolution.py",
+    "sha256": "eb5f41f324a97225c73b9c430af8bb231bd77386ef18450bb0fd329f469ab4e1"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/transformer/attention.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/transformer/attention.py",
+    "sha256": "28c38f1e3ea1aeac1526e98f8349d9f068e25f1f6ae246c60badc3d540d62794"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/transformer/activation.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/transformer/activation.py",
+    "sha256": "a4a96caea9f7b05111286de5ea760bdfdf9c4e53448f53420857dc04a50440c2"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/transformer/embedding.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/transformer/embedding.py",
+    "sha256": "3646e748783fe6c069b424cc9cbfe81bc54a5ccfea1ae7041df398a603cccd3e"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/transformer/positionwise_feed_forward.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/transformer/positionwise_feed_forward.py",
+    "sha256": "6e8038e3bcc8ca086ddca508fb9b9d40bf3ab98bebabcf5c94935d032329d0f8"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/transformer/encoder_layer.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/transformer/encoder_layer.py",
+    "sha256": "1920582be2c9b7cf7835e7b539118ec1eb9da8f2c711c6257f8598b3792951b9"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/transformer/subsampling.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/transformer/subsampling.py",
+    "sha256": "31fc0347a851abc1205dfd4cf68099c0c416589c3e99a07b250e8630cece19d0"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/transformer/upsample_encoder.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/transformer/upsample_encoder.py",
+    "sha256": "1794ff01b678791ad665d7b0c0999448e760fc1dcb3bc8208de5f58510c1f68c"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/utils/mask.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/utils/mask.py",
+    "sha256": "eae40f274d35941b78956b3e1fc8b36a699ae2f98b2803d4735089cafb5598ed"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/utils/class_utils.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/utils/class_utils.py",
+    "sha256": "02f3cb3a55ee124c279777245b09061fa15a8182e6e7d7762f8fa45c0a631948"
+  },
+  {
+    "path": "chatterbox/src/chatterbox/models/s3gen/utils/mel.py",
+    "url": "https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS-pt-br/resolve/9e515821e826e207cd617a0fdd0223899ed108ea/chatterbox/src/chatterbox/models/s3gen/utils/mel.py",
+    "sha256": "3a78d1e46b489dd9ccbeedb527a034023e907f1db03dd6b6dff771e327388d7f"
+  }
+]

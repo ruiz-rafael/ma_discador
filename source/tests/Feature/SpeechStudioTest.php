@@ -9,10 +9,10 @@ use Tests\TestCase;
 class SpeechStudioTest extends TestCase {
  use RefreshDatabase;
  private User $admin;private string $root;
- protected function setUp():void {parent::setUp();Http::preventStrayRequests();$this->root=sys_get_temp_dir().'/ma-speech-'.Str::uuid();config(['speech_test'=>['root'=>$this->root,'url'=>'http://speech:8091','token'=>str_repeat('x',64)]]);$this->admin=User::factory()->create(['voice_workspace_id'=>1,'voice_role'=>'admin']);$this->actingAs($this->admin);}
+ protected function setUp():void {parent::setUp();Http::preventStrayRequests();$this->root=sys_get_temp_dir().'/ma-speech-'.Str::uuid();config(['speech_test'=>['root'=>$this->root,'url'=>'http://speech:8091','chatterbox_url'=>'http://chatterbox:8091','token'=>str_repeat('x',64)]]);$this->admin=User::factory()->create(['voice_workspace_id'=>1,'voice_role'=>'admin']);$this->actingAs($this->admin);}
  protected function tearDown():void {File::deleteDirectory($this->root);parent::tearDown();}
  private function data(array $more=[]):array{return array_replace(['name'=>'Recado QA','body'=>'Olá, {primeiro_nome}. Aqui é a {empresa}.','voice'=>'pf_dora','speed'=>1,'values'=>['primeiro_nome'=>'Marina','empresa'=>'Exemplo']],$more);}
- private function ready(object $a):void {$p=$this->root.'/1/'.$a->id;File::ensureDirectoryExists($p);file_put_contents($p.'/state.json',json_encode(['status'=>'ready','fingerprint'=>$a->fingerprint,'duration'=>8.5,'generation_seconds'=>3]));foreach(['wav','mp3','ogg']as $f)file_put_contents($p.'/audio.'.$f,'RIFF'.str_repeat('0',100));}
+ private function ready(object $a):void {$p=$this->root.(($a->engine??'kokoro')==='chatterbox'?'/chatterbox':'').'/1/'.$a->id;File::ensureDirectoryExists($p);file_put_contents($p.'/state.json',json_encode(['status'=>'ready','fingerprint'=>$a->fingerprint,'duration'=>8.5,'generation_seconds'=>3]));foreach(['wav','mp3','ogg']as $f)file_put_contents($p.'/audio.'.$f,'RIFF'.str_repeat('0',100));}
  public function test_templates_are_workspace_scoped_and_use_optimistic_locking():void {
   $id=$this->postJson('/api/voice/speech/templates',$this->data())->assertOk()->json('id');
   $this->putJson('/api/voice/speech/templates/'.$id,$this->data(['revision'=>1,'name'=>'Novo nome']))->assertOk()->assertJsonPath('revision',2);
@@ -50,4 +50,39 @@ class SpeechStudioTest extends TestCase {
  public function test_retention_removes_audio_and_personalized_text_but_keeps_templates():void {
   Http::fake(['http://speech:8091/generate'=>Http::response([],202)]);$s=app(SpeechStudio::class);$s->save(1,$this->data(),null);$a=$s->generate(1,$this->admin->id,$this->data());$this->ready($a);$this->travel(31)->days();$this->assertSame(1,$s->purge());$this->assertDatabaseHas('speech_assets',['id'=>$a->id,'status'=>'expired','body'=>'']);$this->assertDatabaseCount('speech_templates',1);$this->assertDirectoryDoesNotExist($this->root.'/1/'.$a->id);
  }
+ public function test_engines_keep_separate_assets_and_chatterbox_uses_private_storage():void {
+  Http::fake(['http://speech:8091/*'=>Http::response(['ready'=>true],202),'http://chatterbox:8091/*'=>Http::response(['ready'=>true],202)]);
+  $k=$this->postJson('/api/voice/speech/generate',$this->data())->assertAccepted()->assertJsonPath('engine','kokoro')->json();
+  $d=$this->data(['engine'=>'chatterbox','voice'=>'br_reference_f']);
+  $c=$this->postJson('/api/voice/speech/generate',$d)->assertAccepted()->assertJsonPath('engine','chatterbox')->json();
+  $this->assertNotSame($k['fingerprint'],$c['fingerprint']);$this->assertNotSame($k['id'],$c['id']);
+  $this->postJson('/api/voice/speech/generate',$d)->assertAccepted()->assertJsonPath('id',$c['id']);Http::assertSentCount(2);
+  Http::assertSent(fn($r)=>$r->url()==='http://chatterbox:8091/generate'&&$r['voice']==='br_reference_f');
+  $this->ready((object)$c);$this->get('/api/voice/speech/assets/'.$c['id'].'/mp3')->assertOk();
+  $this->assertStringContainsString('/chatterbox/1/',app(SpeechStudio::class)->file(1,$c['id'],'ogg'));
+  $this->get(app(SpeechStudio::class)->deliveryUrl(1,$c['id'],'ogg'))->assertOk();
+  $this->getJson('/api/voice/speech')->assertOk()->assertJsonPath('engines.chatterbox.service.ready',true)->assertJsonPath('engines.chatterbox.max_chars',300);
+  $this->assertDatabaseCount('voice_outbound_calls',0);$this->assertDatabaseCount('wa_messages',0);
+ }
+ public function test_engine_voice_pairs_and_rendered_length_are_enforced_before_worker():void {
+  foreach([['engine'=>'chatterbox','voice'=>'pf_dora'],['engine'=>'kokoro','voice'=>'br_reference_f'],['engine'=>'other','voice'=>'pf_dora']] as $pair){
+   $this->postJson('/api/voice/speech/generate',$this->data($pair))->assertStatus(422);
+   $this->postJson('/api/voice/speech/templates',$this->data($pair))->assertStatus(422);
+  }
+  $this->postJson('/api/voice/speech/generate',$this->data(['engine'=>'chatterbox','voice'=>'br_reference_f','values'=>['primeiro_nome'=>str_repeat('á',280),'empresa'=>'Exemplo']]))->assertStatus(422);
+  Http::assertNothingSent();$this->assertDatabaseCount('speech_assets',0);
+ }
+ public function test_chatterbox_templates_and_retention_preserve_engine():void {
+  Http::fake(['http://chatterbox:8091/generate'=>Http::response([],202)]);
+  $d=$this->data(['engine'=>'chatterbox','voice'=>'br_reference_f']);$id=$this->postJson('/api/voice/speech/templates',$d)->assertOk()->assertJsonPath('engine','chatterbox')->json('id');
+  $this->putJson('/api/voice/speech/templates/'.$id,$this->data(['revision'=>1]))->assertOk()->assertJsonPath('engine','kokoro');
+  $a=app(SpeechStudio::class)->generate(1,$this->admin->id,$d);$this->ready($a);$this->travel(31)->days();$this->assertSame(1,app(SpeechStudio::class)->purge());$this->assertDirectoryDoesNotExist($this->root.'/chatterbox/1/'.$a->id);
+ }
+ public function test_unavailable_chatterbox_never_falls_back_to_kokoro():void {
+  $d=$this->data(['engine'=>'chatterbox','voice'=>'br_reference_f']);config(['speech_test.chatterbox_url'=>null]);
+  $this->postJson('/api/voice/speech/generate',$d)->assertStatus(503);Http::assertNothingSent();$this->assertDatabaseCount('speech_assets',0);
+  config(['speech_test.chatterbox_url'=>'http://chatterbox:8091']);Http::fake(['http://chatterbox:8091/generate'=>Http::response([],503)]);
+  $this->postJson('/api/voice/speech/generate',$d)->assertAccepted()->assertJsonPath('status','failed')->assertJsonPath('engine','chatterbox');Http::assertSentCount(1);
+ }
+
 }

@@ -1,0 +1,27 @@
+[
+  {
+    "path": "s3gen_v3.safetensors",
+    "url": "https://huggingface.co/ResembleAI/Chatterbox-Multilingual-pt-br/resolve/b3952f18bc2eaa72b9bd7c17d2c4653bcad4770d/s3gen_v3.safetensors",
+    "sha256": "4a46190f3dccc2230fbb3488a930bccc925862ee68f2662433dfcfe93ce6c2cb"
+  },
+  {
+    "path": "t3_pt_br.safetensors",
+    "url": "https://huggingface.co/ResembleAI/Chatterbox-Multilingual-pt-br/resolve/b3952f18bc2eaa72b9bd7c17d2c4653bcad4770d/t3_pt_br.safetensors",
+    "sha256": "074aaf65255eb9cb960288f7cc72e09d3b5008f6e0b14868c0d4e5b0bd7cbb6c"
+  },
+  {
+    "path": "ve.pt",
+    "url": "https://huggingface.co/ResembleAI/chatterbox/resolve/5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18/ve.pt",
+    "sha256": "4b16d836bc598509860f6fa068165a8bb5e9ac84f05582dfcf278a5a372879f1"
+  },
+  {
+    "path": "grapheme_mtl_merged_expanded_v1.json",
+    "url": "https://huggingface.co/ResembleAI/Chatterbox-Multilingual-pt-br/resolve/b3952f18bc2eaa72b9bd7c17d2c4653bcad4770d/grapheme_mtl_merged_expanded_v1.json",
+    "sha256": "69632f47220a788a52ce2661d096453c5655e9bf25289d89a8d832c46ee07dbf"
+  },
+  {
+    "path": "pt_br_f2.wav",
+    "url": "https://storage.googleapis.com/chatterbox-demo-samples/mtl-v3-single-language-prompts/pt-br/pt_br_f2.wav",
+    "sha256": "b74124fa87356241316d2d55b8f9dfea1da57f08325f63e9198e33f755659482"
+  }
+]

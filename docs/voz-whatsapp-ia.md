@@ -105,7 +105,7 @@ Disponível em **Cadências → Canais → Voz e áudios**, para administradores
 
 O editor permite salvar templates versionados, escolher Dora, Alex ou Santa em português brasileiro, ajustar a velocidade e preencher variáveis como `{primeiro_nome}` e `{empresa}`. Variáveis são substituídas uma vez, sem execução de expressões. Gerar uma prévia não insere contatos nem inicia chamadas, filas ou mensagens. O arquivo gerado mantém o texto daquela geração; editar o template não altera áudios anteriores.
 
-Os formatos são MP3 mono/24 kHz para prévia, WAV PCM16 mono/8 kHz para telefonia e OGG/Opus mono/48 kHz para WhatsApp. Os áudios expiram em 30 dias; a rotina horária remove arquivos e texto personalizado da biblioteca, preservando os templates. Há limite inicial de 100 gerações por workspace/dia, um processamento simultâneo, até 1.200 caracteres no template, 1.500 após personalização e 120 segundos de áudio. Áudios idênticos ainda disponíveis são reutilizados. Esses limites protegem a VM de testes e não significam capacidade de geração em tempo real para muitas chamadas.
+Os formatos são MP3 mono/24 kHz para prévia, WAV PCM16 mono/8 kHz para telefonia e OGG/Opus mono/48 kHz para WhatsApp. Os áudios expiram em 30 dias; a rotina horária remove arquivos e texto personalizado da biblioteca, preservando os templates. Há limite inicial de 100 gerações por workspace/dia, um processamento simultâneo por motor, até 1.200 caracteres no template, 1.500 após personalização e 120 segundos de áudio. Áudios idênticos ainda disponíveis são reutilizados. Esses limites protegem a VM de testes e não significam capacidade de geração em tempo real para muitas chamadas.
 
 ### Uso em WhatsApp
 
@@ -136,3 +136,22 @@ Preparar, exclusivamente no projeto MA:
 O conector QR com suporte a áudio mantém seu volume de sessão e usa a imagem `zyrex-ma-whatsapp-qr:audio-20261007`. A atualização não altera números, filas, campanhas ou disponibilidade dos agentes.
 
 Validação: 400 testes e 3.058 asserções em SQLite e PostgreSQL, 11 testes JavaScript da aplicação e 11 do conector QR. Após a revisão final, os 19 testes de estúdio/conversas passaram novamente, com 132 asserções. Navegador desktop e celular validaram template, personalização, geração, player, download e envio simulado com a mesma chave de operação. As três vozes geraram arquivos reais dentro do serviço local; codecs, frequências e canais foram conferidos. A prévia final no navegador reproduz 6,73 segundos com dados fictícios. Não houve ligação ou mensagem externa de homologação.
+
+
+## Comparação Kokoro e Chatterbox PT-BR — 07/10/2026
+
+Em **Cadências → Canais → Voz e áudios**, selecione o card do motor. Kokoro mantém Dora, Alex e Santa; Chatterbox oferece inicialmente uma voz brasileira feminina, com o modelo dedicado PT-BR e a referência oficial. O motor e a voz são salvos no template e identificados nos áudios. Templates e arquivos anteriores permanecem Kokoro.
+
+**Comparar os dois** gera o mesmo texto preenchido e a mesma velocidade nos dois motores, com players lado a lado. O motor selecionado usa a voz escolhida; o outro usa sua voz padrão (Dora no Kokoro, brasileira de referência no Chatterbox). Use até 300 caracteres após preencher as variáveis para comparar. Ouça os resultados e escolha **Selecionar e baixar** para acessar MP3, WAV e OGG ou o envio manual já existente. Geração e comparação não iniciam ligações nem mensagens.
+
+O Chatterbox é mais pesado: a geração nesta VM sem GPU leva minutos. Cada trabalho carrega o modelo e libera a memória ao terminar; o serviço tem limite próprio de 3 GiB e 1,5 CPU. Os áudios ficam na biblioteca por 30 dias. O limite diário de 100 gerações é compartilhado entre os motores; uma comparação nova utiliza duas gerações, com reutilização dos áudios idênticos ainda válidos. Se um motor falhar, a interface informa isso e preserva o resultado do outro, sem trocar de motor silenciosamente.
+
+Limites específicos: Chatterbox aceita até 300 caracteres preenchidos e tem prazo de inferência de 480 segundos. O modelo limita a saída a 1.000 tokens de fala; não é um motor de conversação em tempo real nesta VM. Kokoro mantém seus limites anteriores. Naturalidade é avaliada ouvindo amostras: a escolha do modelo não garante pronúncia perfeita para nomes, siglas ou todos os textos.
+
+A instalação, licença MIT, versões, referência e otimização CPU estão em `chatterbox/NOTICE.md`. O processamento foi validado offline, sem acesso a telefonia, e os testes do backend cobrem separação dos motores, permissões, armazenamento, retenção e falhas sem fallback.
+
+
+Validação desta comparação: 404 testes e 3.098 asserções em SQLite e PostgreSQL; 11 testes JavaScript; build e navegador desktop/celular aprovados. Inferência real offline com texto curto (7,08 s de áudio em 216 s) e teste do serviço privado com 298 caracteres (17,72 s de áudio em 431,05 s). O último manteve o consumo total do cgroup abaixo de 3 GiB, incluindo cache de arquivos; a memória do processo é liberada após cada trabalho. Autenticação, idempotência, exclusão de geração concorrente e os três formatos foram conferidos. A comparação não mede latência para conversação ao vivo.
+
+
+Após a publicação, a comparação real no navegador gerou e decodificou os dois MP3: Kokoro com 4,54 s e Chatterbox com 7,07 s, usando o mesmo texto fictício. A comparação concluiu em cerca de 192 s. As duas amostras **Comparação PT-BR** permanecem na biblioteca, identificadas pelo motor. Desktop e celular sem erros JavaScript; somente as duas solicitações de geração foram permitidas no teste.
