@@ -6,8 +6,14 @@ use Illuminate\Support\Facades\DB;
 
 class JourneyReports
 {
-    public const METRICS = ['calls','answered','no_answer','call_failed','call_other','dispatches','delivered','read','message_failed','message_pending','replies','button_clicks','unattributed'];
+    public const METRICS = ['human_answered','machine','answer_unknown','answer_unverified','voicemail_played','calls','answered','no_answer','call_failed','call_other','dispatches','delivered','read','message_failed','message_pending','replies','button_clicks','unattributed'];
     private const CALLS = [
+        'human_answered'=>"r.started_at is not null and (r.answered_at is not null or r.status='completed') and (r.answer_classification='human' or r.human_confirmed=true)",
+        'machine'=>"r.started_at is not null and r.answer_classification='machine' and coalesce(r.human_confirmed,false)=false",
+        'answer_unknown'=>"r.started_at is not null and (r.answered_at is not null or r.status='completed') and r.amd_mode!='off' and r.answer_classification in ('unknown','pending') and coalesce(r.human_confirmed,false)=false",
+        'answer_unverified'=>"r.started_at is not null and (r.answered_at is not null or r.status='completed') and r.amd_mode='off' and coalesce(r.human_confirmed,false)=false",
+        'voicemail_played'=>"r.voicemail_status='played'",
+
         'calls'=>"r.started_at is not null",
         'answered'=>"r.started_at is not null and (r.answered_at is not null or r.status='completed')",
         'no_answer'=>"r.started_at is not null and r.answered_at is null and r.status='no_answer'",
@@ -91,7 +97,7 @@ class JourneyReports
         if(!empty($f['button_id']))$q->where('r.button_id',$f['button_id']);
         if(isset($f['button_label']))$q->where('r.button_label',$f['button_label']);
         $q->leftJoin('voice_contacts as p','p.id','=','r.contact_id')->leftJoin('voice_campaigns as c','c.id','=','r.campaign_id');
-        $fields=$call?['r.id','r.run_id','r.contact_id','r.campaign_id','r.status','r.destination','r.caller_id','r.method','r.bill_seconds','r.started_at','r.answered_at','r.ended_at','r.created_at','r.disposition_label','r.human_confirmed','r.disposition_notes','r.context_snapshot']
+        $fields=$call?['r.id','r.run_id','r.contact_id','r.campaign_id','r.status','r.destination','r.caller_id','r.method','r.bill_seconds','r.started_at','r.answered_at','r.ended_at','r.created_at','r.disposition_label','r.human_confirmed','r.disposition_notes','r.context_snapshot','r.amd_mode','r.answer_classification','r.amd_answered_by','r.amd_duration_ms','r.amd_completed_at','r.amd_reviewed_at','r.voicemail_status','r.voicemail_reason','r.voicemail_played_at']
             :['r.id','r.run_id','r.contact_id','r.campaign_id','r.direction','r.from_number','r.to_number','r.status','r.error_code','r.body','r.provider','r.created_at','r.updated_at','r.button_id','r.button_label','r.reply_attribution','r.reply_to_message_id'];
         $rows=$q->select(array_merge($fields,['p.name as contact_name','c.name as campaign_name']))
             ->selectRaw('(select mc.name from contacts mc join voice_audience_contacts a on a.contact_id=mc.id join voice_campaign_policies cp on cp.audience_id=a.audience_id where cp.campaign_id=r.campaign_id and a.voice_contact_id=r.contact_id order by mc.id limit 1) as audience_name')
@@ -109,7 +115,7 @@ class JourneyReports
         $call=$kind==='calls';
         $m=DB::table($call?'voice_outbound_calls':'wa_messages')->where('workspace_id',$w)->where('id',$id)->firstOrFail();
         // Only public report fields. Never expose call grants, hashes, provider credentials or tokens.
-        $fields=$call?['id','run_id','contact_id','campaign_id','status','destination','caller_id','method','bill_seconds','created_at','started_at','answered_at','ended_at','dial_status','cause','disposition_label','human_confirmed','disposition_notes','context_snapshot']
+        $fields=$call?['id','run_id','contact_id','campaign_id','status','destination','caller_id','method','bill_seconds','created_at','started_at','answered_at','ended_at','dial_status','cause','disposition_label','human_confirmed','disposition_notes','context_snapshot','amd_mode','answer_classification','amd_answered_by','amd_duration_ms','amd_completed_at','amd_reviewed_at','voicemail_status','voicemail_reason','voicemail_played_at']
             :['id','run_id','contact_id','campaign_id','direction','provider','status','from_number','to_number','body','variables','interactive','error_code','created_at','updated_at','button_id','button_label','reply_attribution','reply_to_message_id'];
         $record=array_intersect_key((array)$m,array_flip($fields));
         foreach(['variables','interactive','context_snapshot'] as $key)if(isset($record[$key]))$record[$key]=json_decode($record[$key],true);

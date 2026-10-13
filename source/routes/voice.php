@@ -164,7 +164,10 @@ Route::middleware(["auth", "throttle:60,1"])->prefix("api/voice/journeys")->grou
 Route::middleware(['auth','throttle:60,1'])->prefix('api/voice/speech')->group(function(){
  $c=\App\Http\Controllers\SpeechStudioController::class;
  Route::get('/',[$c,'index']);Route::post('/templates',[$c,'save']);Route::put('/templates/{id}',[$c,'save'])->whereUuid('id');
+ Route::get('/ready',[$c,'ready']);
  Route::post('/generate',[$c,'generate'])->middleware('throttle:6,1,speech-generate:');
  Route::get('/assets/{id}',[$c,'asset'])->whereUuid('id');Route::get('/assets/{id}/{format}',[$c,'audio'])->whereUuid('id')->whereIn('format',['wav','mp3','ogg']);
 });
 Route::get('/media/speech/{workspace}/{id}/{format}',[\App\Http\Controllers\SpeechStudioController::class,'delivery'])->whereNumber('workspace')->whereUuid('id')->whereIn('format',['wav','mp3','ogg'])->middleware(['signed','throttle:120,1,speech-delivery:'])->name('speech.delivery');
+
+foreach(['amd'=>'amd','voicemail'=>'voicemail','voicemail-finished'=>'voicemailFinished'] as $path=>$action) Route::post('/callbacks/twilio/voice/'.$path.'/{id}',[\App\Http\Controllers\TwilioVoiceWebhookController::class,$action])->whereUuid('id')->middleware('throttle:240,1,voice-api:');

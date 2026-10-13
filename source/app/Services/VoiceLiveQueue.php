@@ -21,14 +21,14 @@ class VoiceLiveQueue
             } else {
                 $c = DB::table('voice_outbound_calls')->find($r->call_id);
                 if ($c->capacity_released_at && $c->status !== 'unknown') {
-                    $status = ($c->answered_at || $c->status === 'completed') && ! $c->disposition_revision ? 'tabulation' : 'completed';
+                    $status = VoiceAnswering::tabulation($c) && ! $c->disposition_revision ? 'tabulation' : 'completed';
                 }
             }
             if (! $status || $status === $r->status) {
                 continue;
             }
             DB::table('voice_live_reservations')->where('id', $r->id)->update(['status' => $status, 'finished_at' => in_array($status, ['completed', 'expired']) ? now() : null, 'updated_at' => now()]);
-            if ($r->status !== 'tabulation' && in_array($status,['tabulation','completed']) && ($c->answered_at || $c->status==='completed')) {
+            if ($r->status !== 'tabulation' && in_array($status,['tabulation','completed']) && VoiceAnswering::tabulation($c)) {
                 app(AgentWrapup::class)->start(DB::table('voice_live_queues')->find($r->queue_id),$r->user_id,'outbound:'.$c->id,$c->ended_at??$c->capacity_released_at);
             }
         }
@@ -168,7 +168,7 @@ return ['reservation' => null, 'retry_after' => 15, 'reasons' => $reasons, 'mess
                 if($current->kind!=='manual')$current->campaign_id ??= $current->queue->campaign_id;
                 $current->campaign=DB::table('voice_campaigns')->find($current->campaign_id,['id','name']);
                 if($current->campaign_id)$current->contact = app(VoiceAudience::class)->personalize($w, $current->campaign_id, $current->contact);
-                $current->call = $current->call_id ? DB::table('voice_outbound_calls')->where('id',$current->call_id)->first(['id', 'status', 'disposition_revision', 'disposition_code', 'capacity_released_at']) : null;
+                $current->call = $current->call_id ? DB::table('voice_outbound_calls')->where('id',$current->call_id)->first(['id', 'status', 'disposition_revision', 'disposition_code', 'capacity_released_at','amd_mode','answer_classification','amd_answered_by','voicemail_status','voicemail_reason','amd_reviewed_at']) : null;
             }
 
             $team = $manage ? DB::table('users as u')->leftJoin('voice_agent_presence as p', function ($j) use ($w) { $j->on('p.user_id', '=', 'u.id')->where('p.workspace_id', $w); })->where('u.voice_workspace_id', $w)->get(['u.id','u.name','p.status','p.pause_reason','p.last_seen_at','p.available_after','p.queue_ids'])->map(function ($a) {

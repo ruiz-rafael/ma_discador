@@ -26,4 +26,14 @@ class QueueChannelsTest extends TestCase {
   DB::table('voice_followups')->insert(['id'=>$followup,'workspace_id'=>1,'campaign_id'=>$campaign->id,'contact_id'=>$contact,'user_id'=>$this->user->id,'call_id'=>$call,'campaign_revision'=>$campaign->followup_revision,'settings'=>$campaign->settings,'destination'=>'+5511999990002','due_at'=>now(),'status'=>'pending']);
   $row=DB::table('voice_live_queues')->find($q);$this->putJson('/api/voice/operations/queues/'.$q,$this->data(['revision'=>$row->revision,'whatsapp_sender_id'=>$this->preset['sender_id'],'number_mode'=>'single']))->assertOk();$this->assertDatabaseHas('voice_followups',['id'=>$followup,'status'=>'cancelled']);$this->assertDatabaseHas('voice_outbound_calls',['id'=>$call,'status'=>'no_answer','caller_id'=>'+12025550123']);Http::assertNothingSent();
  }
+ public function test_answer_detection_saves_in_voice_card_preserves_old_client_and_rejects_sip():void {
+  $q=$this->create();$this->bind($q)->assertOk();$url='/api/voice/journeys/'.$this->preset['campaign_id'].'/nodes/voice';
+  $answering=array_replace(\App\Services\VoiceAnswering::DEFAULTS,['mode'=>'detect']);
+  $this->putJson($url,['revision'=>1,'config'=>['answering'=>$answering]])->assertOk()->assertJsonPath('journey.settings.answering.mode','detect');
+  $this->putJson($url,['revision'=>2,'config'=>['script'=>'Novo roteiro']])->assertOk()->assertJsonPath('journey.settings.answering.mode','detect');
+  DB::table('voice_live_queues')->where('id',$q)->update(['calling_method'=>'sip_trunk']);
+  $this->putJson($url,['revision'=>3,'config'=>['answering'=>$answering]])->assertUnprocessable();
+  $this->putJson($url,['revision'=>3,'config'=>['answering'=>\App\Services\VoiceAnswering::DEFAULTS]])->assertOk()->assertJsonPath('journey.settings.answering.mode','off');
+  $this->assertFalse(\App\Services\VoiceFollowups::ruleChanged([],['answering'=>\App\Services\VoiceAnswering::DEFAULTS]));Http::assertNothingSent();
+ }
 }

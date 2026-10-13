@@ -1,6 +1,6 @@
 # Marcos e roteiro de homologação
 
-Atualizado em 05/10/2026. Este é o roteiro vigente; documentos de testes anteriores preservam o estado da época. O projeto permanece no MA e não altera o CRM nem os outros sistemas da VM.
+Atualizado em 12/10/2026. Este é o roteiro vigente; documentos de testes anteriores preservam o estado da época. O projeto permanece no MA e não altera o CRM nem os outros sistemas da VM.
 
 ## Situação das entregas
 
@@ -111,3 +111,9 @@ A próxima etapa é AMD e recado na caixa postal: classificação humano/máquin
 ### Comparação de vozes PT-BR — 07/10/2026
 
 O estúdio mantém Kokoro e acrescenta Chatterbox PT-BR em serviço privado separado. Templates guardam motor/voz; a comparação gera o mesmo texto com dois players e downloads. Chatterbox usa processamento CPU com limite próprio e liberação de memória por trabalho; aguardar minutos pela prévia é esperado. Não altera filas, chamadas, regras de caixa postal ou mensagens automáticas. AMD e vínculo do recado à cadência continuam sendo a etapa de telefonia indicada acima.
+
+### Identificação e caixa postal — 12/10/2026
+
+Implementada a configuração opcional por cadência Twilio API: identificar pessoa/máquina/inconclusivo, selecionar recado pronto Kokoro ou Chatterbox e definir se caixa postal conta para o limiar WhatsApp. Resultados inconclusivos impedem continuidade automática; identificação humana encerra participação. Dashboard separa conexão técnica, identificação e reprodução do recado. Detalhes: [identificação e caixa postal](identificacao-caixa-postal.md).
+
+A entrega foi preparada para homologação, mantendo a detecção desativada nas campanhas existentes. Não inclui classificação SIP, áudio personalizado por contato durante a chamada ou discador preditivo. Próxima etapa: homologar AMD/recado e três atendentes reais, sem ampliar a capacidade antes da avaliação de áudio. Os testes internos não realizam chamadas nem enviam WhatsApp.

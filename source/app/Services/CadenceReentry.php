@@ -30,7 +30,8 @@ class CadenceReentry {
   if($contact->suppressed_at||!$contact->consent){$this->finish($r,'opt_out');return;}
   if($this->replyBlocks($contact,$r->id)){$this->finish($r,'replied');return;}
   $calls=DB::table('voice_outbound_calls')->where('run_id',$r->id);
-  if((clone $calls)->where(fn($q)=>$q->whereNotNull('answered_at')->orWhere('status','completed'))->exists()){$this->finish($r,'answered');return;}
+  if((clone $calls)->whereRaw(VoiceAnswering::stopsSql())->exists()){$this->finish($r,'answered');return;}
+  if((clone $calls)->whereRaw(VoiceAnswering::reviewSql())->exists())return;
   if((clone $calls)->where(fn($q)=>$q->whereNull('capacity_released_at')->orWhere('status','unknown'))->exists())return;
   $f=DB::table('voice_followups')->where('run_id',$r->id)->first();
   if($f){

@@ -13,7 +13,7 @@ class VoiceJourneyEditorController extends Controller
 {
     private const FIELDS = [
         'entry' => ['list_kind', 'list_id', 'contact_ids', 'crm_campaign_id', 'segment_id', 'reentry'],
-        'voice' => ['queue_id','mode', 'max_attempts', 'whatsapp_after', 'timezone', 'days', 'start_time', 'end_time', 'concurrency', 'script'],
+        'voice' => ['answering','queue_id','mode', 'max_attempts', 'whatsapp_after', 'timezone', 'days', 'start_time', 'end_time', 'concurrency', 'script'],
         'wait' => ['retry_minutes'],
         'decision' => ['whatsapp_after'],
         'message' => ['whatsapp_enabled', 'whatsapp_delivery', 'number_mode', 'whatsapp_number', 'whatsapp_sender_id', 'whatsapp_after', 'whatsapp_delay', 'whatsapp_text', 'whatsapp_qr_template_id', 'whatsapp_qr_buttons_confirmed', 'whatsapp_real_template_id', 'whatsapp_template_id', 'whatsapp_variables'],

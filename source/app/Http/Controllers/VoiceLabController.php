@@ -102,7 +102,8 @@ class VoiceLabController extends Controller
         $d = $r->validate([
             'queue_id'=>'sometimes|nullable|integer|min:1','name' => 'required|string|max:160', 'revision' => 'sometimes|integer|min:0',
             'contact_ids' => 'present|array|max:500', 'contact_ids.*' => 'integer|distinct',
-            'settings' => 'required|array:mode,crm_campaign_id,segment_id,business_number,number_mode,whatsapp_number,whatsapp_sender_id,timezone,days,start_time,end_time,max_attempts,retry_minutes,concurrency,script,whatsapp_enabled,whatsapp_after,whatsapp_delay,whatsapp_template_id,whatsapp_delivery,whatsapp_text,whatsapp_real_template_id,whatsapp_variables,whatsapp_qr_template_id,whatsapp_qr_buttons_confirmed,reentry',
+            'settings' => 'required|array:mode,crm_campaign_id,segment_id,business_number,number_mode,whatsapp_number,whatsapp_sender_id,timezone,days,start_time,end_time,max_attempts,retry_minutes,concurrency,script,whatsapp_enabled,whatsapp_after,whatsapp_delay,whatsapp_template_id,whatsapp_delivery,whatsapp_text,whatsapp_real_template_id,whatsapp_variables,whatsapp_qr_template_id,whatsapp_qr_buttons_confirmed,reentry,answering',
+            'settings.answering'=>'sometimes|array:mode,count_machine_as_missed,audio_asset_id,audio_generic_confirmed',
             'settings.reentry'=>'sometimes|array:mode,interval_days,max_participations,exit_reasons,reply_wait_hours',
             'settings.mode' => 'required|in:preview,progressive',
             'settings.crm_campaign_id' => 'nullable|string|max:160', 'settings.segment_id' => 'nullable|string|max:160',
@@ -124,11 +125,14 @@ class VoiceLabController extends Controller
             'settings.whatsapp_variables' => 'sometimes|array|max:10',
             'settings.whatsapp_variables.*' => 'required|string|max:500',
         ]);
+        if($id&&!isset($d['settings']['answering'])){$previous=json_decode($this->lab->get('voice_campaigns',$w,$id)->settings,true);if(isset($previous['answering']))$d['settings']['answering']=$previous['answering'];}
+        if(isset($d['settings']['answering']))$d['settings']['answering']=app(\App\Services\VoiceAnswering::class)->validate($w,$d['settings']['answering']);
         if(isset($d['settings']['reentry']))$d['settings']['reentry']=app(\App\Services\CadenceReentry::class)->validate($d['settings']['reentry']);
         $currentQueue=$id?\App\Services\QueueRouting::forCampaign($w,$id)->first():null;
         $chosenQueue=$currentQueue;
         if(array_key_exists('queue_id',$d))$chosenQueue=$d['queue_id']?DB::table('voice_live_queues')->where('workspace_id',$w)->where('direction','!=','inbound')->where('id',$d['queue_id'])->firstOrFail():null;
         if(array_key_exists('queue_id',$d)&&$chosenQueue)abort_unless($chosenQueue->channels_configured,422,'Configure os números desta fila antes de vinculá-la à cadência.');
+        if(($d['settings']['answering']['mode']??'off')!=='off')abort_unless($chosenQueue&&$chosenQueue->calling_method==='programmable_voice',422,'Selecione uma fila Twilio API para identificar caixa postal.');
         $queueChanged=($currentQueue?->id)!==($chosenQueue?->id);
         $d['settings']=app(\App\Services\QueueChannels::class)->apply($chosenQueue,$d['settings']);
         app(\App\Services\VoicePersonalization::class)->validate($d['settings']['whatsapp_text'] ?? '');

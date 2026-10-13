@@ -29,7 +29,7 @@ class VoiceReports
             $q->whereRaw('COALESCE(c.started_at,c.created_at) < ?', [CarbonImmutable::parse($f['to'], $tz)->addDay()->startOfDay()->utc()]);
         }
         if (! empty($f['pending_disposition'])) {
-            $q->where(fn ($q) => $q->whereNotNull('c.answered_at')->orWhere('c.status', 'completed'))->whereNull('c.disposition_code');
+            $q->whereRaw('(('.VoiceAnswering::stopsSql('c.').') or ('.VoiceAnswering::reviewSql('c.').'))')->whereNull('c.disposition_code');
         }
 
         return $q;
@@ -37,7 +37,7 @@ class VoiceReports
 
     public function rows($q)
     {
-        return $q->select(['c.id', 'c.user_id', 'c.contact_id', 'c.campaign_id', 'c.queue_id', 'c.list_id', 'c.method', 'c.environment', 'c.destination', 'c.caller_id', 'c.status', 'c.dial_status', 'c.cause', 'c.bill_seconds', 'c.started_at', 'c.answered_at', 'c.ended_at', 'c.created_at', 'c.capacity_released_at', 'c.disposition_revision', 'c.disposition_code', 'c.disposition_label', 'c.human_confirmed', 'c.disposition_notes', 'c.callback_at', 'c.context_snapshot', 'p.name as contact_name', 'g.name as campaign_name', 'u.name as agent_name'])->orderByDesc('c.created_at')->orderBy('c.id');
+        return $q->select(['c.id', 'c.user_id', 'c.contact_id', 'c.campaign_id', 'c.queue_id', 'c.list_id', 'c.method', 'c.environment', 'c.destination', 'c.caller_id', 'c.status', 'c.dial_status', 'c.cause', 'c.bill_seconds', 'c.started_at', 'c.answered_at', 'c.ended_at', 'c.created_at', 'c.capacity_released_at', 'c.disposition_revision', 'c.disposition_code', 'c.disposition_label', 'c.human_confirmed', 'c.disposition_notes', 'c.callback_at', 'c.context_snapshot','c.amd_mode','c.answer_classification','c.amd_answered_by','c.amd_duration_ms','c.amd_completed_at','c.amd_reviewed_at','c.voicemail_status','c.voicemail_reason','c.voicemail_played_at', 'p.name as contact_name', 'g.name as campaign_name', 'u.name as agent_name'])->orderByDesc('c.created_at')->orderBy('c.id');
     }
 
     public function snapshot(int $w, object $user, array $f): array
@@ -92,6 +92,7 @@ class VoiceReports
                 app(VoiceLab::class)->stopContact($w, $user->id, $call->contact_id, 'opt_out');
             }
             app(VoiceLab::class)->audit($w, $user->id, 'calling.tabulated', $id, ['code' => $code->code, 'revision' => $call->disposition_revision + 1]);
+            app(VoiceAnswering::class)->reviewed($call,$code);
             app(VoiceLiveQueue::class)->settle();
 
             return (object) ['id' => $id, 'disposition_revision' => $call->disposition_revision + 1];

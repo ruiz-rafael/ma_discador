@@ -239,4 +239,15 @@ class TwilioVoiceTest extends TestCase
         $this->getJson('/api/voice/calling')->assertForbidden();
         $this->postJson('/api/voice/calling/calls',$this->payload())->assertForbidden();
     }
+    public function test_cadence_reservation_snapshots_amd_and_renders_supported_number_attributes(): void
+    {
+        $campaign=DB::table('voice_campaigns')->insertGetId(['workspace_id'=>1,'name'=>'AMD QA','settings'=>json_encode(['business_number'=>'+551130000001','answering'=>array_replace(\App\Services\VoiceAnswering::DEFAULTS,['mode'=>'detect'])])]);
+        DB::table('voice_members')->insert(['campaign_id'=>$campaign,'contact_id'=>$this->contact]);
+        $g=$this->postJson('/api/voice/calling/calls',$this->payload()+['campaign_id'=>$campaign])->assertOk()->json();
+        $this->assertDatabaseHas('voice_outbound_calls',['id'=>$g['id'],'amd_mode'=>'detect','answer_classification'=>'pending']);
+        $xml=$this->dial($g)->assertOk()->getContent();
+        $this->assertStringContainsString('machineDetection="Enable"',$xml);
+        $this->assertStringContainsString('amdStatusCallback="'.TwilioVoiceConnection::BASE.'/amd/'.$g['id'].'"',$xml);
+        Http::assertNothingSent();
+    }
 }

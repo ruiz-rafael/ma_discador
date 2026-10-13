@@ -68,8 +68,8 @@ class VoiceEligibility
         }
         $dailyCalls=(clone $all)->where('campaign_id',$campaign->id);
         $calls = (clone $dailyCalls)->where('run_id',$run?->id);
-        if ((clone $calls)->where(fn ($q) => $q->whereNotNull('answered_at')->orWhere('status', 'completed'))->exists()) {
-            return 'Contato atendido; jornada de prospecção encerrada.';
+        if ((clone $calls)->whereRaw('(('.VoiceAnswering::stopsSql().') or ('.VoiceAnswering::reviewSql().'))')->exists()) {
+            return 'Contato atendido ou com classificação inconclusiva; confira o resultado antes de continuar.';
         }
         $started = (clone $calls)->whereNotNull('started_at');
         if ((clone $started)->count() >= $s['max_attempts']) {

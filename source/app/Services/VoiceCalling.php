@@ -9,6 +9,7 @@ class VoiceCalling
 {
     public function expire(): void
     {
+        app(VoiceAnswering::class)->expire();
         DB::table('voice_outbound_calls')->where('status', 'pending')->where('grant_expires_at', '<=', now())->update(['status' => 'cancelled', 'capacity_released_at' => now(), 'updated_at' => now()]);
         // A missing PBX finish is not proof of hangup. Keep capacity reserved until reconciliation.
         DB::table('voice_outbound_calls')->whereIn('status', ['dialing', 'answered'])->where('deadline_at', '<=', now())->update(['status' => 'unknown', 'updated_at' => now()]);
@@ -77,9 +78,10 @@ class VoiceCalling
             $policy = isset($campaign) ? DB::table('voice_campaign_policies')->where('campaign_id', $campaign->id)->first() : null;
             $profile = isset($campaign) ? app(VoiceAudience::class)->personalize($w, $campaign->id, $contact) : $contact;
             $snapshot = ['queue_channels_id'=>(isset($q)&&$q->channels_configured)?$q->id:null,'contact_name'=>$profile->name, 'campaign_name'=>$campaign->name??null, 'agent_name'=>DB::table('users')->where('id',$user)->value('name'), 'origin_mode'=>$policy->origin_mode??'configured'];
+            $answering=app(VoiceAnswering::class)->snapshot($w,$method,$settings??[]);
             $id = (string) Str::uuid();
             $token = hash_hmac('sha256', $id, $p['event_secret']);
-            DB::table('voice_outbound_calls')->insert(['id' => $id, 'run_id'=>$run?->id, 'list_id'=>$policy->list_id??null, 'manual'=>$manual,'queue_id'=>$reservation->queue_id??null, 'context_snapshot'=>json_encode($snapshot), 'workspace_id' => $w, 'user_id' => $user, 'contact_id' => $contact->id, 'campaign_id' => $d['campaign_id'] ?? null, 'campaign_revision' => isset($campaign) ? $campaign->followup_revision : null, 'idempotency_key' => $d['idempotency_key'], 'request_hash' => $hash, 'grant_hash' => hash('sha256', $token), 'configuration_hash' => $config->fingerprint($method), 'method' => $method, 'provider_account' => $t['account_sid'], 'destination' => $contact->phone, 'caller_id' => $t['caller_id'], 'status' => 'pending', 'max_seconds' => $p['max_seconds'], 'ring_seconds' => $p['ring_seconds'], 'consent_evidence' => $d['consent_evidence'], 'grant_expires_at' => now()->addSeconds(45), 'deadline_at' => now()->addSeconds(45 + $p['max_seconds'] + $p['ring_seconds'] + 60), 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('voice_outbound_calls')->insert($answering+['id' => $id, 'run_id'=>$run?->id, 'list_id'=>$policy->list_id??null, 'manual'=>$manual,'queue_id'=>$reservation->queue_id??null, 'context_snapshot'=>json_encode($snapshot), 'workspace_id' => $w, 'user_id' => $user, 'contact_id' => $contact->id, 'campaign_id' => $d['campaign_id'] ?? null, 'campaign_revision' => isset($campaign) ? $campaign->followup_revision : null, 'idempotency_key' => $d['idempotency_key'], 'request_hash' => $hash, 'grant_hash' => hash('sha256', $token), 'configuration_hash' => $config->fingerprint($method), 'method' => $method, 'provider_account' => $t['account_sid'], 'destination' => $contact->phone, 'caller_id' => $t['caller_id'], 'status' => 'pending', 'max_seconds' => $p['max_seconds'], 'ring_seconds' => $p['ring_seconds'], 'consent_evidence' => $d['consent_evidence'], 'grant_expires_at' => now()->addSeconds(45), 'deadline_at' => now()->addSeconds(45 + $p['max_seconds'] + $p['ring_seconds'] + 60), 'created_at' => now(), 'updated_at' => now()]);
             if ($reservation) DB::table('voice_live_reservations')->where('id',$reservation->id)->update(['call_id'=>$id,'status'=>'calling','updated_at'=>now()]);
             app(VoiceLab::class)->audit($w, $user, 'calling.reserved', $id);
 

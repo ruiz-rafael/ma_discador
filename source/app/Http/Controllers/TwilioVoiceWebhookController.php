@@ -35,6 +35,7 @@ class TwilioVoiceWebhookController extends Controller
         $c = $this->verify($r, '/status/'.$id);
         $d = $r->validate(['CallSid' => ['required', 'regex:/^CA[0-9a-fA-F]{32}$/D'], 'ParentCallSid' => ['required', 'regex:/^CA[0-9a-fA-F]{32}$/D'], 'CallStatus' => 'required|in:queued,initiated,ringing,in-progress,completed,busy,failed,no-answer,canceled', 'CallDuration' => 'sometimes|nullable|integer|between:0,86400']);
         $calls->apply($id, $c['account_sid'], $d['ParentCallSid'], $d['CallSid'], $d['CallStatus'], isset($d['CallDuration']) ? (int) $d['CallDuration'] : null);
+        app(\App\Services\VoiceAnswering::class)->deliver($id);
         return response('', 204);
     }
 
@@ -42,7 +43,17 @@ class TwilioVoiceWebhookController extends Controller
     {
         $c = $this->verify($r, '/finish/'.$id);
         $d = $r->validate(['CallSid' => ['required', 'regex:/^CA[0-9a-fA-F]{32}$/D'], 'DialCallSid' => ['sometimes', 'nullable', 'regex:/^CA[0-9a-fA-F]{32}$/D'], 'DialCallStatus' => 'required|in:completed,busy,failed,no-answer,canceled', 'DialCallDuration' => 'sometimes|nullable|integer|between:0,86400']);
-        $calls->apply($id, $c['account_sid'], $d['CallSid'], ($d['DialCallSid'] ?? '') ?: null, $d['DialCallStatus'], isset($d['DialCallDuration']) ? (int) $d['DialCallDuration'] : null);
+        $calls->apply($id, $c['account_sid'], $d['CallSid'], ($d['DialCallSid'] ?? '') ?: null, $d['DialCallStatus'], isset($d['DialCallDuration']) ? (int) $d['DialCallDuration'] : null, true);
         return response($calls->hangup())->header('Content-Type', 'application/xml');
+    }
+
+    public function amd(Request $r,string $id,\App\Services\VoiceAnswering $service) {
+        $c=$this->verify($r,'/amd/'.$id);$d=$r->validate(['CallSid'=>['required','regex:/^CA[0-9a-fA-F]{32}$/D'],'AnsweredBy'=>'required|in:'.implode(',',$service::RESULTS),'MachineDetectionDuration'=>'sometimes|integer|between:0,120000']);
+        $service->record($id,$c['account_sid'],$d['CallSid'],$d['AnsweredBy'],isset($d['MachineDetectionDuration'])?(int)$d['MachineDetectionDuration']:null);$service->deliver($id);return response('',204);
+    }
+    public function voicemail(Request $r,string $id,\App\Services\VoiceAnswering $service) {return $this->voicemailResponse($r,$id,$service,false);}
+    public function voicemailFinished(Request $r,string $id,\App\Services\VoiceAnswering $service) {return $this->voicemailResponse($r,$id,$service,true);}
+    private function voicemailResponse(Request $r,string $id,\App\Services\VoiceAnswering $service,bool $finished) {
+        $c=$this->verify($r,($finished?'/voicemail-finished/':'/voicemail/').$id);$d=$r->validate(['CallSid'=>['required','regex:/^CA[0-9a-fA-F]{32}$/D']]);return response($service->play($id,$c['account_sid'],$d['CallSid'],$finished))->header('Content-Type','application/xml')->header('Cache-Control','no-store');
     }
 }

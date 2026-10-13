@@ -46,19 +46,20 @@ class TwilioVoiceCalling
             app(VoiceLab::class)->audit($m->workspace_id, $m->user_id, 'calling.api.start', $m->id);
             $xml = new VoiceResponse;
             $dial = $xml->dial(null, app(VoiceRecordings::class)->options('outbound',$m)+['callerId' => $m->caller_id, 'answerOnBridge' => true, 'timeLimit' => $m->max_seconds, 'timeout' => $m->ring_seconds, 'record' => 'do-not-record', 'action' => TwilioVoiceConnection::BASE.'/finish/'.$m->id, 'method' => 'POST']);
-            $dial->number($m->destination, ['statusCallback' => TwilioVoiceConnection::BASE.'/status/'.$m->id, 'statusCallbackMethod' => 'POST', 'statusCallbackEvent' => 'initiated ringing answered completed']);
+            $dial->number($m->destination, app(VoiceAnswering::class)->options($m)+['statusCallback' => TwilioVoiceConnection::BASE.'/status/'.$m->id, 'statusCallbackMethod' => 'POST', 'statusCallbackEvent' => 'initiated ringing answered completed']);
             return (string) $xml;
         });
     }
 
-    public function apply(string $id, string $account, string $parent, ?string $child, string $status, ?int $seconds): void
+    public function apply(string $id, string $account, string $parent, ?string $child, string $status, ?int $seconds, bool $fromParent=false): void
     {
-        DB::transaction(function () use ($id, $account, $parent, $child, $status, $seconds) {
+        DB::transaction(function () use ($id, $account, $parent, $child, $status, $seconds, $fromParent) {
             DB::table('voice_runtime')->where('id', 1)->lockForUpdate()->firstOrFail();
             $q = DB::table('voice_outbound_calls')->where('id', $id)->where('method', 'programmable_voice')->where('provider_account', $account);
             $m = $q->firstOrFail();
             abort_unless($m->channel_id && hash_equals($m->channel_id, $parent), 403);
             abort_if($child && $m->provider_child_sid && $m->provider_child_sid !== $child, 403);
+            if ($fromParent && $m->amd_mode!=='off' && $status==='completed') { return; }
             if ($m->capacity_released_at) {
                 return;
             }
@@ -74,6 +75,9 @@ class TwilioVoiceCalling
             }
             // Ringing/initiated and delayed answered callbacks never regress a terminal/unknown state.
             $q->update($update);
+            app(VoiceAnswering::class)->drain($id);
+            if(isset($terminal[$status]))DB::table('voice_outbound_calls')->where('id',$id)->whereIn('voicemail_status',['waiting','planned'])->update(['voicemail_status'=>'skipped','voicemail_reason'=>'Chamada encerrada antes da reprodução.']);
+            if(isset($terminal[$status]))DB::table('voice_outbound_calls')->where('id',$id)->whereIn('voicemail_status',['submitting','instructed','playing'])->update(['voicemail_status'=>'unconfirmed','voicemail_reason'=>'Chamada encerrada sem confirmação de reprodução completa.']);
             app(VoiceFollowups::class)->observe($id);
             app(VoiceLiveQueue::class)->settle();
             app(VoiceLab::class)->audit($m->workspace_id, $m->user_id, 'calling.api.'.$status, $id);
