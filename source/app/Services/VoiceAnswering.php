@@ -26,7 +26,7 @@ class VoiceAnswering {
   abort_unless($method==='programmable_voice',422,'A identificação de caixa postal está disponível somente na Twilio API. Desative-a para usar SIP.');$s=$this->validate($w,$s);
   return ['amd_mode'=>$s['mode'],'answer_classification'=>'pending','amd_count_machine'=>$s['count_machine_as_missed'],'voicemail_asset_id'=>$s['mode']==='message'?$s['audio_asset_id']:null,'voicemail_status'=>$s['mode']==='message'?'waiting':'none'];
  }
- public function options(object $c):array {return $c->amd_mode==='off'?[]:['machineDetection'=>$c->amd_mode==='message'?'DetectMessageEnd':'Enable','machineDetectionTimeout'=>30,'amdStatusCallback'=>TwilioVoiceConnection::BASE.'/amd/'.$c->id,'amdStatusCallbackMethod'=>'POST'];}
+ public function options(object $c):array {return $c->amd_mode==='off'?[]:['machineDetection'=>$c->amd_mode==='message'?'DetectMessageEnd':'Enable','machineDetectionTimeout'=>30,'amdStatusCallback'=>TwilioVoiceConnection::base().'/amd/'.$c->id,'amdStatusCallbackMethod'=>'POST'];}
  public function record(string $id,string $account,string $child,string $by,?int $duration):void {
   DB::transaction(function()use($id,$account,$child,$by,$duration){DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();$c=DB::table('voice_outbound_calls')->find($id);abort_unless($c&&$c->method==='programmable_voice'&&$c->provider_account===$account&&$c->amd_mode!=='off'&&$c->channel_id,403);abort_if($c->provider_child_sid&&$c->provider_child_sid!==$child,403);abort_unless(in_array($by,self::RESULTS),422);
    DB::table('voice_answer_events')->insertOrIgnore(['call_id'=>$id,'child_sid'=>$child,'answered_by'=>$by,'duration_ms'=>$duration,'created_at'=>now(),'updated_at'=>now()]);$this->drain($id);
@@ -64,7 +64,7 @@ class VoiceAnswering {
    DB::table('voice_outbound_calls')->where('id',$id)->update(['voicemail_status'=>'submitting','voicemail_requested_at'=>now(),'updated_at'=>now()]);return $c;
   });if(!$c)return;
   $status='unconfirmed';$reason='Solicitação sem confirmação. Não haverá repetição automática.';
-  try{$connection=app(TwilioVoiceConnection::class)->read();abort_unless($connection&&$connection['account_sid']===$c->provider_account,409);$r=Http::withBasicAuth($connection['api_key'],$connection['api_secret'])->asForm()->connectTimeout(3)->timeout(8)->withoutRedirecting()->post('https://api.twilio.com/2010-04-01/Accounts/'.$c->provider_account.'/Calls/'.$c->provider_child_sid.'.json',['Url'=>TwilioVoiceConnection::BASE.'/voicemail/'.$id,'Method'=>'POST']);
+  try{$connection=app(TwilioVoiceConnection::class)->read();abort_unless($connection&&$connection['account_sid']===$c->provider_account,409);$r=Http::withBasicAuth($connection['api_key'],$connection['api_secret'])->asForm()->connectTimeout(3)->timeout(8)->withoutRedirecting()->post('https://api.twilio.com/2010-04-01/Accounts/'.$c->provider_account.'/Calls/'.$c->provider_child_sid.'.json',['Url'=>TwilioVoiceConnection::base().'/voicemail/'.$id,'Method'=>'POST']);
    if($r->successful()&&$r->json('sid')===$c->provider_child_sid){$status='instructed';$reason=null;}elseif($r->clientError()){$status='failed';$reason='A operadora recusou a reprodução do recado.';}
   }catch(\Throwable){}
   DB::table('voice_outbound_calls')->where('id',$id)->where('voicemail_status','submitting')->update(['voicemail_status'=>$status,'voicemail_reason'=>$reason,'updated_at'=>now()]);
@@ -74,7 +74,7 @@ class VoiceAnswering {
    if($finished){if($c->voicemail_started_at&&in_array($c->voicemail_status,['playing','unconfirmed'],true))DB::table('voice_outbound_calls')->where('id',$id)->update(['voicemail_status'=>'played','voicemail_played_at'=>now(),'updated_at'=>now()]);$xml->hangup();return (string)$xml;}
    if($c->voicemail_started_at||!in_array($c->voicemail_status,['submitting','instructed','unconfirmed'],true)){$xml->hangup();return (string)$xml;}
    try{$this->permitted($c);$url=app(SpeechStudio::class)->deliveryUrl($c->workspace_id,$c->voicemail_asset_id,'wav');}catch(\Throwable){DB::table('voice_outbound_calls')->where('id',$id)->update(['voicemail_status'=>'skipped','voicemail_reason'=>'Recado indisponível ou abordagem interrompida.']);$xml->hangup();return (string)$xml;}
-   DB::table('voice_outbound_calls')->where('id',$id)->update(['voicemail_status'=>'playing','voicemail_started_at'=>now(),'updated_at'=>now()]);$xml->play($url);$xml->redirect(TwilioVoiceConnection::BASE.'/voicemail-finished/'.$id,['method'=>'POST']);return (string)$xml;
+   DB::table('voice_outbound_calls')->where('id',$id)->update(['voicemail_status'=>'playing','voicemail_started_at'=>now(),'updated_at'=>now()]);$xml->play($url);$xml->redirect(TwilioVoiceConnection::base().'/voicemail-finished/'.$id,['method'=>'POST']);return (string)$xml;
   });
  }
  public function reviewed(object $call,object $code):void {if($call->amd_mode==='off'||!($call->answered_at||$call->status==='completed'))return;if($code->human||$code->code==='machine'){DB::table('voice_outbound_calls')->where('id',$call->id)->update(['answer_classification'=>$code->human?'human':'machine','amd_reviewed_at'=>now()]);app(VoiceFollowups::class)->observe($call->id);}}

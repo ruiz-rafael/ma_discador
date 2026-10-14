@@ -18,7 +18,7 @@ class TwilioVoiceWebhookController extends Controller
         foreach ($parameters as $value) {
             abort_unless(is_string($value), 400);
         }
-        abort_unless((new RequestValidator($c['auth_token']))->validate($r->header('X-Twilio-Signature', ''), TwilioVoiceConnection::BASE.$suffix, $parameters), 403);
+        abort_unless((new RequestValidator($c['auth_token']))->validate($r->header('X-Twilio-Signature', ''), TwilioVoiceConnection::base().$suffix, $parameters), 403);
         abort_unless(($parameters['AccountSid'] ?? null) === $c['account_sid'], 403);
         return $c;
     }

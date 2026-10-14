@@ -2,6 +2,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MarketingController as M;
 use App\Http\Controllers\CrmCatalogController as C;
+if(config('discai.portal')){require __DIR__.'/portal.php';return;}
+require __DIR__.'/discai-bridge.php';
 require __DIR__.'/voice.php';
 require __DIR__.'/lists.php';
 require __DIR__.'/integrations.php';

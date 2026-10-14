@@ -1,0 +1,3 @@
+@extends('portal.layout')
+@section('title','Seu convite')
+@section('content')<section class="card login-card centered"><span class="eyebrow">VOCÊ FOI CONVIDADO</span><h1>Vamos começar?</h1><p>Convite para {{$invite->email}}.</p><form action="/invite/{{$token}}" method="post">@csrf<label>Seu nome<input name="name" maxlength="160" autocomplete="name" required></label><label>{{$exists?'Sua senha atual':'Crie uma senha com pelo menos 12 caracteres'}}<input name="password" type="password" minlength="{{$exists?1:12}}" autocomplete="{{$exists?'current-password':'new-password'}}" required></label><button class="primary wide">Aceitar convite →</button></form></section>@endsection

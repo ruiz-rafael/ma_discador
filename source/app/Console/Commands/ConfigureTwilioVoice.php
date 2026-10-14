@@ -14,7 +14,7 @@ class ConfigureTwilioVoice extends Command
     public function handle(TwilioVoiceConnection $connection): int
     {
         $this->info('Use uma API Key Standard da região US1 e uma TwiML App exclusiva para o MA.');
-        $this->info('Voice Request URL (POST): '.TwilioVoiceConnection::BASE.'/dial');
+        $this->info('Voice Request URL (POST): '.TwilioVoiceConnection::base().'/dial');
         $data = [
             'account_sid' => $this->ask('Account SID (AC...)'),
             'api_key' => $this->ask('API Key SID (SK...)'),

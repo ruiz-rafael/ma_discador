@@ -83,7 +83,7 @@ class WhatsAppMessages
 
                 return DB::table('wa_messages')->find($m->id);
             }
-            $r = app(TwilioWhatsAppApi::class)->request('POST', 'https://api.twilio.com/2010-04-01/Accounts/'.$c['account_sid'].'/Messages.json', ['From' => 'whatsapp:'.$m->from_number, 'To' => 'whatsapp:'.$m->to_number, 'ContentSid' => $template->content_sid, 'ContentVariables' => json_encode((object) $d['variables']), 'StatusCallback' => TwilioWhatsAppConnection::BASE.'/status/'.$m->id], true);
+            $r = app(TwilioWhatsAppApi::class)->request('POST', 'https://api.twilio.com/2010-04-01/Accounts/'.$c['account_sid'].'/Messages.json', ['From' => 'whatsapp:'.$m->from_number, 'To' => 'whatsapp:'.$m->to_number, 'ContentSid' => $template->content_sid, 'ContentVariables' => json_encode((object) $d['variables']), 'StatusCallback' => TwilioWhatsAppConnection::base().'/status/'.$m->id], true);
             if (! preg_match('/^SM[0-9a-fA-F]{32}$/D', $r['sid'] ?? '') || ($r['account_sid'] ?? '') !== $c['account_sid']) {
                 throw new \RuntimeException('twilio_unknown');
             }
@@ -129,7 +129,7 @@ class WhatsAppMessages
         $r = app(TwilioWhatsAppApi::class)->request('GET', 'https://api.twilio.com/2010-04-01/Accounts/'.$c['account_sid'].'/Messages/'.$sid.'.json');
         abort_unless(($r['sid'] ?? '') === $sid && ($r['account_sid'] ?? '') === $m->account_sid && ($r['from'] ?? '') === 'whatsapp:'.$m->from_number && ($r['to'] ?? '') === 'whatsapp:'.$m->to_number, 422, 'Mensagem não corresponde à conta ou aos números desta tentativa.');
         // Unknown sends must be correlated by their exact callback URL, not only by phone numbers.
-        abort_unless($m->provider_sid === $sid || ($r['status_callback'] ?? '') === TwilioWhatsAppConnection::BASE.'/status/'.$m->id,422,'Sem correlação inequívoca. Aguarde o callback assinado; não repita o envio.');
+        abort_unless($m->provider_sid === $sid || ($r['status_callback'] ?? '') === TwilioWhatsAppConnection::base().'/status/'.$m->id,422,'Sem correlação inequívoca. Aguarde o callback assinado; não repita o envio.');
         $this->apply($id,$sid,$r['status'] ?? 'unknown',isset($r['error_code']) ? (string) $r['error_code'] : null);
 
         return DB::table('wa_messages')->find($id);

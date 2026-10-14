@@ -7,6 +7,7 @@ use Twilio\Jwt\AccessToken;
 use Twilio\Jwt\Grants\VoiceGrant;
 class InboundVoice {
  public const BASE=TwilioVoiceConnection::BASE.'/inbound';
+ public static function base():string{return TwilioVoiceConnection::base().'/inbound';}
  private function lock():void {DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();}
  public function numbers(int $w,?array $cfg):array {if(!$cfg)return [];return collect([$cfg['caller_id']])->merge(DB::table('voice_origins')->where('workspace_id',$w)->where('account_sid',$cfg['account_sid'])->where('kind','owned')->where('verified_at','>=',now()->subDay())->pluck('number'))->filter()->unique()->values()->all();}
  public function token(int $w,int $u,string $session):array {
@@ -67,7 +68,7 @@ class InboundVoice {
    if(!QueueRouting::incoming($queue)||!$route->enabled || app(OperationPolicy::class)->get($c->workspace_id)['paused'] || now()->gte(\Carbon\CarbonImmutable::parse($c->created_at)->addSeconds($route->wait_seconds))){DB::table('voice_inbound_calls')->where('id',$id)->update(['status'=>'unavailable','updated_at'=>now()]);$xml->say('No momento não há atendentes disponíveis. Por favor, tente novamente mais tarde.',['language'=>'pt-BR']);$xml->hangup();return (string)$xml;}
    // Don't repeatedly ring a rejecting/unreachable agent during the same incoming call.
    $tried=DB::table('voice_inbound_offers')->where('call_id',$id)->pluck('user_id')->all();$agent=app(QueueDistribution::class)->order($queue,$this->candidates($c)->filter(fn($u)=>!in_array($u->id,$tried,true)),'inbound')->first();
-   if(!$agent){$xml->say('Aguarde, estamos procurando um atendente.',['language'=>'pt-BR']);$xml->pause(['length'=>5]);$xml->redirect(self::BASE.'/wait/'.$id,['method'=>'POST']);return (string)$xml;}
+   if(!$agent){$xml->say('Aguarde, estamos procurando um atendente.',['language'=>'pt-BR']);$xml->pause(['length'=>5]);$xml->redirect(self::base().'/wait/'.$id,['method'=>'POST']);return (string)$xml;}
    $offer=$this->offer($c,$agent);return $this->render($offer);
   });
  }
@@ -81,8 +82,8 @@ class InboundVoice {
   $o=DB::table('voice_inbound_offers')->find($offer);$c=DB::table('voice_inbound_calls')->find($o->call_id);$route=DB::table('voice_inbound_routes')->find($c->route_id);
   if($o->rendered)return app(TwilioVoiceCalling::class)->hangup();
   DB::table('voice_inbound_offers')->where('id',$offer)->update(['rendered'=>true,'updated_at'=>now()]);
-  $xml=new VoiceResponse;$dial=$xml->dial(null,app(VoiceRecordings::class)->options('inbound',$c)+['answerOnBridge'=>true,'timeout'=>(DB::table('voice_live_queues')->where('id',$c->queue_id)->value('agent_ring_seconds')??$route->ring_seconds),'timeLimit'=>min(1800,app(VoiceCallingConfig::class)->read()['max_seconds']??180),'record'=>'do-not-record','action'=>self::BASE.'/finish/'.$offer,'method'=>'POST']);
-  $client=$dial->client(null,['statusCallback'=>self::BASE.'/offer/'.$offer,'statusCallbackMethod'=>'POST','statusCallbackEvent'=>'initiated ringing answered completed']);$client->identity($o->identity);$client->parameter(['name'=>'MAIncomingId','value'=>$c->id]);return (string)$xml;
+  $xml=new VoiceResponse;$dial=$xml->dial(null,app(VoiceRecordings::class)->options('inbound',$c)+['answerOnBridge'=>true,'timeout'=>(DB::table('voice_live_queues')->where('id',$c->queue_id)->value('agent_ring_seconds')??$route->ring_seconds),'timeLimit'=>min(1800,app(VoiceCallingConfig::class)->read()['max_seconds']??180),'record'=>'do-not-record','action'=>self::base().'/finish/'.$offer,'method'=>'POST']);
+  $client=$dial->client(null,['statusCallback'=>self::base().'/offer/'.$offer,'statusCallbackMethod'=>'POST','statusCallbackEvent'=>'initiated ringing answered completed']);$client->identity($o->identity);$client->parameter(['name'=>'MAIncomingId','value'=>$c->id]);return (string)$xml;
  }
  public function offerStatus(string $id,array $d):void {
   DB::transaction(function()use($id,$d){$this->lock();$o=DB::table('voice_inbound_offers')->find($id);abort_unless($o,404);$c=DB::table('voice_inbound_calls')->find($o->call_id);
@@ -127,7 +128,7 @@ class InboundVoice {
    $agent=$this->candidates($c)->firstWhere('id',$target);abort_unless($agent,409,'Destino indisponível para receber a transferência.');return $this->offer($c,$agent,true);
   });
   $c=DB::table('voice_inbound_calls')->find($id);
-  try{$res=$this->http($c)->post($this->callUrl($c),['Url'=>self::BASE.'/transfer/'.$offer,'Method'=>'POST']);if(!$res->successful()){if($res->clientError())DB::table('voice_inbound_offers')->where('id',$offer)->where('status','transfer_pending')->update(['status'=>'failed','ended_at'=>now(),'updated_at'=>now()]);abort(502,'A Twilio não confirmou a transferência. Consulte o estado antes de repetir.');}}catch(\Illuminate\Http\Client\ConnectionException){abort(502,'Transferência sem confirmação. As reservas foram preservadas para conciliação.');}
+  try{$res=$this->http($c)->post($this->callUrl($c),['Url'=>self::base().'/transfer/'.$offer,'Method'=>'POST']);if(!$res->successful()){if($res->clientError())DB::table('voice_inbound_offers')->where('id',$offer)->where('status','transfer_pending')->update(['status'=>'failed','ended_at'=>now(),'updated_at'=>now()]);abort(502,'A Twilio não confirmou a transferência. Consulte o estado antes de repetir.');}}catch(\Illuminate\Http\Client\ConnectionException){abort(502,'Transferência sem confirmação. As reservas foram preservadas para conciliação.');}
   return ['accepted'=>true,'offer_id'=>$offer];
  }
  public function transferDial(string $id,array $d):string {
@@ -142,10 +143,10 @@ class InboundVoice {
   abort_if(DB::table('voice_inbound_calls')->whereNull('capacity_released_at')->exists()||DB::table('voice_outbound_calls')->whereNull('capacity_released_at')->exists(),409,'Conclua as chamadas antes de alterar a rota.');
   $base='https://api.twilio.com/2010-04-01/Accounts/'.$cfg['account_sid'].'/IncomingPhoneNumbers';$http=Http::withBasicAuth($cfg['api_key'],$cfg['api_secret'])->asForm()->connectTimeout(3)->timeout(10)->withoutRedirecting();
   $r=$http->get($base.'.json',['PhoneNumber'=>$route->number,'PageSize'=>2]);abort_unless($r->successful()&&count($r->json('incoming_phone_numbers')??[])===1&&!$r->json('next_page_uri'),502,'A Twilio não confirmou o número.');$n=$r->json('incoming_phone_numbers')[0];abort_unless(($n['account_sid']??'')===$cfg['account_sid']&&($n['phone_number']??'')===$route->number&&preg_match('/^PN[a-fA-F0-9]{32}$/D',$n['sid']??''),502);
-  abort_if(!empty($n['trunk_sid'])||!empty($n['voice_application_sid'])||(!empty($n['voice_url'])&&$n['voice_url']!==self::BASE)||(!empty($n['status_callback'])&&$n['status_callback']!==self::BASE.'/status'),409,'O número possui outra rota. Revise-a antes de substituir.');
+  abort_if(!empty($n['trunk_sid'])||!empty($n['voice_application_sid'])||(!empty($n['voice_url'])&&$n['voice_url']!==self::base())||(!empty($n['status_callback'])&&$n['status_callback']!==self::base().'/status'),409,'O número possui outra rota. Revise-a antes de substituir.');
   if(!app()->environment('testing')){$dir=storage_path('app/private/voice/inbound');if(!is_dir($dir))mkdir($dir,0700,true);$file=$dir.'/'.$n['sid'].'.enc';if(!is_file($file)){file_put_contents($file,\Illuminate\Support\Facades\Crypt::encryptString(json_encode($n)),LOCK_EX);chmod($file,0600);}}
-  if(($n['voice_url']??'')!==self::BASE||($n['status_callback']??'')!==self::BASE.'/status'||($n['voice_method']??'')!=='POST'||($n['status_callback_method']??'')!=='POST'){
-   $r=$http->post($base.'/'.$n['sid'].'.json',['VoiceUrl'=>self::BASE,'VoiceMethod'=>'POST','StatusCallback'=>self::BASE.'/status','StatusCallbackMethod'=>'POST']);abort_unless($r->successful()&&$r->json('sid')===$n['sid']&&$r->json('voice_url')===self::BASE&&$r->json('status_callback')===self::BASE.'/status',502,'Rota sem confirmação. Consulte novamente antes de testar.');
+  if(($n['voice_url']??'')!==self::base()||($n['status_callback']??'')!==self::base().'/status'||($n['voice_method']??'')!=='POST'||($n['status_callback_method']??'')!=='POST'){
+   $r=$http->post($base.'/'.$n['sid'].'.json',['VoiceUrl'=>self::base(),'VoiceMethod'=>'POST','StatusCallback'=>self::base().'/status','StatusCallbackMethod'=>'POST']);abort_unless($r->successful()&&$r->json('sid')===$n['sid']&&$r->json('voice_url')===self::base()&&$r->json('status_callback')===self::base().'/status',502,'Rota sem confirmação. Consulte novamente antes de testar.');
   }
   DB::table('voice_inbound_routes')->where('id',$id)->update(['provider_number_sid'=>$n['sid'],'provider_synced_at'=>now(),'updated_at'=>now()]);app(VoiceLab::class)->audit($w,$u,'inbound.route_published',$id);return ['configured'=>true,'number'=>$route->number];
  }

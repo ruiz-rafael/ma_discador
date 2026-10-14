@@ -12,6 +12,8 @@ class TwilioVoiceConnection
 {
     public const BASE = 'https://ma.zyrex.ia.br/callbacks/twilio/voice';
 
+    public static function base():string {return \App\Services\Portal\TenantUrls::origin().'/callbacks/twilio/voice';}
+
     public function read(): ?array
     {
         if (app()->environment('testing')) {

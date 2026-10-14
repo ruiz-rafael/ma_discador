@@ -9,6 +9,8 @@ class TwilioWhatsAppConnection
 {
     public const BASE = 'https://ma.zyrex.ia.br/callbacks/twilio/whatsapp';
 
+    public static function base():string {return \App\Services\Portal\TenantUrls::origin().'/callbacks/twilio/whatsapp';}
+
     public function read(): ?array
     {
         if (app()->environment('testing')) {
@@ -56,9 +58,9 @@ class TwilioWhatsAppConnection
         try {
             $c = $this->read();
 
-            return ['configured' => (bool) $c, 'mode' => 'restricted_testing', 'daily_limit' => $c['daily_limit'] ?? null, 'allowed_recipients' => $c['allowed_recipients'] ?? [], 'inbound_url' => self::BASE.'/inbound'];
+            return ['configured' => (bool) $c, 'mode' => 'restricted_testing', 'daily_limit' => $c['daily_limit'] ?? null, 'allowed_recipients' => $c['allowed_recipients'] ?? [], 'inbound_url' => self::base().'/inbound'];
         } catch (\Throwable) {
-            return ['configured' => false, 'mode' => 'configuration_unavailable', 'daily_limit' => null, 'allowed_recipients' => [], 'inbound_url' => self::BASE.'/inbound'];
+            return ['configured' => false, 'mode' => 'configuration_unavailable', 'daily_limit' => null, 'allowed_recipients' => [], 'inbound_url' => self::base().'/inbound'];
         }
     }
 }

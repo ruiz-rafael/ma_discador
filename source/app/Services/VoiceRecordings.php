@@ -8,7 +8,7 @@ class VoiceRecordings {
   if(!$q?->recording_enabled)return ['record'=>'do-not-record'];
   $policy=['enabled'=>true,'agent_access'=>(bool)$q->recording_agent_access,'agent_pause'=>(bool)$q->recording_agent_pause,'retention_days'=>$q->recording_retention_days];
   if(!$c->recording_policy)DB::table('voice_'.$kind.'_calls')->where('id',$c->id)->update(['recording_policy'=>json_encode($policy)]);
-  return ['record'=>'record-from-answer-dual','recordingStatusCallback'=>TwilioVoiceConnection::BASE.'/recordings/'.$kind.'/'.$c->id,'recordingStatusCallbackMethod'=>'POST','recordingStatusCallbackEvent'=>'in-progress completed absent'];
+  return ['record'=>'record-from-answer-dual','recordingStatusCallback'=>TwilioVoiceConnection::base().'/recordings/'.$kind.'/'.$c->id,'recordingStatusCallbackMethod'=>'POST','recordingStatusCallbackEvent'=>'in-progress completed absent'];
  }
  public function callback(string $kind,string $id,array $d):void {DB::transaction(function()use($kind,$id,$d){
   DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();$c=$this->call($kind,$id);$policy=json_decode($c->recording_policy??'{}',true);$parent=$kind==='inbound'?$c->call_sid:$c->channel_id;$account=$kind==='inbound'?$c->account_sid:$c->provider_account;

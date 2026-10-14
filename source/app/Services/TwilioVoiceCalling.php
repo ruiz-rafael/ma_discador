@@ -45,8 +45,8 @@ class TwilioVoiceCalling
             DB::table('voice_outbound_calls')->where('id', $m->id)->update(['status' => 'dialing', 'channel_id' => $d['CallSid'], 'started_at' => now(), 'updated_at' => now()]);
             app(VoiceLab::class)->audit($m->workspace_id, $m->user_id, 'calling.api.start', $m->id);
             $xml = new VoiceResponse;
-            $dial = $xml->dial(null, app(VoiceRecordings::class)->options('outbound',$m)+['callerId' => $m->caller_id, 'answerOnBridge' => true, 'timeLimit' => $m->max_seconds, 'timeout' => $m->ring_seconds, 'record' => 'do-not-record', 'action' => TwilioVoiceConnection::BASE.'/finish/'.$m->id, 'method' => 'POST']);
-            $dial->number($m->destination, app(VoiceAnswering::class)->options($m)+['statusCallback' => TwilioVoiceConnection::BASE.'/status/'.$m->id, 'statusCallbackMethod' => 'POST', 'statusCallbackEvent' => 'initiated ringing answered completed']);
+            $dial = $xml->dial(null, app(VoiceRecordings::class)->options('outbound',$m)+['callerId' => $m->caller_id, 'answerOnBridge' => true, 'timeLimit' => $m->max_seconds, 'timeout' => $m->ring_seconds, 'record' => 'do-not-record', 'action' => TwilioVoiceConnection::base().'/finish/'.$m->id, 'method' => 'POST']);
+            $dial->number($m->destination, app(VoiceAnswering::class)->options($m)+['statusCallback' => TwilioVoiceConnection::base().'/status/'.$m->id, 'statusCallbackMethod' => 'POST', 'statusCallbackEvent' => 'initiated ringing answered completed']);
             return (string) $xml;
         });
     }

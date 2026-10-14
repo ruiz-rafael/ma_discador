@@ -138,7 +138,7 @@ class WhatsAppOnboarding
         });
         $config = $d['mode'] === 'embedded' ? ['waba_id' => $d['waba_id']] : ['verification_method' => $d['verification_method']];
         try {
-            $r = $this->api('POST', self::SENDERS, ['sender_id' => 'whatsapp:'.$s->number, 'profile' => ['name' => $d['display_name']], 'configuration' => $config, 'webhook' => ['callback_url' => TwilioWhatsAppConnection::BASE.'/inbound', 'callback_method' => 'POST']]);
+            $r = $this->api('POST', self::SENDERS, ['sender_id' => 'whatsapp:'.$s->number, 'profile' => ['name' => $d['display_name']], 'configuration' => $config, 'webhook' => ['callback_url' => TwilioWhatsAppConnection::base().'/inbound', 'callback_method' => 'POST']]);
             $this->apply($s, $r);
         } catch (\Throwable $e) {
             $rejected = str_starts_with($e->getMessage(), 'twilio_rejected_');
@@ -167,7 +167,7 @@ class WhatsAppOnboarding
         abort_unless($s->provider_sid, 422, 'Vincule o remetente primeiro.');
         // Verify the identity before changing the webhook of an existing sender.
         $this->apply($s, $this->api('GET', self::SENDERS.'/'.$s->provider_sid));
-        $this->apply($s, $this->api('POST', self::SENDERS.'/'.$s->provider_sid, ['webhook' => ['callback_url' => TwilioWhatsAppConnection::BASE.'/inbound', 'callback_method' => 'POST']]));
+        $this->apply($s, $this->api('POST', self::SENDERS.'/'.$s->provider_sid, ['webhook' => ['callback_url' => TwilioWhatsAppConnection::base().'/inbound', 'callback_method' => 'POST']]));
         return $this->status($w, $id);
     }
 }
