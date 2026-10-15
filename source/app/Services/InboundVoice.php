@@ -9,7 +9,7 @@ class InboundVoice {
  public const BASE=TwilioVoiceConnection::BASE.'/inbound';
  public static function base():string{return TwilioVoiceConnection::base().'/inbound';}
  private function lock():void {DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();}
- public function numbers(int $w,?array $cfg):array {if(!$cfg)return [];return collect([$cfg['caller_id']])->merge(DB::table('voice_origins')->where('workspace_id',$w)->where('account_sid',$cfg['account_sid'])->where('kind','owned')->where('verified_at','>=',now()->subDay())->pluck('number'))->filter()->unique()->values()->all();}
+ public function numbers(int $w,?array $cfg):array {if(!$cfg)return [];if($cfg['managed_by_portal']??false)return DB::table('voice_managed_numbers')->where('active',true)->pluck('number')->all();return collect([$cfg['caller_id']])->merge(DB::table('voice_origins')->where('workspace_id',$w)->where('account_sid',$cfg['account_sid'])->where('kind','owned')->where('verified_at','>=',now()->subDay())->pluck('number'))->filter()->unique()->values()->all();}
  public function token(int $w,int $u,string $session):array {
   return DB::transaction(function()use($w,$u,$session){$this->lock();
    abort_unless(DB::table('users')->where('id',$u)->where('voice_workspace_id',$w)->where('voice_enabled',true)->exists(),403);

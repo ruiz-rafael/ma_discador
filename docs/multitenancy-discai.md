@@ -88,3 +88,26 @@ Nenhuma chamada real, mensagem WhatsApp ou ativação de agente foi necessária.
 - 11 testes JavaScript e build de produção.
 - Navegação do portal em desktop/celular e cenários de administrador de empresa e supervisor, em ambiente descartável sem operadoras.
 - O supervisor preserva distribuição manual de conversas e qualificação de leads; a configuração das regras automáticas de distribuição fica restrita ao administrador.
+
+
+## Números solicitados e contratados pela administração (15/10/2026)
+
+O administrador do tenant acessa **Receptivo → Meus números · Solicitar número** ou o atalho **Meus números** no portal. Cada pedido corresponde a um DID local brasileiro, com DDD, finalidade e observações. O administrador central atende em **Administração → Solicitações de números**.
+
+A consulta é somente leitura, com preço mensal e moeda do provedor, prazo de cotação e estoque não reservado. A compra exige seleção de número, cadastro regulatório aprovado na conta contratante e aceite explícito da cobrança. O backend reconfirma preço e disponibilidade, registra o responsável e impede repetição. Um timeout mantém o pedido em conferência; a reconciliação verifica número, conta e identificação do pedido sem repetir o POST pago.
+
+Após contratar, **Liberar para a empresa** prepara um aplicativo de voz próprio do tenant, confirma callbacks e entrega o número ao catálogo exclusivo dessa empresa. A compra ocorre na conta central; não altera por si a identificação regulatória do usuário final. Os requisitos da operadora continuam aplicáveis. O botão não liga para ninguém, não inicia campanhas e não habilita a saída das filas. O administrador do tenant escolhe a fila receptiva/mista. O recebimento depende das regras operacionais e agentes disponíveis.
+
+Também há **Já contratei o número na operadora**: consulta a propriedade de um número no mesmo DDD, exige ausência de outra rota e reserva o número para o pedido. Não substitui números existentes de outros sistemas. Ambientes que já possuem uma conexão independente exigem revisão antes de migração; ela não é sobrescrita pelo fluxo.
+
+Nesta fase os recursos pertencem à conta Twilio central, com credenciais exclusivamente no servidor e catálogo restrito no backend por tenant. Subcontas independentes, cadastro documental pelo cliente e faturamento automático permanecem como evolução futura. O administrador central continua responsável por validar o cadastro regulatório usado na compra; selecionar um bundle não transfere titularidade.
+
+Os pedidos e eventos residem no portal; os números liberados são registrados no banco isolado da empresa. Entrega interna usa HTTPS e assinatura vinculada ao tenant, caminho e horário. A confirmação no provedor precede a ativação local. Dados secretos não são enviados ao navegador. A configuração de contratação fica criptografada em `storage/app/private/number-provider.enc` no portal.
+
+### Evolução guardada: contratação autônoma e conformidade
+
+Implementar futuramente: cadastro empresarial e representante verificados; coleta privada dos documentos exigidos por país e tipo de número; subconta por cliente; contrato e política antispam versionados; proposta comercial com margem e cobrança própria; aprovação regulatória; provisionamento automático; rastreabilidade, limites e suspensão por tenant. Validação do formato de CNPJ não equivale a verificação cadastral. Contrato e subconta não eliminam as responsabilidades da plataforma. Definir preço, pagamento e revisão jurídica antes da contratação autônoma.
+
+### DDD de origem
+
+Presença local significa selecionar um número real autorizado no mesmo DDD do destinatário. Não consiste em reescrever o prefixo de um número. A cobertura de DDDs depende dos números disponíveis para aquela empresa e das permissões da operadora; identificação final não é garantida. A documentação Twilio para Brasil restringe origens brasileiras externas à Twilio, mesmo que a verificação de Caller ID exista em outros países. O fluxo de pedidos não altera automaticamente a política de seleção da origem.

@@ -39,6 +39,7 @@ class TwilioVoiceConnection
 
     public function save(array $data): void
     {
+        abort_if($this->read()['managed_by_portal'] ?? false, 409, 'Esta conexão é gerenciada pela administração DiscAI.');
         $data = $this->validate($data);
         DB::transaction(function () use ($data) {
             DB::table('voice_runtime')->where('id', 1)->lockForUpdate()->firstOrFail();

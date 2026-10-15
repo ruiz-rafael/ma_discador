@@ -31,6 +31,7 @@ class VoiceProviderCatalog
     {
         $c = app(TwilioVoiceConnection::class)->read();
         abort_unless($c, 503);
+        if($c['managed_by_portal']??false){return ['verified'=>DB::table('voice_managed_numbers')->where('active',true)->count()];}
         $all = [];
         foreach (['IncomingPhoneNumbers' => 'incoming_phone_numbers', 'OutgoingCallerIds' => 'outgoing_caller_ids'] as $resource => $key) {
             $r = $this->get($resource.'.json?PageSize=100');
@@ -67,6 +68,7 @@ class VoiceProviderCatalog
 
     public function choose(int $w, object $campaign, object $contact, array $connection): string
     {
+        if($connection['managed_by_portal']??false){abort_unless(DB::table('voice_managed_numbers')->where('number',$connection['caller_id'])->where('active',true)->exists(),422,'Número não liberado.');}
         $p = DB::table('voice_campaign_policies')->where('campaign_id', $campaign->id)->first();
         $s = json_decode($campaign->settings, true);
         if (($p->origin_mode ?? 'configured') !== 'same_ddd') {
@@ -80,6 +82,7 @@ class VoiceProviderCatalog
         if (($s['number_mode'] ?? 'single') === 'single' && ! empty($s['whatsapp_enabled'])) {
             $q->where('number', $s['whatsapp_number'] ?? $s['business_number']);
         }
+        if($connection['managed_by_portal']??false)$q->whereIn('number',DB::table('voice_managed_numbers')->where('active',true)->select('number'));
         $numbers = $q->pluck('number')->all();
         abort_unless($numbers, 422, 'Sem origem autorizada, habilitada e verificada no mesmo DDD. Sincronize os números; não há troca automática de DDD.');
 
@@ -88,6 +91,7 @@ class VoiceProviderCatalog
 
     public function assertOrigin(object $call): void
     {
+        $cfg=app(TwilioVoiceConnection::class)->read();if($call->method==='programmable_voice'&&($cfg['managed_by_portal']??false))abort_unless(DB::table('voice_managed_numbers')->where('number',$call->caller_id)->where('active',true)->exists(),422,'Número não liberado para esta empresa.');
         $snapshot = json_decode($call->context_snapshot ?? '{}', true);
         if(!empty($snapshot['queue_channels_id'])){
             $q=DB::table('voice_live_queues')->where('workspace_id',$call->workspace_id)->find($snapshot['queue_channels_id']);

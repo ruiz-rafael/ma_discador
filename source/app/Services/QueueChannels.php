@@ -6,6 +6,7 @@ class QueueChannels {
   $numbers=[];
   foreach(['programmable_voice','sip_trunk']as $method){
    $c=app(VoiceCallingConfig::class)->connection($method);
+   if($method==='programmable_voice'&&($c['managed_by_portal']??false)){foreach(DB::table('voice_managed_numbers')->where('active',true)->pluck('number')as $number)$numbers[]=['number'=>$number,'method'=>$method];continue;}
    if(!empty($c['caller_id']))$numbers[]=['number'=>$c['caller_id'],'method'=>$method];
    if(!empty($c['account_sid']))foreach(DB::table('voice_origins')->where('workspace_id',$w)->where('account_sid',$c['account_sid'])->where('enabled',true)->where('verified_at','>=',now()->subDay())->pluck('number')as $number)$numbers[]=['number'=>$number,'method'=>$method];
   }
@@ -18,6 +19,7 @@ class QueueChannels {
  }
  public function origin(object $q,array $connection):string {
   abort_unless($q->voice_number,422,'Selecione o número de voz em Filas de atendimento.');
+  if($connection['managed_by_portal']??false){abort_unless(DB::table('voice_managed_numbers')->where('number',$q->voice_number)->where('active',true)->exists(),422,'Número não liberado para esta empresa.');return $q->voice_number;}
   $valid=$q->voice_number===($connection['caller_id']??null)||DB::table('voice_origins')->where('workspace_id',$q->workspace_id)->where('account_sid',$connection['account_sid']??'')->where('number',$q->voice_number)->where('enabled',true)->where('verified_at','>=',now()->subDay())->exists();
   abort_unless($valid,422,'O número da fila não está autorizado nesta conexão de voz. Atualize o catálogo ou selecione outra origem.');
   return $q->voice_number;

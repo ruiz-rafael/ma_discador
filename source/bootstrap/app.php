@@ -12,7 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', \App\Http\Middleware\VoiceAccess::class);
         $middleware->trimStrings(except: [fn ($r) => $r->is('callbacks/twilio/whatsapp/*', 'callbacks/twilio/voice/*')]);
         $middleware->convertEmptyStringsToNull(except: [fn ($r) => $r->is('callbacks/twilio/whatsapp/*', 'callbacks/twilio/voice/*')]);
-        $middleware->validateCsrfTokens(except: ['portal-internal/*','api/v1/*','embed/api/*','hooks/lists/*', 'events', 'crm/catalog/sync', 'internal/voice/audio/event', 'internal/voice/calling/event', 'callbacks/twilio/whatsapp/*', 'callbacks/twilio/voice/*']);
+        $middleware->validateCsrfTokens(except: ['number-hold','discai-internal/numbers','portal-internal/*','api/v1/*','embed/api/*','hooks/lists/*', 'events', 'crm/catalog/sync', 'internal/voice/audio/event', 'internal/voice/calling/event', 'callbacks/twilio/whatsapp/*', 'callbacks/twilio/voice/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (RuntimeException $e, Request $r) {
