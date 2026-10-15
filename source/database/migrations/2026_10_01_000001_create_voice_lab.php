@@ -13,7 +13,7 @@ return new class extends Migration {
         Schema::create('voice_workspaces', function (Blueprint $t) {
             $t->id(); $t->string('name'); $t->timestamps();
         });
-        DB::table('voice_workspaces')->insert(['id' => 1, 'name' => 'Zyrex · laboratório', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('voice_workspaces')->insert(['id' => 1, 'name' => 'DiscAI · laboratório', 'created_at' => now(), 'updated_at' => now()]);
         if (DB::getDriverName() === 'pgsql') {
             DB::statement("SELECT setval(pg_get_serial_sequence('voice_workspaces', 'id'), 1)");
         }

@@ -10,5 +10,5 @@ async function message(e){if(e.origin!==origin||e.source!==window.parent||e.data
 onMounted(()=>{window.addEventListener('message',message);window.parent.postMessage({type:'zyrex.ready'},origin)})
 onBeforeUnmount(()=>{clearTimeout(expiry);window.removeEventListener('message',message)})
 </script>
-<template><main class="embedded"><header><strong>Zyrex · Atendimento</strong><span>Sessão delegada</span></header><p v-if="error" class="error">{{error}}</p><p v-if="expired" class="error">Solicite a renovação da sessão ao sistema integrador antes de iniciar outro atendimento.</p><VoiceAgentPanel v-if="ready"/><p v-else>Aguardando sessão autorizada pelo sistema integrador.</p></main></template>
+<template><main class="embedded"><header><strong>DiscAI · Atendimento</strong><span>Sessão delegada</span></header><p v-if="error" class="error">{{error}}</p><p v-if="expired" class="error">Solicite a renovação da sessão ao sistema integrador antes de iniciar outro atendimento.</p><VoiceAgentPanel v-if="ready"/><p v-else>Aguardando sessão autorizada pelo sistema integrador.</p></main></template>
 <style scoped>.embedded{padding:20px;background:#f6f6f0;min-height:100vh}.embedded>header{display:flex;justify-content:space-between;color:#a37e2c;border-bottom:1px solid #dedfce;padding:16px 0}.embedded>header span{font-size:12px}</style>

@@ -4,7 +4,7 @@ import {MessageCircle,Sparkles} from 'lucide-vue-next'
 import {personalize,exampleContact} from '../voice/personalization'
 const props=defineProps({text:String,contacts:{type:Array,default:()=>[]},campaignName:String})
 const selected=ref('example'),contact=computed(()=>props.contacts.find(c=>c.id===selected.value)||exampleContact)
-const result=computed(()=>personalize(props.text,contact.value,props.campaignName||'Jornada Zyrex'))
+const result=computed(()=>personalize(props.text,contact.value,props.campaignName||'Jornada DiscAI'))
 </script>
 <template><section class="personalization-preview"><header><span><Sparkles :size="15"/> Prévia personalizada</span><small>Nenhuma mensagem será enviada</small></header><label>Visualizar com os dados de<select v-model="selected"><option value="example">Ana Souza · dados de exemplo</option><option v-for="c in contacts" :key="c.id" :value="c.id">{{c.name}} · {{c.phone}}</option></select></label><div class="message-bubble"><MessageCircle :size="17"/><p>{{result||'Escreva a mensagem para visualizar.'}}</p></div><small>Os dados são preenchidos novamente para cada destinatário no momento do envio. Dados obrigatórios ausentes impedem o envio.</small></section></template>
 <style scoped>

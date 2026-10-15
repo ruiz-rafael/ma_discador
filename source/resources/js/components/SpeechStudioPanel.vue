@@ -2,7 +2,7 @@
 import {ref,computed,onMounted,onBeforeUnmount} from 'vue'
 import {Mic,Play,Plus,Save,Download,AudioLines,RefreshCw,Check,Clock} from 'lucide-vue-next'
 import {voiceApi} from '../voice/operations'
-const data=ref(null),busy=ref(false),error=ref(''),notice=ref(''),selected=ref(null),form=ref(blank()),values=ref({primeiro_nome:'Marina',nome:'Marina Silva',empresa:'Zyrex',assunto:'seu atendimento',campanha:'Relacionamento'}),view=ref('templates'),conversation=ref(''),sending=ref(false),comparison=ref([])
+const data=ref(null),busy=ref(false),error=ref(''),notice=ref(''),selected=ref(null),form=ref(blank()),values=ref({primeiro_nome:'Marina',nome:'Marina Silva',empresa:'DiscAI',assunto:'seu atendimento',campanha:'Relacionamento'}),view=ref('templates'),conversation=ref(''),sending=ref(false),comparison=ref([])
 let timer=null,disposed=false,sendKey=null
 function blank(){return {engine:'kokoro',name:'',body:'Olá, {primeiro_nome}! Aqui é a equipe {empresa}. Tentamos falar com você. Entre em contato quando puder.',voice:'pf_dora',speed:1}}
 const fields=computed(()=>[...new Set([...form.value.body.matchAll(/\{([a-z][a-z0-9_]{0,39})\}/g)].map(m=>m[1]))])

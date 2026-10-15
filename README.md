@@ -1,4 +1,4 @@
-# Zyrex MA · Discador e automação
+# DiscAI MA · Discador e automação
 
 Projeto independente de Marketing Automation com editor visual de cadências, discador, WhatsApp e relatórios. Preparado para integração futura com CRMs por API e discador incorporável; o CRM não faz parte deste repositório.
 

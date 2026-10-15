@@ -1,13 +1,13 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Zyrex MA · Integrações",
+    "title": "DiscAI MA · Integrações",
     "version": "1.1.0",
     "description": "API autenticada do MA. Token mai_ mantido exclusivamente no servidor integrador. Limite: 120 requisições/minuto por credencial. Contatos importados não iniciam discagem; a operação depende de fila habilitada, agente disponível, consentimento e limites. O CRM existente não é modificado. Consultas de conversas e custos exigem os novos escopos explícitos conversations:read e costs:read. Não são concedidos a credenciais existentes. As permissões de consulta abrangem o workspace; listas permitidas só limitam operações de listas."
   },
   "servers": [
     {
-      "url": "https://ma.zyrex.ia.br/api/v1"
+      "url": "/api/v1"
     }
   ],
   "components": {

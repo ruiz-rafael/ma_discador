@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => str_ireplace('zyrex', 'DiscAI', env('APP_NAME', 'DiscAI')),
 
     /*
     |--------------------------------------------------------------------------
