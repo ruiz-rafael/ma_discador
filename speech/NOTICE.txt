@@ -7,3 +7,5 @@ SHA256 kokoro-v1.0.onnx: beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949
 SHA256 voices-v1.0.bin: bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d
 Third-party packages and system libraries retain their respective licenses.
 The application does not send text to Twilio for speech synthesis.
+
+15/10/2026: catálogo ampliado para pt-BR, en-US e es-MX. As novas vozes usam o mesmo arquivo de vozes verificado. Fonemização: pt-br, en-us e es-419. As vozes espanholas são gerais; o Chatterbox oferece o modelo regional dedicado.

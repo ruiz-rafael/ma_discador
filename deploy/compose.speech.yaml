@@ -1,7 +1,7 @@
 # Start only this service; do not recreate app, PBX, or other workloads.
 services:
   speech:
-    image: zyrex-ma-speech:1
+    image: zyrex-ma-speech:languages-20261015
     build: ./speech
     restart: unless-stopped
     mem_limit: 1536m

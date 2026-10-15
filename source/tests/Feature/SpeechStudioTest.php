@@ -85,4 +85,37 @@ class SpeechStudioTest extends TestCase {
   $this->postJson('/api/voice/speech/generate',$d)->assertAccepted()->assertJsonPath('status','failed')->assertJsonPath('engine','chatterbox');Http::assertSentCount(1);
  }
 
+ public function test_languages_preserve_voice_and_are_sent_to_the_selected_engine():void {
+  Http::fake(['http://speech:8091/*'=>Http::response(['ready'=>true],202),'http://chatterbox:8091/*'=>Http::response(['ready'=>true],202)]);
+  foreach([['kokoro','af_heart','en-US'],['kokoro','ef_dora','es-MX'],['chatterbox','us_reference_f','en-US'],['chatterbox','latam_reference_f','es-MX']]as [$engine,$voice,$language]){
+   $d=$this->data(compact('engine','voice','language'));$id=$this->postJson('/api/voice/speech/templates',$d)->assertOk()->assertJsonPath('language',$language)->json('id');
+   $this->postJson('/api/voice/speech/generate',$d)->assertAccepted()->assertJsonPath('language',$language)->assertJsonPath('voice',$voice);
+   Http::assertSent(fn($r)=>$r['language']===$language&&$r['voice']===$voice&&str_contains($r->url(),$engine==='kokoro'?'speech:':'chatterbox:'));
+  }
+  $this->getJson('/api/voice/speech')->assertOk()->assertJsonPath('engines.chatterbox.voice_languages.latam_reference_f','es-MX');
+  $this->assertDatabaseCount('voice_outbound_calls',0);$this->assertDatabaseCount('wa_messages',0);
+ }
+ public function test_language_mismatches_and_invalid_pronunciations_never_reach_worker():void {
+  foreach([['voice'=>'pf_dora','language'=>'en-US'],['voice'=>'af_heart'],['language'=>'fr'],['pronunciations'=>[['term'=>'x','spoken'=>'<break/>']]],['pronunciations'=>[['term'=>'x','spoken'=>'y'],['term'=>'X','spoken'=>'z']]],['pronunciations'=>[['term'=>'','spoken'=>'x']]]]as $d){
+   $this->postJson('/api/voice/speech/templates',$this->data($d))->assertStatus(422);
+   $this->postJson('/api/voice/speech/generate',$this->data($d))->assertStatus(422);
+  }
+  Http::assertNothingSent();$this->assertDatabaseCount('speech_assets',0);
+ }
+ public function test_pronunciation_is_literal_single_pass_and_keeps_original_text():void {
+  Http::fake(['http://speech:8091/generate'=>Http::response([],202)]);
+  $rules=[['term'=>'DiscAI','spoken'=>'Discái'],['term'=>'Discái','spoken'=>'outra'],['term'=>'São Paulo','spoken'=>'Sãu Paulo'],['term'=>'a+b','spoken'=>'a mais b']];
+  $d=$this->data(['body'=>'{empresa}, DiscAIPro, DISCai. São Paulo: a+b.','values'=>['empresa'=>'DiscAI'],'pronunciations'=>$rules]);
+  $this->postJson('/api/voice/speech/templates',$d)->assertOk()->assertJsonPath('pronunciations.0.term','DiscAI');
+  $a=$this->postJson('/api/voice/speech/generate',$d)->assertAccepted()->assertJsonPath('body','DiscAI, DiscAIPro, DISCai. São Paulo: a+b.')->assertJsonPath('spoken_body','Discái, DiscAIPro, Discái. Sãu Paulo: a mais b.')->json();
+  Http::assertSent(fn($r)=>$r['text']==='Discái, DiscAIPro, Discái. Sãu Paulo: a mais b.');
+  $this->postJson('/api/voice/speech/generate',$d)->assertAccepted()->assertJsonPath('id',$a['id']);Http::assertSentCount(1);
+  $d['pronunciations'][0]['spoken']='Díscai';$this->postJson('/api/voice/speech/generate',$d)->assertAccepted();Http::assertSentCount(2);
+  $this->ready((object)$a);$this->travel(31)->days();app(SpeechStudio::class)->purge();$this->assertDatabaseHas('speech_assets',['id'=>$a['id'],'body'=>'','spoken_body'=>'']);
+ }
+ public function test_pronunciation_expansion_respects_engine_limit():void {
+  $d=$this->data(['engine'=>'chatterbox','voice'=>'br_reference_f','body'=>'x x x','pronunciations'=>[['term'=>'x','spoken'=>str_repeat('á',110)]]]);
+  $this->postJson('/api/voice/speech/generate',$d)->assertStatus(422);Http::assertNothingSent();
+ }
+
 }

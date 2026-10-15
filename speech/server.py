@@ -4,7 +4,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(os.environ.get('SPEECH_STORAGE', '/data'))
-VOICES = ('pf_dora', 'pm_alex', 'pm_santa')
+VOICES = {'pf_dora':'pt-BR','pm_alex':'pt-BR','pm_santa':'pt-BR','af_heart':'en-US','af_bella':'en-US','am_michael':'en-US','ef_dora':'es-MX','em_alex':'es-MX'}
+PHONEME_LANGUAGES = {'pt-BR':'pt-br','en-US':'en-us','es-MX':'es-419'}
 TOKEN = os.environ.get('SPEECH_TOKEN', '')
 MODEL_VERSION = 'kokoro-v1.0-onnx'
 lock = threading.Lock()
@@ -32,7 +33,7 @@ def generate(path, data):
             opts = rt.SessionOptions(); opts.intra_op_num_threads = 1; opts.inter_op_num_threads = 1
             session = rt.InferenceSession('/models/kokoro-v1.0.onnx', sess_options=opts, providers=['CPUExecutionProvider'])
             engine = Kokoro.from_session(session, '/models/voices-v1.0.bin')
-        samples, rate = engine.create(data['text'], voice=data['voice'], speed=data['speed'], lang='pt-br')
+        samples, rate = engine.create(data['text'], voice=data['voice'], speed=data['speed'], lang=PHONEME_LANGUAGES[data.get('language','pt-BR')])
         duration = len(samples) / rate
         if not 0.1 <= duration <= 120 or not np.isfinite(samples).all():
             raise ValueError('Audio duration or signal invalid')
@@ -71,6 +72,7 @@ class Handler(BaseHTTPRequestHandler):
             d=json.loads(self.rfile.read(size))
             path=path_for(d['workspace_id'],d['id'])
             if not isinstance(d['text'],str) or not 1<=len(d['text'].strip())<=1500 or d['voice']not in VOICES or not 0.8<=float(d['speed'])<=1.2: raise ValueError()
+            if d.get('language','pt-BR') != VOICES[d['voice']]: raise ValueError('voice_language')
             d['speed']=float(d['speed'])
             if not re.fullmatch('[a-f0-9]{64}',d['fingerprint']): raise ValueError()
             if (path/'state.json').exists():

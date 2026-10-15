@@ -1,7 +1,7 @@
 # Complement MA compose.yaml. Start only chatterbox; Kokoro remains separate.
 services:
   chatterbox:
-    image: zyrex-ma-chatterbox:ptbr-20261007
+    image: zyrex-ma-chatterbox:languages-20261015
     build: ./chatterbox
     restart: unless-stopped
     mem_limit: 3g

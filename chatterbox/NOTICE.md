@@ -1,6 +1,6 @@
-# Chatterbox PT-BR no MA
+# Chatterbox multilíngue no DiscAI
 
-Este serviço usa o modelo oficial especializado em português brasileiro, com uma voz de referência do demonstrador oficial. O Chatterbox não usa a Twilio para sintetizar áudio. Há custo de infraestrutura.
+Este serviço usa modelos oficiais em português brasileiro, inglês e espanhol latino-americano, com referências dos demonstradores oficiais. O Chatterbox não usa a Twilio para sintetizar áudio. Há custo de infraestrutura.
 
 ## Artefatos e licença
 
@@ -13,7 +13,7 @@ Este serviço usa o modelo oficial especializado em português brasileiro, com u
 
 ## Execução
 
-A imagem usa PyTorch CPU; os blocos lineares do transformer são quantizados dinamicamente para int8, mantendo o decoder e a cabeça de saída em ponto flutuante. Cada geração roda em subprocesso, liberando o modelo ao terminar. A inferência usa `language_id=pt`, temperatura 0,8, expressividade 0,5 e CFG 0,5. Não há downloads durante a inferência.
+A imagem usa PyTorch CPU; os blocos lineares do transformer são quantizados dinamicamente para int8, mantendo o decoder e a cabeça de saída em ponto flutuante. Cada geração roda em subprocesso, liberando o modelo ao terminar. A inferência usa `language_id=pt`, `en` ou `es`, conforme o idioma selecionado, temperatura 0,8, expressividade 0,5 e CFG 0,5. Não há downloads durante a inferência.
 
 O limite inicial é de 300 caracteres preenchidos e uma geração simultânea neste motor. A inferência tem prazo de 480 segundos; o worker retorna falha explícita em erro ou interrupção. O Kokoro continua independente. O tempo total inclui carregar/quantizar o modelo e pode ser de vários minutos em CPU. Este serviço é para preparar recados, não para conversa em tempo real.
 
@@ -27,3 +27,10 @@ O limite inicial é de 300 caracteres preenchidos e uma geração simultânea ne
 6. Aplicar a migração aditiva de motores e publicar o frontend compilado.
 
 Não publicar a porta 8091. O override limita a CPU a 1,5 e a memória a 3 GiB, sem swap adicional; usa raiz somente leitura e armazenamento privado. O worker aceita apenas texto, a voz pré-definida e velocidade entre 0,8 e 1,2. Não aceita caminhos ou URLs de áudio do usuário.
+
+## Ampliação de idiomas — 15/10/2026
+
+- Inglês: checkpoint `t3_mtl23ls_v3.safetensors` de `ResembleAI/chatterbox`, revisão `5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18`; referência `en_f1.flac` do demonstrador multilíngue oficial. O sotaque deve ser homologado por audição.
+- Espanhol latino-americano: `ResembleAI/Chatterbox-Multilingual-es-mx-latam`, revisão `27e595bf2fe7be0533ca299d9afafcde08b7cca7`; referência oficial `es_mx_f1.wav`.
+- Decoder V3, tokenizer e voice encoder são compartilhados. Somente um checkpoint de idioma é carregado em cada processo. As permissões, limites e isolamento offline continuam iguais.
+- Todos os novos artefatos estão fixados e verificados por SHA-256 em `model-manifest.json`. Nenhum áudio ou peso é enviado ao repositório.

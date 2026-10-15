@@ -123,3 +123,8 @@ A entrega foi preparada para homologação, mantendo a detecção desativada nas
 Painel **Supervisão ao vivo** com equipe e tempo no estado, filtros por fila/cadência, resultados por tentativa, gráfico e detalhes, entrada/saída e pausa de canais com confirmação. A consulta não inicia chamadas nem liquida reservas. [Guia de uso e interpretação](supervisao-ao-vivo.md).
 
 Validação: 446 testes em SQLite e PostgreSQL, 11 testes JavaScript e conferência de navegador em desktop/celular. Sem telefonia ou mensagens reais. A supervisão não altera o limite de simultaneidade nem substitui a homologação de áudio com vários agentes. Discagem preditiva, AMD no Asterisk e SDR conversacional continuam etapas próprias.
+
+
+## Voz multilíngue e evolução do SDR — 15/10/2026
+
+Estúdio ampliado para português brasileiro, inglês americano e espanhol latino-americano, com seleção compatível de voz/idioma, comparação Kokoro/Chatterbox e ajustes de pronúncia por template. Geração permanece separada de telefonia e conversa ao vivo. O [roteiro do SDR](sdr-voz-multilingue.md) descreve perfil por empresa, laboratório conversacional, áudio em streaming, integração de mídia e supervisão. Infraestrutura de baixa latência e homologação auditiva permanecem necessárias antes de operar um SDR de voz.

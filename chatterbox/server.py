@@ -1,12 +1,12 @@
-"""Private, bounded Chatterbox PT-BR generation. No telephone or messaging credentials."""
+"""Private, bounded Chatterbox multilingual generation. No telephone or messaging credentials."""
 import hashlib, hmac, json, os, re, subprocess, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(os.environ.get('SPEECH_STORAGE', '/data'))
-VOICES = ('br_reference_f',)
+VOICES = {'br_reference_f':'pt-BR','us_reference_f':'en-US','latam_reference_f':'es-MX'}
 TOKEN = os.environ.get('SPEECH_TOKEN', '')
-MODEL_VERSION = 'chatterbox-ptbr-v3-b3952f18-int8'
+MODEL_VERSION = 'chatterbox-v3-pt-en-es-20261015-int8'
 lock = threading.Lock()
 
 
@@ -48,7 +48,7 @@ class Handler(BaseHTTPRequestHandler):
         return bool(TOKEN) and hmac.compare_digest(self.headers.get('Authorization',''), 'Bearer '+TOKEN)
     def do_GET(self):
         if not self.auth(): return self.reply(401,{'error':'unauthorized'})
-        if self.path=='/health': return self.reply(200,{'engine':MODEL_VERSION,'ready':all(Path('/models',f).exists() for f in ['t3_pt_br.safetensors','s3gen_v3.safetensors','grapheme_mtl_merged_expanded_v1.json','ve.pt','pt_br_f2.wav']),'busy':lock.locked(),'voices':VOICES})
+        if self.path=='/health': return self.reply(200,{'engine':MODEL_VERSION,'ready':all(Path('/models',f).exists() for f in ['t3_pt_br.safetensors','s3gen_v3.safetensors','grapheme_mtl_merged_expanded_v1.json','ve.pt','pt_br_f2.wav','t3_mtl23ls_v3.safetensors','en_f1.flac','t3_es_mx_latam.safetensors','es_mx_f1.wav']),'busy':lock.locked(),'voices':VOICES})
         self.reply(404,{'error':'not_found'})
     def do_POST(self):
         if not self.auth(): return self.reply(401,{'error':'unauthorized'})
@@ -60,6 +60,7 @@ class Handler(BaseHTTPRequestHandler):
             d=json.loads(self.rfile.read(size))
             path=path_for(d['workspace_id'],d['id'])
             if not isinstance(d['text'],str) or not 1<=len(d['text'].strip())<=300 or d['voice']not in VOICES or not 0.8<=float(d['speed'])<=1.2: raise ValueError()
+            if d.get('language','pt-BR') != VOICES[d['voice']]: raise ValueError('voice_language')
             d['speed']=float(d['speed'])
             if not re.fullmatch('[a-f0-9]{64}',d['fingerprint']): raise ValueError()
             if (path/'state.json').exists():
