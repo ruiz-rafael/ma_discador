@@ -16,13 +16,20 @@ class VoiceAccess
             $finishing = $finishing || ($r->isMethod('POST') && preg_match('~^api/(?:logout|voice/(?:inbound/calls/[a-f0-9-]+/(?:reconcile|disposition)|calling/calls/[a-f0-9-]+/(?:cancel|reconcile)|operations/calls/[a-f0-9-]+/disposition))$~D', $r->path()));
             abort_unless($finishing,403,'Acesso desativado. Conclua o atendimento atual e procure a supervisão.');
         }
-        if (! $r->is('api/*') || ! $user?->voice_workspace_id || in_array($user->voice_role, ['admin', 'supervisor'], true)) return $next($r);
+        if (! $r->is('api/*') || ! $user?->voice_workspace_id || $user->voice_role === 'admin') return $next($r);
         $path = $r->path();
+        // Supervisors monitor the operation and may pause outbound queues; administration stays with tenant admins.
+        if ($user->voice_role === 'supervisor') {
+            $monitor = $r->isMethod('GET') && preg_match('~^api/voice/(?:supervision(?:/calls)?|journey-reports(?:/details|/records/(?:calls|messages)/[a-f0-9-]+)?|inbound/reports(?:/[a-f0-9-]+)?|recordings/queues/\d+|health/(?:costs|diagnostics)|leads)$~D', $path);
+            $pause = $r->isMethod('POST') && preg_match('~^api/voice/supervision/queues/\d+/pause$~D', $path);
+            $qualify = $r->isMethod('PUT') && preg_match('~^api/voice/leads/[a-f0-9-]+$~D', $path);
+            if ($monitor || $pause || $qualify) return $next($r);
+        }
         $recordRead=$r->isMethod('GET')&&preg_match('~^api/voice/recordings/(?:calls/(?:inbound|outbound)/[a-f0-9-]+|RE[a-fA-F0-9]{32}/audio)$~D',$path);
         $recordWrite=$r->isMethod('POST')&&preg_match('~^api/voice/recordings/RE[a-fA-F0-9]{32}/control$~D',$path);
         $read = $r->isMethod('GET') && preg_match('~^api/(?:bootstrap|voice/(?:conversations(?:/[a-f0-9-]+(?:/media/[a-f0-9-]+)?)?|inbound|calling|audio|audio/authorize|operations/(?:catalog|queues|reports|export|calls/[a-f0-9-]+/history)))$~D', $path);
         $write = $r->isMethod('POST') && preg_match('~^api/(?:logout|voice/(?:conversations/[a-f0-9-]+/(?:assign|read|send)|inbound/(?:token|device|calls/[a-f0-9-]+/(?:transfer|reconcile|disposition))|queues/(?:presence|heartbeat)|operations/(?:wrapup/finish|manual-reservations|queues/\d+/claim|reservations/[a-f0-9-]+/cancel|calls/[a-f0-9-]+/disposition)|calling/calls(?:/[a-f0-9-]+/(?:cancel|reconcile))?|audio/sessions(?:/[a-f0-9-]+/(?:abandon|metrics))?))$~D', $path);
-        abort_unless($read || $write || $recordRead || $recordWrite, 403, 'Esta área é reservada à supervisão. Use Minha operação para atender.');
+        abort_unless($read || $write || $recordRead || $recordWrite, 403, 'Seu perfil não permite esta ação. Configurações e acessos são gerenciados pelo administrador da empresa.');
         return $next($r);
     }
 }

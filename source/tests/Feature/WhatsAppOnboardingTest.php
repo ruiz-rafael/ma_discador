@@ -156,7 +156,7 @@ class WhatsAppOnboardingTest extends TestCase
         $this->configure();
         $session = $this->postJson($this->url('/embedded'))->assertOk()->json('session_id');
         $p = ['mode' => 'embedded', 'display_name' => 'Cliente QA', 'confirmed' => true, 'waba_id' => '123456789', 'session_id' => $session];
-        $other = User::factory()->create(['voice_workspace_id' => 1, 'voice_role' => 'supervisor']);
+        $other = User::factory()->create(['voice_workspace_id' => 1, 'voice_role' => 'admin']);
         $this->actingAs($other)->postJson($this->url('/register'), $p)->assertConflict();
         $this->actingAs($this->user); $this->travel(21)->minutes();
         $this->postJson($this->url('/register'), $p)->assertConflict();
@@ -165,7 +165,7 @@ class WhatsAppOnboardingTest extends TestCase
     public function test_supervisor_cannot_change_meta_configuration(): void
     {
         $this->user->forceFill(['voice_role' => 'supervisor'])->save();
-        $this->getJson('/api/voice/whatsapp/onboarding/settings')->assertOk()->assertJsonPath('can_edit', false);
+        $this->getJson('/api/voice/whatsapp/onboarding/settings')->assertForbidden();
         $this->putJson('/api/voice/whatsapp/onboarding/settings', ['enabled' => true])->assertForbidden();
     }
     public function test_existing_provider_identity_and_account_are_preserved(): void

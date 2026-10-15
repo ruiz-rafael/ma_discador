@@ -13,5 +13,5 @@ Route::middleware(\App\Http\Middleware\PortalSession::class)->group(function(){
  Route::get('/t/{slug}',[P::class,'launch']);Route::get('/authorize/{slug}',[P::class,'authorizeTenant']);
  Route::get('/administration',[P::class,'administration']);Route::post('/administration',[P::class,'createTenant']);
  Route::get('/administration/{id}',[P::class,'tenant']);Route::post('/administration/{id}',[P::class,'updateTenant']);
- Route::post('/administration/{id}/invitations',[P::class,'invite']);Route::post('/administration/{id}/members/{member}',[P::class,'membership']);
+ Route::post('/administration/{id}/invitations',[P::class,'invite']);Route::post('/administration/{id}/invitations/{invitation}/revoke',[P::class,'revokeInvitation']);Route::post('/administration/{id}/members/{member}',[P::class,'membership']);
 });

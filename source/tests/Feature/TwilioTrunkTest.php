@@ -34,7 +34,7 @@ class TwilioTrunkTest extends TestCase
     }
     private function agent(int $workspace = 1): User
     {
-        $u=User::factory()->create(); $u->forceFill(['voice_workspace_id'=>$workspace,'voice_role'=>'supervisor'])->save(); return $u;
+        $u=User::factory()->create(); $u->forceFill(['voice_workspace_id'=>$workspace,'voice_role'=>'admin'])->save(); return $u;
     }
     public function test_configuration_status_is_authenticated_and_limited_to_original_workspace(): void
     {

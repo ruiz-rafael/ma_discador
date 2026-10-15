@@ -13,4 +13,11 @@ class DiscaiBridgeTest extends TestCase {
  public function test_revoked_portal_access_cannot_read_operational_api():void{$u=User::factory()->create();$u->forceFill(['voice_workspace_id'=>1,'voice_role'=>'admin'])->save();Http::fake(['portal.test/*'=>Http::response([],403)]);$this->actingAs($u)->withSession(['discai_identity'=>['id'=>20,'version'=>0,'email'=>$u->email],'voice_auth_version'=>0])->getJson('/api/bootstrap')->assertForbidden();}
  public function test_new_tenant_entry_requires_explicit_login_and_blocks_local_password_login():void {config(['discai_bridge_test.required'=>true]);$this->get('/')->assertOk()->assertSee('Entrar pela DiscAI');$this->postJson('/login',['email'=>'a@example.test','password'=>'Fixture123456'])->assertForbidden();Http::assertNothingSent();}
  public function test_provider_callbacks_use_configured_tenant_origin_not_request_host():void {config(['discai_bridge_test.required'=>true,'app.url'=>'https://alpha.app.discai.ia.br']);$this->assertSame('https://alpha.app.discai.ia.br/callbacks/twilio/voice',\App\Services\TwilioVoiceConnection::base());$this->assertSame('https://alpha.app.discai.ia.br/callbacks/twilio/whatsapp',\App\Services\TwilioWhatsAppConnection::base());$this->assertSame('https://alpha.app.discai.ia.br/callbacks/twilio/voice/inbound',\App\Services\InboundVoice::base());}
+ public function test_bridge_keeps_approved_destination_and_platform_context():void {
+ $this->getJson('/discai/sso/start?section=https://evil.example')->assertUnprocessable();
+ $this->get('/discai/sso/start?section=queues')->assertRedirect();$this->assertSame('queues',session('discai_state.section'));
+ $state=str_repeat('b',64);Http::fake(['portal.test/*'=>Http::response(['id'=>10,'name'=>'Platform','email'=>'platform@example.test','role'=>'admin','version'=>0,'tenant'=>'alpha','platform_admin'=>true,'management_url'=>'https://app.discai.ia.br/administration/1','limits'=>[]])]);
+ $this->withSession(['discai_state'=>['hash'=>hash('sha256',$state),'until'=>time()+60,'section'=>'queues']])->get('/discai/sso/complete?code='.str_repeat('a',64).'&state='.$state)->assertRedirect('/#/queues');
+ $this->getJson('/api/bootstrap')->assertOk()->assertJsonPath('workspace.platform_admin',true);
+ }
 }

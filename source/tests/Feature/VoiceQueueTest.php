@@ -39,7 +39,7 @@ class VoiceQueueTest extends TestCase
 
     private function user(int $workspace=1): User
     {
-        $u=User::factory()->create();$u->forceFill(['voice_workspace_id'=>$workspace,'voice_role'=>'supervisor'])->save();return $u;
+        $u=User::factory()->create();$u->forceFill(['voice_workspace_id'=>$workspace,'voice_role'=>'admin'])->save();return $u;
     }
 
     private function configuration(array $extra=[]): array

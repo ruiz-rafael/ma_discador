@@ -40,7 +40,7 @@ class WhatsAppTest extends TestCase
         $this->c = ['account_sid' => 'AC'.str_repeat('1', 32), 'api_key' => 'SK'.str_repeat('2', 32), 'api_secret' => 'test-secret-only-123456', 'auth_token' => 'test-token-only-123456', 'allowed_recipients' => ['+5511999990001'], 'daily_limit' => 20];
         config(['whatsapp_test_connection' => $this->c]);
         $this->user = User::factory()->create();
-        $this->user->forceFill(['voice_workspace_id' => 1, 'voice_role'=>'supervisor'])->save();
+        $this->user->forceFill(['voice_workspace_id' => 1, 'voice_role'=>'admin'])->save();
         $this->actingAs($this->user);
         $this->sender = DB::table('wa_senders')->insertGetId(['workspace_id' => 1, 'label' => 'Teste', 'number' => '+5511999990000', 'ownership' => 'external', 'provider_sid' => 'XE'.str_repeat('3', 32), 'account_sid' => $this->c['account_sid'], 'status' => 'unverified']);
         $this->contact = DB::table('voice_contacts')->insertGetId(['workspace_id' => 1, 'name' => 'Teste', 'phone' => '+5511999990001', 'original_phone' => '+5511999990001', 'source' => 'QA', 'consent' => true, 'consent_evidence' => 'Opt-in fixture']);

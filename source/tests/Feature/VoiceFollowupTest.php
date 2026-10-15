@@ -22,7 +22,7 @@ class VoiceFollowupTest extends TestCase
         parent::setUp();
         $this->travelTo(now()->setDate(2026,10,3)->setTime(15,0));
         Http::preventStrayRequests();
-        $this->user=User::factory()->create();$this->user->forceFill(['voice_workspace_id'=>1,'voice_role'=>'supervisor'])->save();$this->actingAs($this->user);
+        $this->user=User::factory()->create();$this->user->forceFill(['voice_workspace_id'=>1,'voice_role'=>'admin'])->save();$this->actingAs($this->user);
         $this->contact=DB::table('voice_contacts')->insertGetId(['workspace_id'=>1,'name'=>'Ana','phone'=>'+5511999990001','original_phone'=>'+5511999990001','source'=>'QA','consent'=>true,'consent_evidence'=>'Autorização para homologação']);
         $this->sender=DB::table('wa_senders')->insertGetId(['workspace_id'=>1,'label'=>'QR QA','number'=>'+5511999990000','ownership'=>'external','provider'=>'qr']);
         $this->settings=['mode'=>'preview','business_number'=>'+551130000000','number_mode'=>'separate','whatsapp_number'=>'+5511999990000','whatsapp_sender_id'=>$this->sender,'timezone'=>'UTC','days'=>[1,2,3,4,5,6,7],'start_time'=>'00:00','end_time'=>'23:59','max_attempts'=>4,'retry_minutes'=>1,'concurrency'=>1,'whatsapp_enabled'=>true,'whatsapp_after'=>2,'whatsapp_delay'=>0,'whatsapp_delivery'=>'automatic','whatsapp_text'=>'Olá, {nome}! Podemos conversar?','whatsapp_variables'=>[]];
@@ -238,7 +238,7 @@ class VoiceFollowupTest extends TestCase
 
     public function test_operational_hours_preserve_pending_whatsapp_but_message_change_invalidates(): void
     {
-        $this->user->forceFill(['voice_role'=>'supervisor'])->save();
+        $this->user->forceFill(['voice_role'=>'admin'])->save();
         $id=$this->due();
         DB::table('voice_campaigns')->where('id',$this->campaign)->update(['status'=>'paused']);
         $settings=$this->settings;$settings['start_time']='01:00';$settings['script']='Novo roteiro';

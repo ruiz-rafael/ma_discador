@@ -13,7 +13,12 @@ def update(t,values):
  php("Illuminate\\Support\\Facades\\DB::table('portal_tenants')->where('id',"+str(t['id'])+")->update(json_decode(base64_decode('"+data+"'),true));")
 def provision(t):
  slug=t['slug'];assert re.fullmatch('[a-z][a-z0-9-]{2,38}[a-z0-9]',slug);tid=int(t['id']);assert 1<=tid<=500
- host=slug+'.app.discai.ia.br';port=19100+tid;folder=TENANTS/slug;project='discai-tenant-'+slug
+ host=slug+'.discai.ia.br';port=19100+tid;folder=TENANTS/slug;project='discai-tenant-'+slug
+ # Preserve the established origin when resuming an existing tenant.
+ if (folder/'.env').exists():
+  origin=next((line.split('=',1)[1] for line in (folder/'.env').read_text().splitlines() if line.startswith('APP_URL=')), '')
+  assert origin in ['https://'+slug+'.discai.ia.br','https://'+slug+'.app.discai.ia.br'],'Unexpected tenant origin'
+  host=origin.removeprefix('https://')
  # No credentials, volumes or MA data are copied from the production workspace.
  if not (folder/'compose.json').exists():
   available=int(next(x.split()[1] for x in Path('/proc/meminfo').read_text().splitlines()if x.startswith('MemAvailable:')))

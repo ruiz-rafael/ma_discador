@@ -29,7 +29,7 @@ class VoiceCallingTest extends TestCase
         Http::fake(['http://10.241.50.10:8088/httpstatus' => Http::response('OK')]);
         config(['voice_calling_test' => ['allowed_recipients' => ['+5511999990001'], 'daily_limit' => 20, 'max_seconds' => 30, 'ring_seconds' => 10, 'caller_id_confirmed' => true, 'sip_username' => 'ma-calling', 'sip_password' => str_repeat('a', 64), 'event_secret' => str_repeat('b', 64)], 'voice_calling_trunk_test' => ['account_sid' => 'AC'.str_repeat('1', 32), 'trunk_sid' => 'TK'.str_repeat('2', 32), 'termination_host' => 'fixture.pstn.twilio.com', 'sip_username' => 'ma-fixture', 'sip_password' => 'OnlyTestPassword123', 'caller_id' => '+551130000001', 'edge' => 'frankfurt', 'planned_concurrency' => 2, 'planned_cps' => 1], 'voice_calling_installed_test' => true, 'voice_audio_test' => ['enabled' => true, 'sip_username' => 'ma-audio', 'sip_password' => 'echo-only', 'event_secret' => 'echo-secret']]);
         $this->user = User::factory()->create();
-        $this->user->forceFill(['voice_workspace_id' => 1, 'voice_role'=>'supervisor'])->save();
+        $this->user->forceFill(['voice_workspace_id' => 1, 'voice_role'=>'admin'])->save();
         $this->actingAs($this->user);
         $this->contact = DB::table('voice_contacts')->insertGetId(['workspace_id' => 1, 'name' => 'QA', 'phone' => '+5511999990001', 'original_phone' => '+5511999990001', 'source' => 'QA fixture', 'consent' => true, 'consent_evidence' => 'Test permission']);
     }

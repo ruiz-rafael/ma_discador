@@ -1,6 +1,6 @@
 # DiscAI: portal de empresas e ambientes isolados
 
-Entrega de 14/10/2026. Entrada central: https://app.discai.ia.br/login.
+Atualização de 15/10/2026. Entrada central: https://app.discai.ia.br/login.
 
 ## Arquitetura adotada
 
@@ -9,7 +9,7 @@ O inventário do código encontrou consultas de MA sem escopo de empresa e confi
 - Portal: containers próprios, banco de identidade separado, sessões e chave próprios.
 - Novas empresas: PostgreSQL, volumes privados, chave de criptografia, sessão, rede e processos próprios. Dentro de cada banco, o workspace 1 representa exclusivamente aquela empresa.
 - Dados de clientes e credenciais de operadoras não são copiados do MA existente.
-- A operação Zyrex existente permanece em `ma.zyrex.ia.br`, acessível pelo portal mediante vínculo explícito. O endereço antigo e o login local foram preservados durante a transição.
+- A operação Zyrex existente permanece em `ma.zyrex.ia.br`, acessível pelo portal mediante vínculo explícito ou acesso de administrador geral. O endereço antigo e o login local foram preservados durante a transição.
 - Contas existentes foram importadas no portal com hashes de senha, sem exportar senhas em texto. Alterações posteriores de senha no portal não alteram a senha do login legado.
 
 O modelo é multi-tenant com isolamento de implantação. Não é ainda um único processo de aplicação atendendo bancos de várias empresas simultaneamente. A separação consome mais recursos por empresa e permite migrar clientes para outras máquinas depois.
@@ -18,7 +18,14 @@ O modelo é multi-tenant com isolamento de implantação. Não é ainda um únic
 
 O usuário entra no portal. Uma pessoa com um único vínculo ativo entra automaticamente na empresa, exceto o operador da plataforma, que vê a gestão. Quem tem vários vínculos escolhe o ambiente. Uma conta sem vínculo vê orientação para solicitar convite.
 
-Cada vínculo possui papel de administrador, supervisor ou atendente. Ser operador da plataforma não concede acesso implícito aos dados operacionais: é necessário vínculo explícito com a empresa, auditado.
+Cada vínculo possui papel de administrador, supervisor ou atendente:
+
+- Administrador geral: enxerga todos os clientes, gerencia os planos e entra em qualquer operação ativa como administrador. Essa entrada é auditada e não cria vínculo nem consome uma vaga contratada.
+- Administrador da empresa: gerencia convites, acessos, filas e configurações exclusivamente da sua empresa.
+- Supervisor: acompanha equipe, filas, cadências e resultados na Supervisão ao vivo; pode pausar filas e executar atendimento operacional. Não cadastra usuários, altera permissões, configura integrações ou edita filas/campanhas.
+- Atendente: trabalha em sua operação e conversas, respeitando as filas atribuídas.
+
+A separação é aplicada na API e nos menus. O primeiro usuário da Polishop deve receber perfil administrador, com convite para o e-mail indicado pelo proprietário. A conta fica pendente até a aceitação; o convite não envia mensagens automaticamente.
 
 O SSO utiliza estado aleatório vinculado à sessão do navegador, código de uso único com validade de 60 segundos e resgate autenticado por segredo diferente para cada empresa. A empresa, o estado, a validade e o vínculo são verificados antes de consumir o código. O backend revalida acessos feitos via portal nas requisições da API. Senhas alteradas invalidam sessões anteriores. Sair do portal invalida as sessões abertas por ele por versão de autenticação.
 
@@ -26,10 +33,10 @@ No ambiente legado, contas que entraram diretamente pelo login antigo continuam 
 
 ## Operação do portal
 
-- **Minhas empresas:** seleção do ambiente e alteração da própria senha.
+- **Minhas empresas:** seleção do ambiente e alteração da própria senha. Administradores gerais veem todos os clientes, indicadores agregados e atalhos para supervisão, filas e cadências. Os indicadores são snapshots locais com data da coleta; não são um painel em tempo real.
 - **Administrar plataforma:** cadastro de empresas, plano, limites contratados e auditoria.
 - **Gerenciar equipe:** convite individual, perfil e suspensão de vínculo. Administradores de empresa gerenciam apenas sua própria equipe.
-- Convites expiram em três dias e são apresentados para compartilhamento manual. Não há envio automático de e-mail nesta entrega.
+- Convites expiram em três dias e podem ser cancelados. O link é apresentado para compartilhamento manual. O botão de envio por e-mail só aparece quando há SMTP configurado; o transporte atual é log e não entrega e-mails. Um erro de transporte é informado como entrega não confirmada e não provoca reenvio automático. O emissor deve continuar autorizado no momento da aceitação.
 - Conta já existente deve confirmar a senha atual ao aceitar um convite. O convite não redefine senhas existentes.
 - O limite de usuários é verificado ao convidar, aceitar e reativar vínculos. Convites pendentes reservam lugares.
 - A última pessoa com perfil administrador não pode ser removida por esse formulário.
@@ -41,7 +48,7 @@ Recuperação de senha por e-mail, cobrança automática e faturas não estão h
 
 O portal usa o registro `app.discai.ia.br`, já publicado com HTTPS.
 
-Para novas empresas, o provisionador usa `identificador.app.discai.ia.br`. Configure `A *.app → IP da VM`, preferencialmente **Somente DNS**, ou registros A individuais. Subdomínios com dois níveis podem não estar cobertos pelo certificado de borda padrão da Cloudflare; por isso não basta presumir que um CNAME com proxy estará pronto.
+Para novas empresas, o provisionador usa `identificador.discai.ia.br`, preservando a origem de ambientes já preparados. Para Polishop: registro A `polishop` apontando para a VM, com proxy Cloudflare e SSL/TLS Full (strict). O certificado Universal SSL da zona cobre esse nível de subdomínio. Endereços como `polishop.app.discai.ia.br` exigiriam cobertura adicional no certificado de borda. A origem recebe certificado próprio pelo Certbot; o desafio HTTP deve continuar acessível. Não aplicar cache a HTML autenticado, APIs ou callbacks, nem desafios interativos aos callbacks da telefonia. O proxy web não substitui a configuração de transporte SIP/RTP.
 
 Uma empresa é cadastrada como **Preparando**. O provisionador cria infraestrutura vazia, executa as migrações, verifica DNS e HTTPS e só então libera a empresa. Falta de capacidade, DNS ou certificado mantém a preparação pendente, com mensagem na administração. Os processos de fila e agendamento são próprios da empresa e iniciam após a validação do domínio. Não há credenciais, campanhas ou agentes online copiados do MA.
 
@@ -64,7 +71,7 @@ Instalação em `/srv/zyrex-ma/discai`, separada da aplicação existente. Scrip
 
 A regressão cobre o MA e os novos fluxos do portal. Testes específicos incluem:
 
-- Acesso cruzado entre empresas, perfis independentes e ausência de acesso implícito do operador.
+- Acesso cruzado entre empresas, perfis independentes, acesso global auditado e revogação desse privilégio.
 - Código de SSO expirado, repetido, com estado incorreto ou pertencente a outra empresa.
 - Revogação de vínculo, suspensão e versão de autenticação.
 - Convite sem tomada de conta existente e bloqueio de excesso de usuários.
@@ -73,3 +80,11 @@ A regressão cobre o MA e os novos fluxos do portal. Testes específicos incluem
 - Login administrativo real no portal e SSO para o MA, bloqueando escritas operacionais no navegador de verificação.
 
 Nenhuma chamada real, mensagem WhatsApp ou ativação de agente foi necessária. A entrega não homologa áudio, capacidade de operadora, funcionamento do QR por nova empresa ou telefonia simultânea em produção.
+
+## Verificação da atualização de administração — 15/10/2026
+
+- 452 testes de regressão em SQLite e PostgreSQL: 3.427 verificações por execução.
+- 35 testes focados após o ajuste final das permissões de configuração de conversas: 216 verificações.
+- 11 testes JavaScript e build de produção.
+- Navegação do portal em desktop/celular e cenários de administrador de empresa e supervisor, em ambiente descartável sem operadoras.
+- O supervisor preserva distribuição manual de conversas e qualificação de leads; a configuração das regras automáticas de distribuição fica restrita ao administrador.

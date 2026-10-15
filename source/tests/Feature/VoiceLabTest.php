@@ -22,7 +22,7 @@ class VoiceLabTest extends TestCase
         parent::setUp();
         $this->travelTo(now()->setDate(2026, 10, 1)->setTime(15, 0));
         $this->agent = User::factory()->create();
-        $this->agent->forceFill(['voice_workspace_id' => 1,'voice_role'=>'supervisor'])->save();
+        $this->agent->forceFill(['voice_workspace_id' => 1,'voice_role'=>'admin'])->save();
         $this->actingAs($this->agent);
         Http::preventStrayRequests();
         CrmResource::create(['kind' => 'template', 'external_id' => 'test-template', 'name' => 'Modelo', 'channel' => 'whatsapp', 'active' => true, 'origin' => 'preparation']);
@@ -57,7 +57,7 @@ class VoiceLabTest extends TestCase
         $contact = $this->contact(); $campaign = $this->campaign([$contact]); $call = $this->start($campaign, $contact)->assertOk()->json();
         $this->finish($call)->assertOk(); $action = DB::table('voice_actions')->first();
         $other = DB::table('voice_workspaces')->insertGetId(['name' => 'Outro']);
-        $u = User::factory()->create(); $u->forceFill(['voice_workspace_id' => $other,'voice_role'=>'supervisor'])->save(); $this->actingAs($u);
+        $u = User::factory()->create(); $u->forceFill(['voice_workspace_id' => $other,'voice_role'=>'admin'])->save(); $this->actingAs($u);
         $this->getJson('/api/voice')->assertOk()->assertJsonCount(0, 'contacts')->assertJsonCount(0, 'campaigns')->assertJsonCount(0, 'references')->assertJsonCount(0, 'attempts')->assertJsonCount(0, 'actions')->assertJsonCount(0, 'audit');
         $this->start($campaign, $contact)->assertNotFound();
         $this->finish($call)->assertNotFound();
@@ -83,7 +83,7 @@ class VoiceLabTest extends TestCase
     {
         $contact = $this->contact(); $first = $this->campaign([$contact]); $second = $this->campaign([$contact]);
         $call = $this->start($first, $contact)->assertOk()->json();
-        $other = User::factory()->create(); $other->forceFill(['voice_workspace_id' => 1,'voice_role'=>'supervisor'])->save(); $this->actingAs($other);
+        $other = User::factory()->create(); $other->forceFill(['voice_workspace_id' => 1,'voice_role'=>'admin'])->save(); $this->actingAs($other);
         $this->start($second, $contact)->assertUnprocessable();
         $this->actingAs($this->agent); $this->finish($call, 'busy')->assertOk();
         $this->start($second, $contact)->assertUnprocessable(); $this->travel(2)->minutes(); $this->start($second, $contact)->assertOk();
@@ -95,7 +95,7 @@ class VoiceLabTest extends TestCase
         $campaign = $this->campaign([$a,$b,$c]);
         $this->start($campaign, $a)->assertOk(); $this->start($campaign, $b)->assertConflict();
         foreach ([$b, $c] as $i => $contact) {
-            $u = User::factory()->create(); $u->forceFill(['voice_workspace_id' => 1,'voice_role'=>'supervisor'])->save(); $this->actingAs($u);
+            $u = User::factory()->create(); $u->forceFill(['voice_workspace_id' => 1,'voice_role'=>'admin'])->save(); $this->actingAs($u);
             $result = $this->start($campaign, $contact); $i === 0 ? $result->assertOk() : $result->assertConflict();
         }
     }

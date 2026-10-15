@@ -27,7 +27,7 @@ class TwilioVoiceTest extends TestCase
         Http::preventStrayRequests();
         config(['voice_calling_test' => ['allowed_recipients' => ['+5511999990001'], 'daily_limit' => 20, 'max_seconds' => 30, 'ring_seconds' => 10, 'caller_id_confirmed' => true, 'sip_username' => 'ma-calling', 'sip_password' => 'sip-only-fixture-secret', 'event_secret' => str_repeat('b', 64)], 'twilio_voice_test' => ['account_sid' => 'AC'.str_repeat('1', 32), 'api_key' => 'SK'.str_repeat('2', 32), 'api_secret' => 'fixture-api-key-secret', 'auth_token' => 'fixture-auth-token-secret', 'application_sid' => 'AP'.str_repeat('3', 32), 'caller_id' => '+551130000001', 'edge' => 'sao-paulo', 'enabled' => true]]);
         $this->user = User::factory()->create();
-        $this->user->forceFill(['voice_workspace_id' => 1, 'voice_role'=>'supervisor'])->save();
+        $this->user->forceFill(['voice_workspace_id' => 1, 'voice_role'=>'admin'])->save();
         $this->actingAs($this->user);
         $this->contact = DB::table('voice_contacts')->insertGetId(['workspace_id' => 1, 'name' => 'API QA', 'phone' => '+5511999990001', 'original_phone' => '+5511999990001', 'source' => 'QA fixture', 'consent' => true, 'consent_evidence' => 'Test permission']);
     }

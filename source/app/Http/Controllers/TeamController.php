@@ -25,7 +25,8 @@ class TeamController extends Controller
    $u->active=$this->active($w,$u->id);
    $u->queue_ids=$queues->filter(fn($q)=>in_array($u->id,$q->agent_ids,true))->pluck('id')->values();
   }
-  return response()->json(['users'=>$users,'queues'=>$queues,'role'=>$r->user()->voice_role,'user_id'=>$r->user()->id])->header('Cache-Control','no-store, private');
+  $bridge=app(\App\Services\Portal\TenantBridge::class)->config();
+  return response()->json(['managed_centrally'=>(bool)($bridge['required']??false),'team_url'=>session('discai_identity.management_url')??(($bridge['portal_url']??config('discai.portal_url')).'/companies'),'users'=>$users,'queues'=>$queues,'role'=>$r->user()->voice_role,'user_id'=>$r->user()->id])->header('Cache-Control','no-store, private');
  }
  private function active(int $w,int $id): bool {
   return app(\App\Services\VoiceAgentCapacity::class)->inboundBusy($w,$id) || DB::table('voice_outbound_calls')->where('workspace_id',$w)->where('user_id',$id)->whereNull('capacity_released_at')->exists()

@@ -18,7 +18,7 @@ class WhatsAppQrTemplatesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp(); Http::preventStrayRequests();
-        $this->user=User::factory()->create();$this->user->forceFill(['voice_workspace_id'=>1,'voice_role'=>'supervisor'])->save();$this->actingAs($this->user);
+        $this->user=User::factory()->create();$this->user->forceFill(['voice_workspace_id'=>1,'voice_role'=>'admin'])->save();$this->actingAs($this->user);
         $this->contact=DB::table('voice_contacts')->insertGetId(['workspace_id'=>1,'name'=>'Gustavo Almeida','phone'=>'+5511999990001','original_phone'=>'+5511999990001','source'=>'QA','consent'=>true,'consent_evidence'=>'Autorização de homologação']);
         $this->sender=DB::table('wa_senders')->insertGetId(['workspace_id'=>1,'label'=>'QR QA','number'=>'+5511999990000','ownership'=>'external','provider'=>'qr']);
         config(['whatsapp_qr_test'=>['url'=>'http://whatsapp-qr:3000','token'=>'test-only-private-token','allowed_recipients'=>['+5511999990001'],'daily_limit'=>10]]);
