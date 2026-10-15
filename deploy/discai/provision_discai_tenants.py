@@ -74,8 +74,9 @@ def provision(t):
  old=site.read_text();site.write_text(conf);site.chmod(0o644)
  try:run(['nginx','-t'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);run(['systemctl','reload','nginx'])
  except Exception:site.write_text(old);raise
- run(['curl','-fsS','--resolve',host+':443:127.0.0.1','https://'+host+'/up'],stdout=subprocess.DEVNULL)
- run(['curl','-fsS','--max-time','15','https://'+host+'/up'],stdout=subprocess.DEVNULL)
+ # Nginx replaces workers asynchronously after reload; retry verified GETs, never disable TLS checks.
+ run(['curl','-fsS','--retry','3','--retry-all-errors','--retry-delay','1','--max-time','5','--resolve',host+':443:127.0.0.1','https://'+host+'/up'],stdout=subprocess.DEVNULL)
+ run(['curl','-fsS','--retry','3','--retry-all-errors','--retry-delay','1','--max-time','10','https://'+host+'/up'],stdout=subprocess.DEVNULL)
  run(cmd+['--profile','automation','up','-d'],cwd=folder,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
  update(t,{'status':'active','url':'https://'+host,'provision_error':None,'checked_at':time.strftime('%Y-%m-%d %H:%M:%S',time.gmtime())})
  print('Provisioned '+slug+'; isolated workers ready, provider credentials absent.')
