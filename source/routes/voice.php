@@ -171,3 +171,10 @@ Route::middleware(['auth','throttle:60,1'])->prefix('api/voice/speech')->group(f
 Route::get('/media/speech/{workspace}/{id}/{format}',[\App\Http\Controllers\SpeechStudioController::class,'delivery'])->whereNumber('workspace')->whereUuid('id')->whereIn('format',['wav','mp3','ogg'])->middleware(['signed','throttle:120,1,speech-delivery:'])->name('speech.delivery');
 
 foreach(['amd'=>'amd','voicemail'=>'voicemail','voicemail-finished'=>'voicemailFinished'] as $path=>$action) Route::post('/callbacks/twilio/voice/'.$path.'/{id}',[\App\Http\Controllers\TwilioVoiceWebhookController::class,$action])->whereUuid('id')->middleware('throttle:240,1,voice-api:');
+
+Route::middleware(['auth','throttle:60,1'])->prefix('api/voice/supervision')->group(function () {
+    $c = \App\Http\Controllers\VoiceSupervisionController::class;
+    Route::get('/', [$c, 'index']);
+    Route::get('/calls', [$c, 'calls']);
+    Route::post('/queues/{id}/pause', [$c, 'pause'])->whereNumber('id');
+});

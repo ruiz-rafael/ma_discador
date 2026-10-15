@@ -51,7 +51,7 @@ class TeamController extends Controller
    if(!empty($d['password'])){$u->password=$d['password'];if($id)$u->voice_auth_version++;}
    $u->save();
    foreach($queues as $q){$ids=json_decode($q->agent_ids,true);$new=array_values(array_filter($ids,fn($v)=>$v!==$u->id));if(in_array($q->id,$d['queue_ids'],true))$new[]=$u->id;sort($new);sort($ids);if($new!==$ids)DB::table('voice_live_queues')->where('id',$q->id)->update(['agent_ids'=>json_encode($new),'revision'=>$q->revision+1,'updated_at'=>now()]);}
-   if(!$d['enabled'])DB::table('voice_agent_presence')->where('workspace_id',$w)->where('user_id',$u->id)->update(['status'=>'offline','updated_at'=>now()]);
+   if(!$d['enabled'])DB::table('voice_agent_presence')->where('workspace_id',$w)->where('user_id',$u->id)->update(['status'=>'offline','updated_at'=>now(),'state_changed_at'=>now()]);
    // A password reset invalidates Laravel's database sessions when present.
    if($id && !empty($d['password']) && config('session.driver')==='database')DB::table(config('session.table','sessions'))->where('user_id',$id)->delete();
    app(VoiceLab::class)->audit($w,$r->user()->id,$id?'team.updated':'team.created',$u->id,['role'=>$d['role'],'enabled'=>$d['enabled'],'queue_ids'=>$d['queue_ids'],'password_changed'=>!empty($d['password'])]);

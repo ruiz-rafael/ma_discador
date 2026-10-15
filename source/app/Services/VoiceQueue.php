@@ -111,6 +111,8 @@ class VoiceQueue
             if($status!==null)$values['session_id']=$session;
             if($status==='available'&&(!$old||$old->status!=='available'||!$old->last_seen_at||CarbonImmutable::parse($old->last_seen_at)->lte(now()->subSeconds(90))))$values['available_since']=now();
 
+            if ($status !== null && (!$old || $old->status !== $status || ($status === 'paused' && $old->pause_reason !== $reason) || !$old->state_changed_at)) $values['state_changed_at'] = now();
+
             if ($status !== null) {
                 $values += ['status' => $status, 'pause_reason' => $status === 'paused' ? $reason : null];
             }

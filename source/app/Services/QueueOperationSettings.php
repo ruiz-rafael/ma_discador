@@ -25,7 +25,7 @@ class QueueOperationSettings {
   if(!$answered&&$q->missed_offer_limit>0&&$count>=$q->missed_offer_limit)$this->pause($q,$user,'Chamadas não atendidas: '.$count.' ofertas consecutivas na fila '.$q->name.'. Clique em Online para retomar.');
  }
  private function pause(object $q,int $u,string $reason):void {
-  $changed=DB::table('voice_agent_presence')->where('workspace_id',$q->workspace_id)->where('user_id',$u)->where('status','available')->update(['status'=>'paused','pause_reason'=>$reason,'updated_at'=>now()]);
+  $changed=DB::table('voice_agent_presence')->where('workspace_id',$q->workspace_id)->where('user_id',$u)->where('status','available')->update(['status'=>'paused','pause_reason'=>$reason,'updated_at'=>now(),'state_changed_at'=>now()]);
   if($changed)app(VoiceLab::class)->audit($q->workspace_id,$u,'queue.auto_paused',$q->id,['reason'=>$reason]);
  }
  public function disconnected(int $w,int $u):void {
