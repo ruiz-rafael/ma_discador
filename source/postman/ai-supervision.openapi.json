@@ -1,0 +1,158 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DiscAI AI supervision",
+    "version": "1.0.0",
+    "description": "Read-only tenant supervision for admin and supervisor. Session cookie authentication. GET never calls AI providers or activates channels. Default scope is production; tests remain separate."
+  },
+  "paths": {
+    "/api/ai/supervision": {
+      "get": {
+        "summary": "Observe sessions started in a period of at most 31 days, Bras\u00edlia timezone",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "production",
+                "tests"
+              ],
+              "default": "production"
+            }
+          },
+          {
+            "name": "agent_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "whatsapp",
+                "phone",
+                "text",
+                "voice"
+              ]
+            }
+          },
+          {
+            "name": "outcome",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "handoff",
+                "failure",
+                "stop",
+                "closed",
+                "expired"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Summary, daily series, channel totals, 25 sessions per page, profiles and readiness. Outcome counts overlap. text_estimated_usd excludes voice and transport. voice_estimated_usd and unmeasured latency are null. History retention is 30 days."
+          },
+          "403": {
+            "description": "Disabled user or role without supervision access"
+          },
+          "404": {
+            "description": "Agent does not belong to this workspace"
+          },
+          "422": {
+            "description": "Invalid period, pagination or incompatible channel/scope"
+          }
+        }
+      }
+    },
+    "/api/ai/supervision/sessions/{id}": {
+      "get": {
+        "summary": "Session snapshot metadata, 30 turns per page and last 30 delivery/transfer events",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operational fields only; excludes credentials, full company instructions, provider call IDs and request hashes. Transfer acceptance does not prove human attendance. SIP transcripts contain assistant speech only."
+          },
+          "403": {
+            "description": "Role without supervision access"
+          },
+          "404": {
+            "description": "Session not found in this workspace"
+          },
+          "422": {
+            "description": "Invalid pagination"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "laravel_session",
+        "description": "Use the authenticated workspace session; cookie name is environment-specific."
+      }
+    }
+  },
+  "security": [
+    {
+      "session": []
+    }
+  ]
+}

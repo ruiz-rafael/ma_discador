@@ -21,6 +21,7 @@ class VoiceAccess
         // Supervisors monitor the operation and may pause outbound queues; administration stays with tenant admins.
         if ($user->voice_role === 'supervisor') {
             $monitor = $r->isMethod('GET') && preg_match('~^api/voice/(?:supervision(?:/calls)?|journey-reports(?:/details|/records/(?:calls|messages)/[a-f0-9-]+)?|inbound/reports(?:/[a-f0-9-]+)?|recordings/queues/\d+|health/(?:costs|diagnostics)|leads)$~D', $path);
+            $monitor = $monitor || ($r->isMethod('GET') && preg_match('~^api/ai/supervision(?:/sessions/[a-f0-9-]+)?$~D', $path));
             $pause = $r->isMethod('POST') && preg_match('~^api/voice/supervision/queues/\d+/pause$~D', $path);
             $qualify = $r->isMethod('PUT') && preg_match('~^api/voice/leads/[a-f0-9-]+$~D', $path);
             if ($monitor || $pause || $qualify) return $next($r);

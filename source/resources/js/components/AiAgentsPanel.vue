@@ -1,6 +1,7 @@
 <script setup>
 import {ref,computed,onMounted,onBeforeUnmount} from 'vue'
 import {Bot,Plus,ArrowLeft,MessageCircle,Mic,BookOpen,ShieldCheck,SlidersHorizontal,Play,Pause,Save,X,Trash2,Phone,Headphones,Check,Send,Volume2,Settings2,Sparkles,Clock,ExternalLink} from 'lucide-vue-next'
+defineEmits(['supervise'])
 const data=ref({agents:[],queues:[],senders:[],bindings:[],sessions:[],connection:{prices:{}}}),selected=ref(null),config=ref(null),tab=ref('identity'),busy=ref(false),error=ref(''),notice=ref(''),baseline=ref(''),testOpen=ref(false),connectionOpen=ref(false),leaveAction=ref(null),testMode=ref('local'),session=ref(null),messages=ref([]),input=ref(''),consent=ref(false),key=ref(''),enabled=ref(false),daily=ref(100),voiceStatus=ref('idle'),voiceTranscript=ref(''),sender=ref(''),bindConsent=ref(false),history=ref(null)
 const sipSecret=ref(''),projectId=ref(''),sipSetup=ref(null),sipQueue=ref(''),sipTransfer=ref(''),sipEnabled=ref(false),sipConsent=ref(false)
 const dirty=computed(()=>config.value&&JSON.stringify(config.value)!==baseline.value)
@@ -46,7 +47,7 @@ onBeforeUnmount(()=>stopVoice())
 </script>
 <template>
  <div class="ai-studio">
-  <header class="ai-heading"><div><span class="eyebrow">CONVERSAS COM PROPÓSITO</span><h1>Agentes de IA</h1><p>Uma identidade. Conhecimento da sua empresa. Conversas por voz e WhatsApp.</p></div><button class="secondary" @click="settings"><Settings2 :size="16"/>Conexão e custos</button></header>
+  <header class="ai-heading"><div><span class="eyebrow">CONVERSAS COM PROPÓSITO</span><h1>Agentes de IA</h1><p>Uma identidade. Conhecimento da sua empresa. Conversas por voz e WhatsApp.</p></div><button class="secondary" @click="$emit('supervise')"><MessageCircle :size="16"/>Acompanhar conversas</button><button class="secondary" @click="settings"><Settings2 :size="16"/>Conexão e custos</button></header>
   <div v-if="error" class="ai-error" role="alert">{{error}}</div><div v-if="notice" class="ai-notice" role="status">{{notice}}</div>
   <template v-if="!selected">
    <div class="ai-intro"><div class="ai-orb"><Sparkles :size="32"/></div><div><h2>Seu próximo atendimento começa aqui.</h2><p>Escolha um ponto de partida, ensine o que importa e experimente antes de ativar.</p></div><span :class="['ai-pill',canPremium?'good':'']">{{canPremium?'API autorizada':'Configure agora · teste local gratuito'}}</span></div>

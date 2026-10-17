@@ -80,3 +80,18 @@ Assinatura do provedor, segredo da rota, capacidade, horário e pausa são verif
 Testes PHP em SQLite e PostgreSQL, `tests/Feature/AiAgentsTest.php` e `AiSipTest.php`; integração HTTP real contra simulação local Postman em `tests/Transport/AiTransportTest.php`; teste do worker em `ai-voice/test.mjs`; fluxo de navegador em ambiente isolado. Contrato e respostas substitutas em `source/postman`. Nenhuma chamada real nem consulta premium é necessária para essa suíte.
 
 Referências: [Fonio — configuração](https://fonio.info/en/get-started/first-steps), [ElevenLabs — agentes](https://elevenlabs.io/docs/eleven-agents/overview), [OpenAI — WebRTC](https://developers.openai.com/api/docs/guides/voice-webrtc), [OpenAI — SIP](https://developers.openai.com/api/docs/guides/voice-sip?voice-api=realtime).
+
+## Supervisão de IA — 17/10/2026
+
+Administradores e supervisores acessam **Supervisão ao vivo → Conversas de IA**. O estúdio também oferece **Acompanhar conversas**. Supervisores consultam os dados do seu tenant; criação, publicação, custos e ativação continuam exclusivos do administrador.
+
+- **Atendimento real:** sessões de WhatsApp e telefonia SIP. **Laboratório:** simulações gratuitas, testes de texto e de voz. O filtro inicial mostra conversas iniciadas nos últimos sete dias, no horário de Brasília. Resultados e consumo dessas conversas são acumulados até a coleta, não apenas dentro do período filtrado.
+- Filtre por período (até 31 dias), agente, canal e resultado. Cards, barras por dia e por canal abrem os recortes correspondentes. A atualização automática é opcional, a cada 15 segundos, apenas com a página visível e sem detalhes abertos.
+- Conversas com falha e passagem humana podem aparecer nos dois indicadores; os totais não devem ser somados. Sessão encerrada não comprova resolução. Aceite de transferência SIP significa solicitação aceita pelo provedor, não humano conectado. O evento permanece consultável após o encerramento da sessão.
+- Sessões com prazo excedido aparecem separadas das ativas. Ler o painel não altera o estado nem tenta chamadas ao provedor.
+- A estimativa financeira inclui apenas tokens de texto de sessões premium. Voz permanece **Consultar provedor**, nunca zero presumido. O tempo médio é o processamento de respostas de texto concluídas, incluindo regras locais dentro dessas sessões; não representa latência de áudio.
+- Detalhes incluem resumo registrado, configuração capturada (nome, idioma, adaptação e revisão), falas paginadas e últimos eventos de processamento/transferência. Não expõem chave, instruções completas da empresa, identificadores do provedor nem hashes internos. Histórico tem retenção de 30 dias; períodos antigos podem estar incompletos.
+
+Contrato de consulta: `source/postman/ai-supervision.openapi.json`. Testes de isolamento, papéis, paginação, fuso horário, sobreposição de resultados e custos desconhecidos: `tests/Feature/AiSupervisionTest.php`. Esta entrega não mede qualidade auditiva nem classifica emoções.
+
+Próximas etapas dependentes de configuração: cadastrar uma chave premium e apresentar custos para autorizar o laboratório; avaliar conversas em PT-BR, EN-US e ES-MX com uma pessoa; homologar a rota SIP e a passagem humana antes da ativação por canal. Campanhas de saída com IA e agenda externa permanecem etapas posteriores.

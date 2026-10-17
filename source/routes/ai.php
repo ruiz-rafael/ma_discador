@@ -2,6 +2,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AiAgentsController as A;
 Route::middleware(['auth','throttle:60,1'])->prefix('api/ai')->group(function(){
+ Route::get('/supervision',[\App\Http\Controllers\AiSupervisionController::class,'index']);
+ Route::get('/supervision/sessions/{id}',[\App\Http\Controllers\AiSupervisionController::class,'show'])->whereUuid('id');
  Route::get('/agents',[A::class,'index']);Route::post('/agents',[A::class,'save']);Route::put('/connection',[A::class,'connection']);
  Route::put('/agents/{id}',[A::class,'save'])->whereUuid('id');
  foreach(['publish','pause','start','voice','binding','sip']as $action)Route::post('/agents/{id}/'.$action,[A::class,$action])->whereUuid('id')->middleware('throttle:10,1,ai-'.$action.':');
