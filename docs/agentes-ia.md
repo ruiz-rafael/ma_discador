@@ -1,6 +1,6 @@
 # Agentes de IA DiscAI
 
-O administrador de cada empresa acessa **Agentes de IA** no menu. Recepção, SDR e atendimento são pontos de partida editáveis, não agentes já treinados com informações comerciais.
+O administrador de cada empresa acessa **Agentes de IA** no menu. Recepção, SDR, atendimento e atendimento adaptativo são pontos de partida editáveis, não agentes já treinados com informações comerciais.
 
 ## Preparar e publicar
 
@@ -12,6 +12,20 @@ O administrador de cada empresa acessa **Agentes de IA** no menu. Recepção, SD
 6. Habilite cada canal explicitamente, após homologação. Publicar não liga nem envia mensagens.
 
 Não há ingestão de sites/documentos, agenda externa ou ferramentas arbitrárias nesta entrega. A base é editada diretamente no estúdio. O agente pode coletar preferências, mas não afirma que reservou um horário ou executou uma ação externa.
+
+## Atendimento adaptativo
+
+Escolha o modelo **Atendimento adaptativo** ou ative **Conversa e limites → Adaptar ao ritmo e ao contexto** em um agente existente. A opção começa desligada nos outros modelos e não modifica agentes já publicados. Salve, teste e publique uma nova versão; conversas em andamento mantêm a configuração anterior.
+
+Na telefonia, o modelo recebe instruções para considerar ritmo, pausas, hesitação e entonação junto ao conteúdo, adaptar a extensão das respostas e manter sua própria voz. No WhatsApp, usa somente a conversa escrita. Emoções são hipóteses sujeitas a erro, nunca diagnósticos ou certeza. O relato e a correção do cliente prevalecem; não há classificador validado, pontuação nem perfil emocional persistido.
+
+Orientações incluem pressa, confusão, reclamações, objeções, conflito, pedidos de humano e de interrupção. A adaptação não permite inventar soluções, pressionar uma pessoa vulnerável, alterar preços ou ignorar consentimento. Transferências e encerramentos continuam usando os mecanismos e limites de cada canal; não se promete uma ação que a ferramenta não confirmou.
+
+**Testar agente → Roteiros para testar** oferece seis situações em português brasileiro, inglês americano e espanhol latino-americano. Escolher um roteiro apenas prepara a mensagem ou mostra uma frase para falar; não envia nada nem inicia cobrança. A simulação gratuita testa regras locais, não interpretação emocional. Texto generativo e voz exigem conexão e autorização de custos.
+
+Para homologar a conversa, repita a mesma frase com ritmos e entonações diferentes, inclua ruído e pausas, corrija uma interpretação e peça atendimento humano. Avalie respeito à correção, clareza, ausência de suposições, fidelidade à base e encaminhamento. Nenhum teste automatizado com resposta substituta comprova naturalidade, precisão emocional ou desempenho em áudio real. A avaliação auditiva segue pendente até realizar testes autorizados de voz.
+
+Referências: [conversas Realtime](https://developers.openai.com/api/docs/guides/realtime-conversations), [orientações para voz](https://developers.openai.com/api/docs/guides/voice-prompting).
 
 ## Custos antes de ativar
 
