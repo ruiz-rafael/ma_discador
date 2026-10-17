@@ -35,3 +35,14 @@ Cada sessão registra provedor e modelo. O provedor de sessões em andamento nã
 Testes automatizados de contratos, permissões, cifragem, isolamento, assinatura do gerenciamento, respostas inválidas, limites, contexto, desativação e ausência de fallback pago. Transporte HTTP exercitado contra simulação Postman do Ollama, incluindo autenticação, 429, 503, JSON inválido, resposta truncada e timeout. Não equivale a teste do modelo ou de voz real; estes dependem de servidor de inferência e posterior avaliação nos três idiomas.
 
 Fontes de contrato: https://docs.ollama.com/api/chat, https://docs.ollama.com/capabilities/structured-outputs, https://huggingface.co/Qwen/Qwen3-8B.
+
+
+## Experimento na VM compartilhada — 17/10/2026
+
+Após autorização explícita para experimentar no servidor atual, foi executado Qwen3-4B Q4_K_M em um contêiner isolado de Ollama, com 2 CPUs, 3 GiB de memória sem swap, contexto de 2048 tokens, uma geração por vez e `think:false`. O serviço escutou somente em localhost; nenhum tenant foi configurado para usá-lo. Um monitor interromperia o teste se a memória disponível do host caísse abaixo de 800 MiB. O modelo foi descarregado e o contêiner parado e removido ao concluir as gerações. Os arquivos do modelo foram mantidos para reutilização em novos ensaios.
+
+O ensaio confirmou execução local. Observou-se cerca de 2,8 GiB no contêiner e mínimo de aproximadamente 1 GiB de memória disponível no host. Nas últimas amostras, as respostas completas levaram 53 s em português (incluindo 15 s de carregamento), 34 s em inglês e 46 s em espanhol. Estes tempos incluem o JSON de controle e não são medições de tempo até o primeiro token. Os limites de CPU usados também restringem o desempenho; não são um benchmark de toda a capacidade da VM.
+
+**Qualidade não aprovada para atendimento automático.** Mesmo após esclarecer as instruções, o modelo menor prometeu consultar dados indisponíveis e classificou incorretamente ações de encaminhamento. Houve erro de grafia em português e descumprimento de restrições de estilo. Foram preservadas as tentativas anteriores, inclusive uma classificação `stop` indevida para reclamação, em evidência operacional privada. Este ensaio do 4B não determina a qualidade do 8B.
+
+As respostas foram encaminhadas sequencialmente ao estúdio de voz para prévias Kokoro e Chatterbox. Símbolos de emoji são removidos antes da síntese; as palavras geradas são preservadas. Esta demonstração separa geração de texto e síntese: não inclui reconhecimento de fala, interrupções nem telefonia ao vivo. Não foram feitas chamadas, enviados WhatsApps ou consumidas APIs pagas. A configuração central de produção continua com o catálogo anterior, sem ativação automática do modelo experimental.
