@@ -1,0 +1,11 @@
+version: 1
+id: f063d367-15dc-4cc3-b67f-7242ac0ccda1
+name: discai-qwen
+slug: discai-qwen
+protocol: http
+port: 19120
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

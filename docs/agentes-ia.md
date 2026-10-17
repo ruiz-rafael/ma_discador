@@ -95,3 +95,7 @@ Administradores e supervisores acessam **Supervisão ao vivo → Conversas de IA
 Contrato de consulta: `source/postman/ai-supervision.openapi.json`. Testes de isolamento, papéis, paginação, fuso horário, sobreposição de resultados e custos desconhecidos: `tests/Feature/AiSupervisionTest.php`. Esta entrega não mede qualidade auditiva nem classifica emoções.
 
 Próximas etapas dependentes de configuração: cadastrar uma chave premium e apresentar custos para autorizar o laboratório; avaliar conversas em PT-BR, EN-US e ES-MX com uma pessoa; homologar a rota SIP e a passagem humana antes da ativação por canal. Campanhas de saída com IA e agenda externa permanecem etapas posteriores.
+
+## Administração central e Qwen
+
+O provedor de texto pode ser GPT ou Qwen3-8B em infraestrutura própria. Os parâmetros são exclusivos do administrador geral; clientes não configuram servidores ou chaves. Veja [IA própria com Qwen](ia-propria-qwen.md). Qwen falado ainda depende de integração de transcrição e síntese; não confundir com o teste de voz OpenAI.

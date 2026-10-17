@@ -8,17 +8,17 @@ class AiWhatsApp {
   if(!$binding||!$binding->enabled_at||$message->created_at<$binding->enabled_at)return false;
   $c=DB::table('wa_conversations')->find($conversation);$a=DB::table('ai_agents')->where('workspace_id',$message->workspace_id)->where('id',$binding->agent_id)->where('paused',false)->whereNotNull('published_version')->first();
   if(!$a||!$c||$c->assigned_user_id||$c->status!=='open'||!trim($message->body??'')||DB::table('ai_whatsapp_jobs')->where('conversation_id',$conversation)->whereIn('status',['handoff','stop','failed','unknown'])->exists())return false;
-  if(!app(AiProvider::class)->connection($message->workspace_id)['enabled'])return false;
+  if(!app(AiProvider::class)->connection($message->workspace_id)['text_enabled'])return false;
   DB::table('ai_whatsapp_jobs')->insertOrIgnore(['message_id'=>$message->id,'workspace_id'=>$message->workspace_id,'conversation_id'=>$conversation,'agent_id'=>$binding->agent_id,'status'=>'pending','created_at'=>now(),'updated_at'=>now()]);
   DB::afterCommit(fn()=>\App\Jobs\HandleAiWhatsApp::dispatch($message->id));
   return true;
  }
- public function owns(string $conversation):bool { $c=DB::table('wa_conversations')->find($conversation);if(!$c||$c->assigned_user_id)return false;$b=DB::table('ai_whatsapp_bindings as b')->join('ai_agents as a','a.id','=','b.agent_id')->where('b.sender_id',$c->sender_id)->where('b.enabled',true)->where('a.paused',false)->exists();if(!$b||!app(AiProvider::class)->connection($c->workspace_id)['enabled'])return false;return DB::table('ai_whatsapp_jobs')->where('conversation_id',$conversation)->whereIn('status',['pending','processing','sent'])->exists()&&!DB::table('ai_whatsapp_jobs')->where('conversation_id',$conversation)->whereIn('status',['handoff','stop','failed','unknown'])->exists();}
+ public function owns(string $conversation):bool { $c=DB::table('wa_conversations')->find($conversation);if(!$c||$c->assigned_user_id)return false;$b=DB::table('ai_whatsapp_bindings as b')->join('ai_agents as a','a.id','=','b.agent_id')->where('b.sender_id',$c->sender_id)->where('b.enabled',true)->where('a.paused',false)->exists();if(!$b||!app(AiProvider::class)->connection($c->workspace_id)['text_enabled'])return false;return DB::table('ai_whatsapp_jobs')->where('conversation_id',$conversation)->whereIn('status',['pending','processing','sent'])->exists()&&!DB::table('ai_whatsapp_jobs')->where('conversation_id',$conversation)->whereIn('status',['handoff','stop','failed','unknown'])->exists();}
  private function eligible(object $job):object {
   $c=DB::table('wa_conversations')->where('workspace_id',$job->workspace_id)->where('id',$job->conversation_id)->firstOrFail();
   abort_unless($c->status==='open'&&!$c->assigned_user_id&&$c->last_inbound_at&&now()->subHours(24)->lt($c->last_inbound_at),409,'A conversa está com a equipe, encerrada ou fora da janela de resposta.');
   abort_unless(DB::table('ai_whatsapp_bindings')->where('workspace_id',$job->workspace_id)->where('sender_id',$c->sender_id)->where('agent_id',$job->agent_id)->where('enabled',true)->exists(),409,'Canal de IA desativado.');
-  app(AiAgents::class)->published($job->workspace_id,$job->agent_id);app(AiProvider::class)->ready($job->workspace_id);abort_if(app(OperationPolicy::class)->get($job->workspace_id)['paused'],409,'Operação pausada.');
+  app(AiAgents::class)->published($job->workspace_id,$job->agent_id);app(AiProvider::class)->textReady($job->workspace_id);abort_if(app(OperationPolicy::class)->get($job->workspace_id)['paused'],409,'Operação pausada.');
   $contact=$c->contact_id?DB::table('voice_contacts')->where('workspace_id',$job->workspace_id)->where('id',$c->contact_id)->first():null;abort_if($contact?->suppressed_at,409,'Contato descadastrado.');
   return $c;
  }

@@ -1,0 +1,199 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DiscAI · IA administrada e Ollama",
+    "version": "2026-10-17"
+  },
+  "paths": {
+    "/ai-administration": {
+      "get": {
+        "summary": "Listar empresas; somente operador da plataforma",
+        "responses": {
+          "200": {
+            "description": "HTML da administração"
+          },
+          "403": {
+            "description": "Sem acesso de operador"
+          }
+        }
+      }
+    },
+    "/ai-administration/{id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Ler parâmetros da empresa por ponte assinada",
+        "responses": {
+          "200": {
+            "description": "HTML, sem chaves armazenadas"
+          },
+          "403": {
+            "description": "Somente operador"
+          }
+        }
+      },
+      "post": {
+        "summary": "Salvar parâmetros ou verificar o servidor; sessão e CSRF obrigatórios",
+        "responses": {
+          "302": {
+            "description": "Retorna com resultado ou erro; chaves não retornam no formulário"
+          },
+          "403": {
+            "description": "Somente operador"
+          }
+        }
+      }
+    },
+    "/discai-internal/ai": {
+      "post": {
+        "summary": "Gerenciamento assinado entre portal e tenant, corpo vinculado à empresa e timestamp",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Discai-Time",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Discai-Signature",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tenant",
+                  "actor",
+                  "action"
+                ],
+                "properties": {
+                  "tenant": {
+                    "type": "string"
+                  },
+                  "actor": {
+                    "type": "integer"
+                  },
+                  "action": {
+                    "enum": [
+                      "read",
+                      "save",
+                      "probe"
+                    ]
+                  },
+                  "local": {
+                    "$ref": "#/components/schemas/LocalSettings"
+                  },
+                  "openai": {
+                    "type": "object",
+                    "description": "Credenciais opcionais, habilitação, limite diário e aceite de custos OpenAI."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuração sem segredos ou diagnóstico sem inferência"
+          },
+          "401": {
+            "description": "Assinatura ou timestamp inválidos"
+          },
+          "403": {
+            "description": "Tenant não confere"
+          },
+          "409": {
+            "description": "Revisão desatualizada ou conversa aberta impede troca"
+          },
+          "422": {
+            "description": "Parâmetros ou modelo não confirmados"
+          },
+          "502": {
+            "description": "Servidor indisponível"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LocalSettings": {
+        "type": "object",
+        "properties": {
+          "text_provider": {
+            "enum": [
+              "openai",
+              "qwen"
+            ]
+          },
+          "endpoint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Origem HTTPS sem caminho. Rede privada só por configuração de infraestrutura."
+          },
+          "api_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "writeOnly": true
+          },
+          "model": {
+            "enum": [
+              "qwen3:8b",
+              "qwen3:8b-q4_K_M"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "daily_requests": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "context_tokens": {
+            "enum": [
+              8192,
+              16384
+            ]
+          },
+          "parallel_requests": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 60
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

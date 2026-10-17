@@ -66,7 +66,7 @@ class AiSupervision
         foreach($buckets as $b){$day=CarbonImmutable::parse($b->hour,'UTC')->setTimezone(self::TIMEZONE)->toDateString();if(array_key_exists($day,$days))$days[$day]+=(int)$b->total;}
         $series=[];foreach($days as $date=>$total)$series[]=['date'=>$date,'total'=>$total];
         $sessions=(clone $q)->leftJoin('ai_agents as a',fn($j)=>$j->on('a.id','=','s.agent_id')->on('a.workspace_id','=','s.workspace_id'))
-            ->orderByDesc('s.created_at')->orderByDesc('s.id')->paginate(25,['s.id','s.agent_id','a.name as agent_name','s.channel','s.mode','s.status','s.turns','s.estimated_usd','s.created_at','s.updated_at','s.expires_at'],'page',$f['page']??1);
+            ->orderByDesc('s.created_at')->orderByDesc('s.id')->paginate(25,['s.id','s.agent_id','a.name as agent_name','s.channel','s.mode','s.provider','s.model','s.status','s.turns','s.estimated_usd','s.created_at','s.updated_at','s.expires_at'],'page',$f['page']??1);
         $sessions->getCollection()->transform(fn($s)=>$this->present($s));
         $agents=DB::table('ai_agents')->where('workspace_id',$w)->orderBy('name')->get(['id','name','paused','published_version']);
         $connection=app(AiProvider::class)->connection($w);
@@ -78,7 +78,7 @@ class AiSupervision
     private function present(object $s): object
     {
         $s->expired=in_array($s->status,self::ACTIVE,true)&&CarbonImmutable::parse($s->expires_at)->lte(now());
-        $s->estimated_usd=in_array($s->channel,['voice','phone'],true)?null:(float)$s->estimated_usd;
+        $s->infrastructure_cost_included=false;$s->estimated_usd=in_array($s->channel,['voice','phone'],true)?null:(float)$s->estimated_usd;
         return $s;
     }
 
@@ -88,7 +88,7 @@ class AiSupervision
         $config=json_decode($s->config,true);
         $meta=['name'=>$config['name']??'Agente','language'=>$config['language']??null,'adaptive_conversation'=>(bool)($config['adaptive_conversation']??false),'revision'=>$s->revision];
         // Whitelist only operational data. Never return provider IDs or full company instructions.
-        $session=(object)array_intersect_key((array)$s,array_flip(['id','agent_id','channel','mode','status','turns','summary','estimated_usd','input_tokens','output_tokens','created_at','updated_at','expires_at']));
+        $session=(object)array_intersect_key((array)$s,array_flip(['id','agent_id','channel','mode','provider','model','status','turns','summary','estimated_usd','input_tokens','output_tokens','created_at','updated_at','expires_at']));
         $turns=DB::table('ai_turns')->where('session_id',$id)->orderBy('sequence')->orderBy('created_at')->orderBy('id')->paginate(30,['id','input','output','status','action','latency_ms','created_at'],'page',$page);
         $deliveries=DB::table('ai_whatsapp_jobs as j')->where('j.workspace_id',$w)->where('j.session_id',$id)->orderByDesc('j.created_at')->limit(30)->get(['j.status','j.reason','j.created_at']);
         $transfers=DB::table('voice_audit')->where('workspace_id',$w)->where('subject_id',$id)->where('event','ai.voice.transfer')->latest('created_at')->limit(30)->get(['data','created_at'])->map(function($a){$d=json_decode($a->data,true);return ['requested_at'=>$a->created_at,'provider_accepted'=>(bool)($d['request_accepted']??false)];});

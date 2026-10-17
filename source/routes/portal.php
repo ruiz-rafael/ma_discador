@@ -26,3 +26,10 @@ Route::middleware(\App\Http\Middleware\PortalSession::class)->group(function(){
 });
 
 Route::match(['GET','POST'],'/number-hold',fn()=>response('<?xml version="1.0" encoding="UTF-8"?><Response><Reject reason="busy"/></Response>')->header('Content-Type','application/xml'));
+
+Route::middleware(\App\Http\Middleware\PortalSession::class)->group(function(){
+ $ai=\App\Http\Controllers\PortalAiController::class;
+ Route::get('/ai-administration',[$ai,'index']);
+ Route::get('/ai-administration/{id}',[$ai,'show'])->whereNumber('id');
+ Route::post('/ai-administration/{id}',[$ai,'update'])->whereNumber('id')->middleware('throttle:10,1');
+});

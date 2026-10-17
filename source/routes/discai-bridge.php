@@ -5,3 +5,5 @@ Route::get('/discai/sso/start',[B::class,'start'])->middleware('throttle:20,1');
 Route::get('/discai/sso/complete',[B::class,'complete'])->middleware('throttle:20,1');
 
 Route::post('/discai-internal/numbers',[\App\Http\Controllers\ManagedNumbersController::class,'receive'])->middleware('throttle:30,1');
+
+Route::post('/discai-internal/ai',[\App\Http\Controllers\ManagedAiController::class,'receive'])->middleware('throttle:30,1');

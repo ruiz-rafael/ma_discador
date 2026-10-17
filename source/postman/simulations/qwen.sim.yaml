@@ -1,0 +1,5 @@
+simulation: discai-qwen
+routing: path
+mocks:
+  - routeKey: api
+    path: ../mocks/qwen/config.yaml
