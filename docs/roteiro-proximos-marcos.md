@@ -128,3 +128,10 @@ Validação: 446 testes em SQLite e PostgreSQL, 11 testes JavaScript e conferên
 ## Voz multilíngue e evolução do SDR — 15/10/2026
 
 Estúdio ampliado para português brasileiro, inglês americano e espanhol latino-americano, com seleção compatível de voz/idioma, comparação Kokoro/Chatterbox e ajustes de pronúncia por template. Geração permanece separada de telefonia e conversa ao vivo. O [roteiro do SDR](sdr-voz-multilingue.md) descreve perfil por empresa, laboratório conversacional, áudio em streaming, integração de mídia e supervisão. Infraestrutura de baixa latência e homologação auditiva permanecem necessárias antes de operar um SDR de voz.
+
+
+### Diagnóstico operacional das filas — 17/10/2026
+
+Novo marco entregue em **Supervisão ao vivo → Filas → Diagnosticar fila**: cartões com impedimentos e orientações, disponibilidade da equipe, público elegível na amostra e exemplos por motivo. Leitura limitada e sem chamadas ou alterações da operação. Consulte [escopo e interpretação](supervisao-ao-vivo.md#diagnóstico-de-fila--17102026).
+
+Próximos marcos de telefonia: homologar áudio e distribuição com vários atendentes reais quando autorizado; conferir AMD e continuidade com a operadora escolhida; só então avaliar aumento de simultaneidade e política preditiva. Diagnóstico e testes internos não substituem essa homologação.

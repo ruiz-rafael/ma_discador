@@ -33,3 +33,15 @@ Os status “Caixa postal pré/pós-atendimento” de outros produtos não são 
 Migração aditiva: `2026_10_14_000002_add_presence_state_clock.php`. Acrescenta `state_changed_at` nullable à presença, sem alterar disponibilidade ou configurações existentes.
 
 Referências de UX: [status de agente da 3C Plus](https://alo.3cplusnow.com/help/status-do-agente-no-discador-3c-plus-help-center) e anexos fornecidos pelo usuário. Layout e classificação refletem exclusivamente os estados existentes na DiscAI.
+
+## Diagnóstico de fila — 17/10/2026
+
+Em **Filas → Diagnosticar fila**, administrador e supervisor consultam os impedimentos em um modal com fechamento explícito. Os cartões mostram operação/saída/entrada pausada, horário da fila, capacidade, limite diário, cadências habilitadas, presença selecionada, ocupação e pós-atendimento. No receptivo, incluem rota ativa e navegador com áudio pronto. Cada impedimento traz uma orientação para revisão.
+
+O público é avaliado pelos mesmos critérios de elegibilidade da discagem, em uma amostra de até 100 participações já registradas: permissão de destino, consentimento, atendimento/resposta anterior, reserva, intervalo, horário e limites. Os motivos são agrupados com até três exemplos de contato/telefone/cadência. A mesma pessoa em duas cadências conta duas participações. A amostra segue ID de cadência/contato, não a ordem de distribuição. Quando parcial, não permite concluir que toda a fila está sem contatos elegíveis.
+
+`GET /api/voice/supervision/queues/{id}/diagnostic` exige perfil de administrador/supervisor e fila do workspace; limita a consulta a 10 por minuto e retorna `Cache-Control: no-store, private`. Contrato: `source/postman/queue-diagnostic.openapi.json`.
+
+A consulta não chama operadoras, não reserva contatos, não liquida reservas, não atualiza segmentos/reentradas e não modifica presenças. Até 200 atendentes e 50 cadências são detalhados. Não verifica mídia, autorização de números na operadora ou disponibilidade externa. Resultado sem impedimentos indica somente as verificações realizadas, nunca garantia de ligação. A distribuição reavalia as regras antes de discar. Atualização manual independente do painel; falhas preservam a última consulta identificada. Sem migração ou alteração de capacidade.
+
+Validação da entrega: 532 testes/4.065 asserções em SQLite, 81 testes/746 asserções em PostgreSQL e 11 testes JavaScript. Navegador em 1440, 390 e 320 px: detalhes de equipe/contato, fechamento explícito, retorno do foco e preservação da consulta em erro. Bancos de QA isolados; nenhuma chamada ou mensagem real.

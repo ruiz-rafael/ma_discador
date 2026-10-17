@@ -1,0 +1,138 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DiscAI — diagnóstico de fila",
+    "version": "2026-10-17"
+  },
+  "paths": {
+    "/api/voice/supervision/queues/{id}/diagnostic": {
+      "get": {
+        "summary": "Diagnóstico sob demanda, somente administrador/supervisor autenticado",
+        "description": "Consulta limitada a 100 participações e 200 agentes. Não sincroniza segmentos nem reentradas; não confirma operadora, mídia ou permissão do número na rota. Nunca disca, reserva, ativa ou liquida chamadas. Limite: dez consultas por minuto.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estado observado; checks_passed não garante discagem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "generated_at",
+                    "queue",
+                    "status",
+                    "checks",
+                    "agents",
+                    "audience",
+                    "scope"
+                  ],
+                  "properties": {
+                    "generated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "queue": {
+                      "type": "object"
+                    },
+                    "status": {
+                      "enum": [
+                        "blocked",
+                        "attention",
+                        "checks_passed"
+                      ]
+                    },
+                    "checks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "code",
+                          "status",
+                          "title",
+                          "action"
+                        ],
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "ok",
+                              "blocked",
+                              "attention"
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "agents": {
+                      "type": "object"
+                    },
+                    "audience": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        },
+                        "evaluated": {
+                          "type": "integer",
+                          "maximum": 100
+                        },
+                        "eligible": {
+                          "type": "integer"
+                        },
+                        "blocked": {
+                          "type": "integer"
+                        },
+                        "partial": {
+                          "type": "boolean"
+                        },
+                        "reasons": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    },
+                    "scope": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sem sessão autenticada"
+          },
+          "403": {
+            "description": "Perfil sem acesso à supervisão"
+          },
+          "404": {
+            "description": "Fila não pertence ao workspace"
+          },
+          "429": {
+            "description": "Limite de consultas atingido"
+          }
+        }
+      }
+    }
+  }
+}

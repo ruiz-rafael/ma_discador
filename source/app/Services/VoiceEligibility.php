@@ -27,12 +27,12 @@ class VoiceEligibility
         return null;
     }
 
-    public function reason(int $w, object $campaign, object $contact, ?string $exclude = null): ?string
+    public function reason(int $w, object $campaign, object $contact, ?string $exclude = null, bool $refreshAudience = true): ?string
     {
         $s = json_decode($campaign->settings, true);
         $run=app(CadenceReentry::class)->current($campaign->id,$contact->id);
         $p = DB::table('voice_campaign_policies')->where('campaign_id', $campaign->id)->first();
-        if ($reason = app(VoiceAudience::class)->reason($w, $p, $contact)) return $reason;
+        if ($reason = app(VoiceAudience::class)->reason($w, $p, $contact, $refreshAudience)) return $reason;
         if (! $contact->consent || ! $contact->consent_evidence || $contact->suppressed_at || app(CadenceReentry::class)->replyBlocks($contact,$run?->id)) {
             return 'Contato sem autorização ou com abordagem encerrada.';
         }
@@ -48,7 +48,7 @@ class VoiceEligibility
         if ($p?->expires_at && now()->gte($p->expires_at)) {
             return 'Prazo da campanha encerrado.';
         }
-        if($p?->list_id)app(Segments::class)->refresh($w,'voice',$p->list_id);
+        if($refreshAudience&&$p?->list_id)app(Segments::class)->refresh($w,'voice',$p->list_id);
         if ($p?->list_id && ! DB::table('voice_list_members')->where('list_id', $p->list_id)->where('contact_id', $contact->id)->where('status', 'active')->exists()) {
             return 'Contato retirado da lista.';
         }

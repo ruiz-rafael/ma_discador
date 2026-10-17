@@ -32,6 +32,7 @@ class VoiceSupervisionController extends Controller
 
     public function index(Request $r) { $w=$this->workspace($r);return response()->json(app(VoiceSupervision::class)->snapshot($w,$this->filters($r,$w)))->header('Cache-Control','no-store, private'); }
     public function calls(Request $r) { $w=$this->workspace($r);return response()->json(app(VoiceSupervision::class)->calls($w,$this->filters($r,$w)))->header('Cache-Control','no-store, private'); }
+    public function diagnostic(Request $r,int $id) { return response()->json(app(\App\Services\QueueDiagnostic::class)->inspect($this->workspace($r),$id))->header('Cache-Control','no-store, private'); }
     public function pause(Request $r,int $id)
     {
         $w=$this->workspace($r);$d=$r->validate(['channel'=>'required|in:inbound,outbound','revision'=>'required|integer|min:0']);

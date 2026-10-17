@@ -176,5 +176,6 @@ Route::middleware(['auth','throttle:60,1'])->prefix('api/voice/supervision')->gr
     $c = \App\Http\Controllers\VoiceSupervisionController::class;
     Route::get('/', [$c, 'index']);
     Route::get('/calls', [$c, 'calls']);
+    Route::get('/queues/{id}/diagnostic', [$c, 'diagnostic'])->whereNumber('id')->middleware('throttle:10,1,queue-diagnostic:');
     Route::post('/queues/{id}/pause', [$c, 'pause'])->whereNumber('id');
 });

@@ -20,9 +20,9 @@ class VoiceAudience
         try { return VoiceLab::phone(trim($phone)); } catch (\Illuminate\Validation\ValidationException) { return null; }
     }
 
-    private function rows(int $audience)
+    private function rows(int $audience, bool $refresh = true)
     {
-        app(Segments::class)->refresh(1,'automation',$audience);
+        if($refresh)app(Segments::class)->refresh(1,'automation',$audience);
         return DB::table('contacts as c')->join('audience_contact as m', 'c.id', '=', 'm.contact_id')->where('m.audience_id', $audience)
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('ma_list_membership_exclusions as x')->where('x.audience_id', $audience)->whereColumn('x.contact_id', 'c.id'))->select('c.*');
     }
@@ -75,11 +75,11 @@ class VoiceAudience
     }
 
     /** Recheck the source immediately before dialing and before a pending WhatsApp. */
-    public function reason(int $w, ?object $policy, object $contact): ?string
+    public function reason(int $w, ?object $policy, object $contact, bool $refreshAudience = true): ?string
     {
         if (! $policy?->audience_id) return null;
         if ($w !== 1 || $policy->list_id) return 'Origem de público incompatível com esta jornada.';
-        $rows = $this->rows($policy->audience_id)->limit(501)->get();
+        $rows = $this->rows($policy->audience_id, $refreshAudience)->limit(501)->get();
         if ($rows->count() > 500) return 'Lista do MA acima do limite de 500 contatos desta jornada.';
         $matches = $rows->filter(fn ($c) => $this->phone($c->phone) === $contact->phone);
         if ($matches->isEmpty()) return 'Contato retirado da lista do MA ou com telefone alterado.';
