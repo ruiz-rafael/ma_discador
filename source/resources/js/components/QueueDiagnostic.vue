@@ -12,7 +12,7 @@ onMounted(async()=>{returnFocus=document.activeElement;await nextTick();dialog.v
 onBeforeUnmount(()=>{disposed=true;returnFocus?.focus()})
 </script>
 <template>
-<Teleport to="body"><div class="qd-overlay"><section ref="dialog" class="qd-dialog" role="dialog" aria-modal="true" aria-labelledby="qd-title" @keydown="keys">
+<Teleport to="body"><div class="qd-overlay"><section ref="dialog" class="qd-dialog" v-dialog role="dialog" aria-modal="true" aria-labelledby="qd-title" @keydown="keys">
 <button class="secondary qd-close" aria-label="Fechar diagnóstico" @click="emit('close')"><X :size="18"/></button>
 <span class="qd-kicker">ENTENDA A OPERAÇÃO</span><h2 id="qd-title">Diagnóstico da fila</h2><p class="qd-name">{{queue.name}}</p>
 <p v-if="error" role="alert" class="qd-error">{{error}} <span v-if="data">Os dados abaixo são da última consulta.</span></p>

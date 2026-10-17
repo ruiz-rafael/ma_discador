@@ -32,7 +32,7 @@ function save(){if(Object.values(jsonErrors.value).some(Boolean))return;emit('sa
 </script>
 <template>
  <aside class="config-drawer node-config" aria-label="Configurações do nó">
-  <div class="drawer-header"><div><span class="eyebrow">CONFIGURAÇÕES DO NÓ</span><h3>{{meta.label}}</h3></div><button title="Fechar configurações" @click="emit('close')"><X :size="19"/></button></div>
+  <div class="drawer-header"><div><span class="eyebrow">CONFIGURAÇÕES DO NÓ</span><h3>{{meta.label}}</h3></div><button type="button" :disabled="busy" aria-label="Fechar configurações" title="Fechar configurações" @click="emit('close')"><X :size="19"/></button></div>
   <form class="node-config-form" @submit.prevent="save">
    <div class="drawer-body"><p class="node-description">{{schema.description}}</p><div v-if="schema.fields.some(f=>f.type==='resource')" class="crm-preparation-note"><Link2 :size="15"/><span>Prepare as referências agora. O CRM fornecerá os dados e os envios quando for conectado.</span></div>
     <div v-for="f in fields" :key="f.key" class="config-field">
