@@ -1,0 +1,1 @@
+{"name":"discai-ai-voice","private":true,"version":"1.0.0","type":"module","dependencies":{"ws":"8.18.3"},"scripts":{"start":"node server.mjs","test":"node --test test.mjs"}}

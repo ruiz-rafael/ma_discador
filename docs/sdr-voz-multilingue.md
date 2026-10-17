@@ -8,7 +8,11 @@ A comparação aplica o mesmo texto, variáveis, idioma, velocidade e dicionári
 
 Esta entrega gera mensagens e recados. Não escuta o cliente nem decide respostas. A CPU atual carrega os modelos Chatterbox por trabalho; a latência deve ser medida e não é adequada, por si só, para um SDR de voz ao vivo. Nenhuma campanha recebe novos áudios automaticamente.
 
-## Próximas entregas para um SDR conversacional
+## Atualização de 16/10/2026
+
+O [Estúdio de agentes de IA](agentes-ia.md) acrescenta perfis publicados, base de conhecimento, teste de texto, voz premium no navegador, respostas WhatsApp e preparação de entrada SIP. Consulte o documento para os limites da entrega e as etapas ainda dependentes de credenciais e homologação. Não houve chamadas reais nem ativação paga.
+
+## Roteiro para um SDR conversacional
 
 1. **Perfil do SDR por empresa:** propósito, idiomas, tom, identificação como assistente virtual, perguntas de qualificação, informações aprovadas, limites de atuação e fila de transferência. Versões publicadas e rascunhos separados. Configuração exclusiva do tenant.
 2. **Conversa de teste no navegador:** transcrição, modelo de linguagem já existente com ferramentas restritas, memória por conversa, respostas apoiadas na base da empresa e saída estruturada (interesse, dados coletados, próximo passo). Ferramentas de agenda, registro e transferência devem ter autorização, validação e idempotência no backend. MCP é opcional; não substitui a autorização do servidor.

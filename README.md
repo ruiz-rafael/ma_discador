@@ -2,6 +2,10 @@
 
 Projeto independente de Marketing Automation com editor visual de cadências, discador, WhatsApp e relatórios. Preparado para integração futura com CRMs por API e discador incorporável; o CRM não faz parte deste repositório.
 
+## Agentes de IA
+
+O menu **Agentes de IA** reúne perfis versionados, conhecimento aprovado, regras, vozes PT-BR/EN-US/ES-MX e laboratório de conversa. Há integração premium de texto, WebRTC e entrada SIP, além de respostas WhatsApp com passagem humana. A ativação depende de credenciais, autorização de custos e homologação; publicar um agente não ativa os canais. [Configuração, limites e validação](docs/agentes-ia.md).
+
 ## Funcionalidades
 
 - Cadências Vue Flow: público, chamadas, intervalos, decisões, WhatsApp e encerramento, com configuração por cartão.

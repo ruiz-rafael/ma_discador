@@ -21,3 +21,5 @@ Schedule::command('ma:retention-archive')->dailyAt('03:30')->name('ma-retention'
 Schedule::call(fn()=>app(\App\Services\QueueOperationSettings::class)->sweep())->everyMinute()->name('voice-connection-monitor')->withoutOverlapping(5);
 Schedule::call(fn()=>app(\App\Services\VoiceRecordings::class)->purge())->hourly()->name('voice-recording-retention')->withoutOverlapping(30);
 Schedule::call(fn()=>app(\App\Services\SpeechStudio::class)->purge())->hourly()->name('speech-retention')->withoutOverlapping(10);
+
+Schedule::call(function(){app(\App\Services\AiAgents::class)->sweep();app(\App\Services\AiWhatsApp::class)->tick();})->everyMinute()->name('ai-conversations')->withoutOverlapping(5);

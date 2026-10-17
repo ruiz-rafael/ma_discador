@@ -1,0 +1,97 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DiscAI OpenAI transport subset",
+    "version": "1.0.0",
+    "description": "Subset verified against official OpenAI Responses and Realtime docs on 2026-10-16; fictional fixtures."
+  },
+  "servers": [
+    {
+      "url": "https://api.openai.com/v1"
+    }
+  ],
+  "paths": {
+    "/responses": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Completed structured answer",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "completed",
+                  "output": [
+                    {
+                      "content": [
+                        {
+                          "type": "output_text",
+                          "text": "{\"reply\": \"Resposta interna fict\\u00edcia\", \"action\": \"reply\", \"summary\": \"Simula\\u00e7\\u00e3o de transporte\"}"
+                        }
+                      ]
+                    }
+                  ],
+                  "usage": {
+                    "input_tokens": 100,
+                    "output_tokens": 20
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "500": {
+            "description": "Provider error"
+          }
+        }
+      }
+    },
+    "/realtime/calls": {
+      "post": {
+        "responses": {
+          "201": {
+            "description": "SDP answer with Location call id",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/sdp": {
+                "example": "v=0\r\ns=fixture\r\n"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid session"
+          }
+        }
+      }
+    },
+    "/realtime/calls/{id}/hangup": {
+      "post": {
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ended"
+          },
+          "404": {
+            "description": "No active call"
+          }
+        }
+      }
+    }
+  }
+}

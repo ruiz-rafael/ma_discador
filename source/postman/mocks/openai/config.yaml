@@ -1,0 +1,11 @@
+version: 1
+id: 42fc92db-2cf0-405b-9806-e6eccab82b7f
+name: discai-openai
+slug: discai-openai
+protocol: http
+port: 19096
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

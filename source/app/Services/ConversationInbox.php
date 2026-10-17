@@ -11,14 +11,14 @@ class ConversationInbox {
    $v=['updated_at'=>now(),'contact_id'=>$m->contact_id??$c->contact_id];if(!$c->queue_id&&!$c->assigned_user_id){$route=DB::table('wa_inbox_routes')->where('workspace_id',$m->workspace_id)->where('sender_id',$m->sender_id)->first();if($route)$v['queue_id']=$route->queue_id;}if(!$c->last_message_at || $m->created_at>$c->last_message_at)$v['last_message_at']=$m->created_at;
    if($m->direction==='inbound'&&(!$c->last_inbound_at||$m->created_at>$c->last_inbound_at)){$v['last_inbound_at']=$m->created_at;$v['status']='open';if($c->status==='closed')$v['revision']=$c->revision+1;}
    if($attribution)$v['attribution']=json_encode(array_intersect_key($attribution,array_flip(['source','source_id','source_url','headline','ctwa_clid','ad_id','campaign_id','form_id','lead_id'])));
-   DB::table('wa_conversations')->where('id',$c->id)->update($v);DB::table('wa_messages')->where('id',$id)->update(['conversation_id'=>$c->id]);if($m->direction==='inbound'){$this->distribute($c->id);app(IntegrationEvents::class)->emit($m->workspace_id,'message.received',$id,'message:'.$id,['conversation_id'=>$c->id,'button_id'=>$m->button_id,'button_label'=>$m->button_label,'source_created_at'=>$m->created_at]);}return $c->id;
+   DB::table('wa_conversations')->where('id',$c->id)->update($v);DB::table('wa_messages')->where('id',$id)->update(['conversation_id'=>$c->id]);if($m->direction==='inbound'){if(!app(AiWhatsApp::class)->reserve($m,$c->id))$this->distribute($c->id);app(IntegrationEvents::class)->emit($m->workspace_id,'message.received',$id,'message:'.$id,['conversation_id'=>$c->id,'button_id'=>$m->button_id,'button_label'=>$m->button_label,'source_created_at'=>$m->created_at]);}return $c->id;
   });
  }
  public function distribute(string $id):void {
   DB::transaction(function()use($id){DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();$this->distributeLocked($id);});
  }
  private function distributeLocked(string $id):void {
-  $c=DB::table('wa_conversations')->find($id);if(!$c||$c->assigned_user_id||!$c->queue_id||$c->status!=='open')return;
+  $c=DB::table('wa_conversations')->find($id);if(app(AiWhatsApp::class)->owns($id))return;if(!$c||$c->assigned_user_id||!$c->queue_id||$c->status!=='open')return;
   $route=DB::table('wa_inbox_routes')->where('sender_id',$c->sender_id)->where('enabled',true)->first();if(!$route)return;
   $q=DB::table('voice_live_queues')->where('workspace_id',$c->workspace_id)->where('id',$c->queue_id)->first();if(!$q)return;
   $agents=DB::table('users as u')->join('voice_agent_presence as p','p.user_id','=','u.id')->where('u.voice_workspace_id',$c->workspace_id)->where('u.voice_enabled',true)->whereIn('u.id',json_decode($q->agent_ids,true))->where('p.status','available')->where('p.last_seen_at','>',now()->subSeconds(90))->get(['u.id']);
