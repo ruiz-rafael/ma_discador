@@ -1,6 +1,6 @@
 <script setup>
 import {ref,computed,onBeforeUnmount,onMounted} from 'vue'
-import {X,ShieldCheck} from 'lucide-vue-next'
+import {X,ShieldCheck,Settings2} from 'lucide-vue-next'
 const props=defineProps({title:String,description:String,eyebrow:{type:String,default:'CONFIGURAÇÃO'},wide:Boolean,busy:Boolean,draft:{default:undefined}})
 const emit=defineEmits(['close'])
 const initial=JSON.stringify(props.draft),confirm=ref(false)
@@ -13,7 +13,7 @@ defineExpose({close,dirty})
 </script>
 <template>
  <Teleport to="body"><div class="ds-backdrop"><section v-dialog class="ds-dialog" :class="{'ds-wide':wide}" :aria-label="title" :aria-busy="busy">
-  <header class="ds-header"><div><span class="ds-eyebrow">{{eyebrow}}</span><h2>{{title}}</h2><p v-if="description">{{description}}</p></div><button type="button" class="ds-close" aria-label="Fechar configuração" :disabled="busy" @click="close"><X :size="19"/></button></header>
+  <header class="ds-header"><div class="ds-emblem" aria-hidden="true"><Settings2 :size="21"/></div><div><span class="ds-eyebrow">{{eyebrow}}</span><h2>{{title}}</h2><p v-if="description">{{description}}</p></div><button type="button" class="ds-close" aria-label="Fechar configuração" :disabled="busy" @click="close"><X :size="19"/></button></header>
   <div class="ds-content"><fieldset class="ds-fields" :disabled="busy"><slot/></fieldset></div>
   <footer v-if="$slots.footer" class="ds-footer"><slot name="footer" :close="close" :dirty="dirty"/></footer>
  </section></div>

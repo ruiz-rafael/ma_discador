@@ -1,0 +1,121 @@
+/* DiscAI: shared visual hierarchy. Operational colors keep their meaning. */
+:root{--da-paper:#f3f5f1;--da-surface:#fff;--da-ink:#203c32;--da-muted:#64766c;--da-line:#dce4da;--da-shadow:0 2px 4px #1b352606,0 12px 32px #1b35260a;--da-raised:0 5px 10px #1b352608,0 18px 42px #1b352614;--da-radius:20px}
+body,.workspace{background:var(--da-paper)}
+body .workspace .content{padding:32px clamp(20px,3vw,48px) 44px;max-width:1640px}
+body .workspace .main-nav{background:linear-gradient(165deg,#1c3029,#15231f 65%);border-right:1px solid #ffffff0d;padding-top:26px;box-shadow:5px 0 24px #14291b08;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#4c5c4f transparent}
+body .workspace .brand .discai-mark{box-shadow:0 6px 16px #0002;border:1px solid #ffffff2b}
+body .workspace .workspace-switch{margin-top:16px;background:#ffffff05;border-color:#ffffff13;padding:13px 11px;box-shadow:inset 0 1px #ffffff04}
+body .workspace .workspace-switch:hover{background:#ffffff0b;border-color:#d5b56855}
+body .workspace .nav-groups{gap:17px}body .workspace .nav-item{min-height:43px;margin:2px 0;color:#b8c4ba;font-size:12px;padding:11px 13px}
+body .workspace .nav-caption{color:#92a398;letter-spacing:1.8px;font-size:9px}
+body .workspace .nav-item.active{background:linear-gradient(100deg,#d1aa4f24,#d1aa4f0c);color:#f2dda7;box-shadow:inset 3px 0 #d9b65f;border-radius:10px}
+body .workspace .nav-item:hover{background-color:#ffffff09;color:#fff}
+body .workspace .topbar{position:sticky;top:0;z-index:30;background:#fbfcf9f5;backdrop-filter:blur(14px);border-bottom:1px solid #dce4da;padding:0 clamp(20px,3vw,48px);gap:16px}
+body .workspace .breadcrumb{color:#63776a;line-height:1.5;min-width:0}
+body .workspace .topbar-tools{gap:16px}.workspace .environment{white-space:nowrap}
+body .workspace .platform-access{border-radius:20px;padding:8px 12px;background:#f5efde;border-color:#e7d9b6;color:#795b1e;font-size:10px}
+body .workspace :is(.section-heading,.heading,.catalog-heading){gap:20px}
+body .workspace :is(.section-heading,.heading,.catalog-heading)>div{min-width:0}
+body .workspace h1{color:var(--da-ink);font-size:clamp(26px,2.3vw,34px);letter-spacing:-1.1px;line-height:1.22}
+body .workspace :is(.section-heading,.heading,.catalog-heading)>div>p{color:var(--da-muted);max-width:74ch;font-size:13px;line-height:1.75}
+body .workspace :is(.table-card,.queue-choice-card,.lm-card,.overview-shortcuts,.overview-queues,.wa-box,.ai-card,.sv-card,.health-card){border:1px solid var(--da-line);border-radius:var(--da-radius);box-shadow:var(--da-shadow);background-color:#fff}
+body .workspace .table-card{overflow-wrap:anywhere}
+body .workspace :is(.overview-metrics>button,.setup-cards>button,.agent-summary>div,.stats article,.lab-stats article){border:1px solid var(--da-line);border-radius:18px;box-shadow:var(--da-shadow);background:#fff}
+body .workspace :is(.overview-metrics>button,.setup-cards>button,.queue-choice-card,.sender-card){transition:border-color .18s,box-shadow .18s,transform .18s}
+@media(hover:hover){body .workspace :is(.overview-metrics>button,.setup-cards>button,.queue-choice-card,.sender-card):hover{border-color:#b2c3b1;box-shadow:var(--da-raised);transform:translateY(-2px)}}
+body .workspace :is(.queue-choice-card.selected,.sender-card.active){border-color:#b28b39;box-shadow:0 0 0 2px #cfab5333,var(--da-shadow)}
+body .workspace .queue-choice-card{padding:24px;gap:13px;position:relative}
+body .workspace .queue-card-action{border-top:1px solid #edf0e8;width:100%;padding-top:16px;color:#83631f}
+body .workspace .queue-card-kind{color:#715c2d;border:1px solid #e8dec6;border-radius:20px;padding:5px 10px}
+body .workspace .queue-card-state>span{padding:5px 8px;border-radius:6px;background:#eff4ed;color:#4c6653}
+body .workspace .queue-card-meta,body .workspace .queue-card-number{color:#617568}
+body .workspace .queue-detail{border-top:3px solid #b49348;padding:26px}
+body .workspace :is(.primary,.secondary){min-height:42px;border-radius:12px;font-size:12px;line-height:1.4}
+body .workspace .primary{background:linear-gradient(180deg,#d4ad54,#c29a40);border-color:#bd943a;box-shadow:0 3px 0 #a17e2312,0 5px 12px #a17e2310;color:#252b21}
+body .workspace .secondary{border-color:#d8e1d5;background:#fff;color:#3b5145;box-shadow:0 1px 2px #1b352605}
+body .workspace .secondary:hover{background:#f4f7f0;border-color:#bdcdb8}
+body .workspace :is(.stats strong,.overview-metrics strong,.agent-summary strong){font-variant-numeric:tabular-nums;color:#294638}
+body .workspace .stats strong small{color:#637462}
+body .workspace th{background:#f3f6f0;color:#586b5b;font-size:10px;border-bottom:1px solid #dfe7da}
+body .workspace td{color:#536959;border-color:#edf1e8}body .workspace td strong{color:#2c4437}
+body .workspace tbody tr:hover{background:#f7f9f3}
+body .workspace .table-toolbar{padding:22px 24px;border-bottom:1px solid #e8ede2}
+body .workspace :is(.error,.agent-error){border:1px solid #f2d5ce;background:#fff1ed;color:#9c3f30;border-radius:13px;line-height:1.65}
+body .workspace :is(.notice,.agent-notice,.lm-notice){border:1px solid #d6e7d7;background:#edf5ed;color:#3c684d;border-radius:13px;line-height:1.65}
+body .workspace .cadence-nav{border:1px solid var(--da-line);border-radius:14px;background:#eaf0e6;padding:5px;gap:4px;margin:22px clamp(20px,3vw,48px)}
+body .workspace .cadence-nav button{min-height:40px;padding:10px 16px;border-radius:10px;font-size:12px;color:#5f7265}
+body .workspace .cadence-nav button.active{background:#fff;color:#81601e;box-shadow:0 2px 6px #253a2110}
+/* Overview: a single focal point, then a clear progression into the operation. */
+body .workspace .overview-hero,body .workspace .journeys-hero{background:radial-gradient(ellipse at 95% 0,#667d4c44,transparent 60%),linear-gradient(115deg,#203d31,#142c24);border:1px solid #36533e;box-shadow:0 12px 30px #16342414;border-radius:24px;padding:34px}
+body .workspace .overview-hero:after{content:'';width:220px;height:220px;position:absolute;right:18%;top:-140px;border:1px solid #e1c17530;border-radius:50%;box-shadow:0 0 0 32px #e1c17509,0 0 0 65px #e1c17505;pointer-events:none}
+body .workspace :is(.overview-hero,.journeys-hero) h1{color:#fbfcf5;max-width:620px;font-size:clamp(28px,2.7vw,40px);letter-spacing:-1.2px}
+body .workspace :is(.overview-hero,.journeys-hero) p{color:#c3d2c4}
+body .workspace .overview-metrics>button{padding:25px;gap:18px;align-items:center}
+body .workspace .overview-metrics strong{font-size:34px}
+body .workspace .overview-icon{border:1px solid #eadfbd;background:linear-gradient(145deg,#fcf6e9,#f4e9d0);color:#9a7327!important}
+body .workspace .overview-icon.sage{background:#edf4eb;border-color:#dce8d7;color:#557b60!important}
+body .workspace .overview-icon.blue{background:#edf2fa;border-color:#dce5f5;color:#5377a9!important}
+body .workspace .setup-cards{gap:18px}body .workspace .setup-cards>button{padding:25px;align-items:flex-start;position:relative}
+body .workspace .setup-cards h3{margin-top:22px;font-size:17px;color:#2e493b}
+body .workspace .setup-cards p{color:#627568;font-size:12px}
+body .workspace .setup-link{padding-top:16px;border-top:1px solid #e7ece0;width:100%;color:#876622}
+.setup-progress{display:flex;gap:10px;align-items:center;font-size:11px;color:#65796a;white-space:nowrap}.setup-progress-track{display:block;width:76px;height:5px;border-radius:10px;background:#dce6d7;overflow:hidden}.setup-progress-track i{height:100%;display:block;background:#638466;border-radius:10px;transition:width .3s}
+body .workspace .overview-queues .overview-queue{width:100%;text-align:left;justify-content:flex-start;border:1px solid #e6ecdf;border-radius:12px;margin-top:10px;padding:14px;background:#fafbf7;gap:12px}
+body .workspace .overview-queue>svg:last-child{margin-left:auto;flex-shrink:0;color:#8c9d88}
+body .workspace .overview-queue:hover{background:#f0f5eb;border-color:#cddcc5}
+body .workspace .overview-shortcuts>button{border-radius:10px;padding:18px 10px}
+body .workspace .overview-shortcuts>button:hover{background:#f4f7ef}
+/* Agent: actions explain what they open; status still belongs to the agent. */
+body .workspace .agent-hero{border:1px solid #36533e;box-shadow:0 10px 26px #18322110}
+body .workspace .agent-summary>div{padding:23px;gap:9px 15px}
+body .workspace .agent-summary strong{font-size:22px}
+body .workspace .agent-summary span{color:#627667;font-size:12px}
+body .workspace .agent-idle{padding:40px 28px;background:radial-gradient(ellipse at 50% 0,#f2f5e8,transparent 60%),#fff;border:1px solid #dce5d6}
+body .workspace .agent-idle .idle-icon{background:linear-gradient(145deg,#f9f2df,#eee2c0);color:#aa8232;border:1px solid #e8dab7;box-shadow:0 8px 28px #94752012}
+body .workspace .agent-idle h2{font-size:26px;color:#294536}body .workspace .agent-idle>p{color:#617566}
+body .workspace .agent-idle .idle-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-width:680px;margin:28px auto 0}
+body .workspace .idle-actions .idle-action{display:grid;grid-template-columns:40px 1fr 18px;align-items:center;text-align:left;gap:14px;padding:20px;border:1px solid #dce6d5;border-radius:16px;background:#fff;color:#365341;white-space:normal;box-shadow:0 3px 12px #233e2306}
+.idle-action>svg:first-child{box-sizing:content-box;padding:10px;background:#eef4e9;color:#65815a;border-radius:12px}
+.idle-action strong{display:block;font-size:13px}.idle-action small{display:block;font-size:11px;line-height:1.6;color:#637768;margin-top:5px}
+body .workspace .idle-actions .idle-action:hover{border-color:#b6c9a9;box-shadow:var(--da-shadow);background:#fcfdf9}
+body .workspace .idle-actions .idle-action.manual{border-color:#e7d6a9;background:#fdfaf1}.idle-action.manual>svg:first-child{background:#f4e9cc;color:#a57b25}
+body .workspace .agent-footer{font-size:11px;color:#607666}
+/* Conversations and configuration surfaces share the same material. */
+body .workspace .sender-card{border-color:#dce4d6;border-radius:16px;padding:18px;box-shadow:var(--da-shadow)}
+body .workspace .sender-card.active{background:#fcf8ec}
+body .workspace .inbox-layout{gap:20px}body .workspace .threads{overflow:hidden}
+body .workspace .filters{background:#f7f9f3;border-bottom:1px solid #e5ebde;padding:18px}
+body .workspace .thread{border-bottom:1px solid #e9eee3;padding:18px}
+body .workspace .thread.active{background:#f4efdd;box-shadow:inset 3px 0 #c29a40}
+body .workspace .conversation .placeholder{background:radial-gradient(ellipse at center,#f4f7ec,transparent 60%);color:#6d8069}
+body .workspace .conversation .placeholder>svg{box-sizing:content-box;padding:24px;background:#f2ecd9;border:1px solid #e5d9b7;border-radius:28px;color:#ad8736}
+body .workspace .conversation .placeholder h2{color:#3c5744}
+body .workspace .bubble{border:1px solid #e1e8da;border-radius:16px;box-shadow:0 2px 5px #203c2106}
+body .workspace .bubble.outbound{background:#edf4e7}
+body .workspace .composer{background:#fafbf7;border-top:1px solid #e1e7da}
+body .ds-dialog{border-radius:24px;border-color:#e7eddf;box-shadow:0 24px 80px #132c2840,0 3px 12px #132c2814}
+body .ds-header{padding:24px 28px;gap:16px;background:linear-gradient(120deg,#f6f8f1,#fff);border-bottom:1px solid #e1e8d9}
+.ds-emblem{width:44px;height:44px;border-radius:14px;background:#eaf0df;border:1px solid #dce6cd;color:#6c8357;display:grid;place-items:center;flex-shrink:0;margin-top:3px}
+body .ds-header>div:not(.ds-emblem){flex:1;min-width:0}body .ds-header h2{font-size:24px;color:#274334}
+body .ds-close{width:40px;height:40px;border-radius:12px;background:#fff;box-shadow:0 2px 5px #253b1b05}
+body .ds-content{background:#fff;padding:26px 28px}body .ds-footer{background:#f4f7ee;border-color:#dde6d3;padding:18px 28px}
+body .ds-section,body .ds-dialog .ds-content .queue-config fieldset{border-color:#dfe7d6;background:#fafbf7;border-radius:16px;box-shadow:0 2px 6px #2a421804}
+body .ds-section legend,body .ds-dialog .ds-content .queue-config legend{font-weight:700;background:#fafbf7;border:1px solid #e3e9dc;border-radius:7px;padding:4px 10px;font-size:12px;color:#45613e}
+body [role=dialog] :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea){border-color:#d4dfcd;border-radius:11px;min-height:42px}
+body [role=dialog] :is(input,select,textarea):focus{border-color:#9d813a;box-shadow:0 0 0 4px #b99b4e18}
+body .ds-dialog .queue-config-tabs{border-color:#dce5d3;background:#eef3e7;box-shadow:0 3px 8px #263a1810;border-radius:12px;top:-26px}
+body .ds-dialog .queue-config-tabs button{min-height:40px;border-radius:9px}
+body .ds-dialog .queue-config-tabs button.selected{background:#fff;color:#82631f;box-shadow:0 2px 7px #263a1810}
+body .agent-popover,body .dial-modal{border:1px solid #dae5d2;box-shadow:0 24px 80px #152d2638}
+body .agent-popover>header{border-bottom:1px solid #e4ebdc;padding-bottom:18px;margin-bottom:18px}
+body .agent-popover .dial-input{border-color:#d9e2cd;border-radius:16px;background:#fafcf6}
+body .agent-popover .dial-keys button{border:1px solid #e6ebdf;border-radius:14px;background:linear-gradient(#fafbf7,#f2f5ec);box-shadow:0 2px 1px #253b1b05}
+body .agent-popover .dial-keys button:hover{background:#f5ebce;border-color:#dfc78d}
+/* Mobile navigation exposes names instead of an unexplained icon rail. */
+.mobile-nav-trigger{display:none}.mobile-workspace-menu{display:grid;gap:18px}.mobile-workspace-menu .mobile-company{display:flex;gap:12px;align-items:center;padding:14px;background:#f3f6ed;border:1px solid #e1e9d7;border-radius:12px;color:#36523d}.mobile-company img{width:36px;height:36px}.mobile-company strong{display:block;font-size:14px}.mobile-company small{display:block;color:#657862;margin-top:4px}.mobile-workspace-menu section>span{font-size:10px;letter-spacing:1.4px;color:#7c8e73;text-transform:uppercase;display:block;margin:0 0 8px}.mobile-workspace-menu nav{display:grid;gap:5px}.mobile-workspace-menu nav button{justify-content:flex-start;gap:12px;padding:12px 14px;border:1px solid transparent;border-radius:11px;min-height:44px;font-size:13px;color:#46613f}.mobile-workspace-menu nav button[aria-current=page]{background:#f7efdc;border-color:#e7d5a5;color:#8a6727;font-weight:700}.mobile-workspace-menu nav button:hover{background:#eef4e7}
+@media(max-width:1100px){body .workspace .topbar{padding-inline:22px}.workspace .topbar-tools .environment{display:none}body .workspace .overview-metrics>button{padding:20px;gap:12px}body .workspace .overview-metrics strong{font-size:29px}}
+@media(max-width:760px){body .workspace .main-nav{display:none}body .workspace .main-area{margin-left:0;width:100%}body .workspace .content{padding:24px 16px 32px}body .workspace .topbar{padding:10px 16px;height:auto;min-height:64px;flex-wrap:wrap;gap:10px}.mobile-nav-trigger{display:inline-flex;width:40px;height:40px;border:1px solid #dce6d6;border-radius:12px;background:#fff;color:#486346;flex-shrink:0}body .workspace .breadcrumb{flex:1;font-size:11px}.workspace .topbar-tools{margin-left:auto;max-width:100%;flex-wrap:wrap}.workspace .topbar-tools:has(.agent-tools){width:100%;justify-content:flex-end;gap:8px}.workspace .platform-access{font-size:9px;padding:6px 9px}body .workspace .cadence-nav{margin:16px 16px 0;overflow-x:auto;flex-wrap:nowrap}body .workspace .cadence-nav button{white-space:nowrap;flex-shrink:0;padding:10px 13px}body .workspace .overview-hero,body .workspace .journeys-hero{padding:26px 24px}body .workspace .overview-hero h1,body .workspace .journeys-hero h1{font-size:30px}body .workspace .overview-metrics{gap:10px}body .workspace .overview-metrics>button{flex-direction:column;align-items:flex-start;gap:12px;padding:16px 12px}body .workspace .overview-metrics strong{font-size:28px}body .workspace .overview-metrics span{font-size:11px;line-height:1.5}body .workspace .overview-metrics .overview-icon{width:36px;height:36px}body .workspace .overview-heading{flex-wrap:wrap;align-items:flex-start}.setup-progress{margin-top:3px}body .workspace .overview-bottom{gap:18px}body .workspace .overview-shortcuts,body .workspace .overview-queues{padding:22px}body .workspace .queue-card-grid{grid-template-columns:1fr}body .workspace .queue-choice-card{padding:22px}body .workspace .agent-summary>div{padding:14px 12px;gap:10px}body .workspace .agent-summary strong{font-size:16px}body .workspace .agent-summary span{font-size:10px}body .workspace .agent-idle{padding:30px 20px}body .workspace .agent-idle h2{font-size:23px}body .workspace .agent-idle .idle-actions{grid-template-columns:1fr}body .workspace .idle-actions .idle-action{padding:17px}body .workspace .active-call-notice{left:16px;right:16px}body .ds-header{padding:20px;gap:12px}.ds-emblem{width:35px;height:35px;border-radius:11px}body .ds-header h2{font-size:21px}body .ds-content{padding:20px}body .ds-footer{padding:16px 20px}body .ds-dialog .queue-config-tabs{top:-20px}body .workspace .section-heading{flex-wrap:wrap}body .workspace .agent-hero{align-items:flex-start;padding:25px 22px}}
+@media(max-width:380px){.ds-emblem{display:none}body .workspace .overview-metrics{grid-template-columns:1fr}body .workspace .overview-metrics>button{flex-direction:row;align-items:center;padding:17px}body .workspace .overview-metrics strong{font-size:25px}body .workspace .overview-metrics strong+span{font-size:12px}body .workspace .agent-summary{grid-template-columns:1fr}body .workspace .agent-summary>div{display:grid;grid-template-columns:38px 1fr;gap:4px 12px}body .workspace .agent-summary svg{grid-row:span 2}}
+@media(prefers-reduced-motion:reduce){body .workspace *,body [role=dialog] *{transition:none!important;animation:none!important}body .workspace :is(.overview-metrics>button,.setup-cards>button,.queue-choice-card,.sender-card):hover{transform:none}}
+
+.mobile-account{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid #e1e8d9;padding-top:18px;font-size:12px;color:#5c725f}.mobile-account>span{overflow-wrap:anywhere}
