@@ -14,6 +14,17 @@ class PortalNumbersController extends Controller {
   if($order->status==='quoted')try{$registrations=app(NumberProvider::class)->registrations();}catch(\Throwable){$providerError='Não foi possível consultar os cadastros da operadora. Atualize a página para tentar novamente.';}
   return view('portal.number-order',compact('order','tenant','registrations','providerError')+['labels'=>NumberOrders::LABELS,'quote'=>json_decode($order->quote??'{}',true)]);
  }
+ public function assignment(Request $r){$this->operator($r);return view('portal.number-assign',['tenants'=>DB::table('portal_tenants')->where('status','active')->orderBy('name')->get(['id','name']),'configured'=>(bool)app(NumberProvider::class)->config()]);}
+ public function assign(Request $r){
+  $this->operator($r);
+  $d=$r->validate(['id'=>'required|uuid','tenant_id'=>'required|integer|exists:portal_tenants,id','number'=>['required','regex:/^\+[1-9][0-9]{7,14}$/D'],'purpose'=>'required|in:inbound,outbound,mixed','notes'=>'nullable|string|max:500','confirm'=>'required|accepted']);
+  try{app(NumberOrders::class)->assign($r->user()->id,$d);}
+  catch(\Illuminate\Validation\ValidationException $e){throw $e;}
+  catch(\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e){return back()->withInput()->withErrors(['operation'=>$e->getMessage()?:'Não foi possível vincular o número. Confira a empresa e tente novamente.']);}
+  catch(\Illuminate\Database\UniqueConstraintViolationException){return back()->withInput()->withErrors(['operation'=>'Este número já está reservado ou vinculado. Atualize o painel para conferir.']);}
+  catch(\Throwable){return back()->withInput()->withErrors(['operation'=>'A conferência não foi concluída. Nenhuma compra foi realizada. Tente novamente para consultar o vínculo.']);}
+  return redirect('/number-administration/'.$d['id'])->with('notice','Número reservado para a empresa. Confira os dados e clique em Liberar para concluir a configuração.');
+ }
  public function action(Request $r,string $id,string $action){$this->operator($r);$s=app(NumberOrders::class);$actor=$r->user()->id;
   try{
    if($action==='quote')$s->quote($id,$actor);

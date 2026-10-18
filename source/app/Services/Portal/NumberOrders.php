@@ -57,6 +57,23 @@ class NumberOrders {
    app(Access::class)->audit('number.existing_linked',$actor,$r->tenant_id,['request'=>$r->id,'number'=>$number]);
   });
  }
+ public function assign(int $actor,array $d):void {
+  abort_unless(app(Access::class)->operator($actor),403);
+  $this->tenant((int)$d['tenant_id']);
+  $matches=fn($old)=>$old->source==='admin_assignment'&&(int)$old->tenant_id===(int)$d['tenant_id']&&(int)$old->requested_by===$actor&&$old->number===$d['number']&&$old->purpose===$d['purpose'];
+  if($old=DB::table('portal_number_requests')->find($d['id'])){abort_unless($matches($old),409,'Este vínculo já foi usado para outra operação. Abra um novo formulário.');return;}
+  $n=app(NumberProvider::class)->owned($d['number']);
+  abort_unless($n,422,'Número não encontrado na conta de telefonia da DiscAI.');
+  abort_if(!empty($n['trunk_sid'])||!empty($n['voice_application_sid'])||!empty($n['voice_url'])||!empty($n['status_callback']),409,'Este número já possui uma rota de voz. Revise a configuração existente antes de transferi-lo para um cliente.');
+  DB::transaction(function()use($actor,$d,$n,$matches){
+   $t=DB::table('portal_tenants')->where('id',$d['tenant_id'])->lockForUpdate()->first();abort_unless($t&&$t->status==='active',409,'A empresa precisa estar ativa.');
+   if($old=DB::table('portal_number_requests')->find($d['id'])){abort_unless($matches($old),409,'Este vínculo já foi utilizado.');return;}
+   abort_if(DB::table('portal_number_requests')->where('number',$d['number'])->orWhere('provider_sid',$n['sid'])->exists(),409,'Este número já está reservado ou vinculado a uma empresa.');
+   $ddd=preg_match('/^\+55([1-9][0-9])[0-9]{8,9}$/D',$d['number'],$m)?$m[1]:null;
+   DB::table('portal_number_requests')->insert(['id'=>$d['id'],'tenant_id'=>$t->id,'requested_by'=>$actor,'handled_by'=>$actor,'source'=>'admin_assignment','ddd'=>$ddd,'purpose'=>$d['purpose'],'notes'=>$d['notes']??null,'number'=>$d['number'],'provider_sid'=>$n['sid'],'account_sid'=>$n['account_sid'],'status'=>'purchased','created_at'=>now(),'updated_at'=>now()]);
+   app(Access::class)->audit('number.assigned_by_admin',$actor,$t->id,['request'=>$d['id'],'number'=>$d['number'],'provider_sid'=>$n['sid']]);
+  });
+ }
  public function reconcile(string $id,int $actor):void {
   $r=$this->order($id);abort_unless(in_array($r->status,['purchasing','uncertain'])&&$r->number,409);
   $n=app(NumberProvider::class)->owned($r->number);

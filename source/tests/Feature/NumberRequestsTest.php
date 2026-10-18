@@ -99,4 +99,61 @@ class NumberRequestsTest extends TestCase {
   });$this->post('/number-administration/'.$id.'/buy',$d)->assertSessionHasErrors();$this->assertDatabaseHas('portal_number_requests',['id'=>$id,'status'=>'requested','number'=>null]);$this->assertCount(0,Http::recorded(fn($req)=>$req->method()==='POST'));
  }
 
+ private function assignmentData(string $number='+551130001234'):array {return ['id'=>(string)Str::uuid(),'tenant_id'=>$this->tenant,'number'=>$number,'purpose'=>'mixed','notes'=>'Incluído na contratação inicial.','confirm'=>1];}
+ private function fakeOwned(array $replace=[]):void {Http::fake(['*IncomingPhoneNumbers.json*'=>Http::response(['incoming_phone_numbers'=>[array_replace(['sid'=>$this->pn,'phone_number'=>'+551130001234','account_sid'=>$this->ac,'capabilities'=>['voice'=>true]],$replace)]])]);}
+ public function test_direct_assignment_is_operator_only_and_requires_confirmation():void {
+  $this->login($this->client);$this->get('/number-administration/assign')->assertForbidden();$this->post('/number-administration/assign',$this->assignmentData())->assertForbidden();
+  $this->login($this->admin);$this->get('/number-administration/assign?tenant='.$this->tenant)->assertOk()->assertSee('Vincular número existente')->assertSee('Polishop');
+  $this->post('/number-administration/assign',array_diff_key($this->assignmentData(),['confirm'=>true]))->assertSessionHasErrors('confirm');
+  $this->post('/number-administration/assign',array_replace($this->assignmentData(),['number'=>'1130001234']))->assertSessionHasErrors('number');
+  $this->assertDatabaseCount('portal_number_requests',0);Http::assertNothingSent();
+ }
+ public function test_direct_assignment_has_no_client_request_no_purchase_and_is_idempotent():void {
+  $this->fakeOwned();$this->login($this->admin);$d=$this->assignmentData();
+  foreach([1,2]as $_)$this->post('/number-administration/assign',$d)->assertRedirect('/number-administration/'.$d['id'])->assertSessionHasNoErrors();
+  $this->assertDatabaseCount('portal_number_requests',1);$this->assertDatabaseHas('portal_number_requests',['source'=>'admin_assignment','tenant_id'=>$this->tenant,'number'=>$d['number'],'status'=>'purchased','requested_by'=>$this->admin->id,'purchased_at'=>null,'released_at'=>null]);
+  $this->assertDatabaseHas('portal_audit',['event'=>'number.assigned_by_admin','user_id'=>$this->admin->id]);
+  $this->assertCount(1,Http::recorded());$this->assertCount(0,Http::recorded(fn($r)=>$r->method()!=='GET'));
+  $this->get('/number-administration/'.$d['id'])->assertOk()->assertSee('Liberar para Polishop')->assertSee('Número conferido');
+  $this->login($this->client);$this->get('/companies/'.$this->tenant.'/numbers')->assertOk()->assertSee('Atribuído pela administração')->assertSee('Incluído na contratação inicial.')->assertDontSee($this->ac);
+ }
+ public function test_direct_assignment_supports_international_numbers_without_fake_brazilian_ddd():void {
+  $d=$this->assignmentData('+12025550123');$this->fakeOwned(['phone_number'=>$d['number']]);$this->login($this->admin);
+  $this->post('/number-administration/assign',$d)->assertSessionHasNoErrors();$this->assertDatabaseHas('portal_number_requests',['id'=>$d['id'],'ddd'=>null,'number'=>$d['number']]);
+  $this->get('/number-administration')->assertOk()->assertSee('Número internacional');$this->get('/number-administration/'.$d['id'])->assertOk()->assertDontSee('DDD ');
+ }
+ public function test_direct_assignment_cannot_take_an_existing_allocation_or_reuse_a_form_for_another_tenant():void {
+  $this->fakeOwned();$this->login($this->admin);$d=$this->assignmentData();$this->post('/number-administration/assign',$d)->assertSessionHasNoErrors();
+  $other=DB::table('portal_tenants')->insertGetId(['slug'=>'other','name'=>'Outra empresa','status'=>'active']);
+  $this->post('/number-administration/assign',array_replace($d,['tenant_id'=>$other]))->assertSessionHasErrors();
+  $this->post('/number-administration/assign',array_replace($d,['id'=>(string)Str::uuid(),'tenant_id'=>$other]))->assertSessionHasErrors();
+  $this->assertDatabaseCount('portal_number_requests',1);$this->assertDatabaseHas('portal_number_requests',['id'=>$d['id'],'tenant_id'=>$this->tenant]);
+ }
+ public function test_direct_assignment_rejects_routes_wrong_account_and_suspended_tenant():void {
+  $this->login($this->admin);
+  foreach([['voice_url'=>'https://existing.example.test/voice'],['status_callback'=>'https://existing.example.test/status'],['trunk_sid'=>'TK'.str_repeat('a',32)],['voice_application_sid'=>'AP'.str_repeat('a',32)],['account_sid'=>'AC'.str_repeat('f',32)],['capabilities'=>['voice'=>false]]]as $replace){
+   Http::swap(new \Illuminate\Http\Client\Factory);Http::preventStrayRequests();$this->fakeOwned($replace);$this->post('/number-administration/assign',$this->assignmentData())->assertSessionHasErrors();$this->assertDatabaseCount('portal_number_requests',0);
+  }
+  DB::table('portal_tenants')->where('id',$this->tenant)->update(['status'=>'suspended']);Http::swap(new \Illuminate\Http\Client\Factory);Http::preventStrayRequests();
+  $this->post('/number-administration/assign',$this->assignmentData())->assertSessionHasErrors();Http::assertNothingSent();
+ }
+ public function test_direct_assignment_runs_real_http_and_recovers_from_provider_error():void {
+  // The installed Postman executable is the desktop app, not its simulation CLI.
+  // This isolated loopback server exercises the real HTTP client without provider access.
+  $socket=stream_socket_server('tcp://127.0.0.1:0',$errno,$error);$address=stream_socket_get_name($socket,false);fclose($socket);
+  $log=tempnam(sys_get_temp_dir(),'number-http-');$err=tempnam(sys_get_temp_dir(),'number-http-err-');
+  $proc=proc_open([PHP_BINARY,'-S',$address,base_path('tests/Fixtures/number-provider.php')],[0=>['pipe','r'],1=>['file',$err,'a'],2=>['file',$err,'a']],$pipes,null,['NUMBER_SIM_LOG'=>$log]);
+  try{
+   for($i=0;$i<50;$i++){if($ready=@stream_socket_client('tcp://'.$address,$errno,$error,.1)){fclose($ready);break;}usleep(20000);}
+   $this->assertTrue(isset($ready)&&$ready!==false,'Simulation did not start');
+   Http::swap(new \Illuminate\Http\Client\Factory);
+   Http::globalRequestMiddleware(function($request)use($address){if($request->getUri()->getHost()!=='api.twilio.com')throw new \RuntimeException('Unexpected simulation host');return $request->withUri(new \GuzzleHttp\Psr7\Uri('http://'.$address.$request->getUri()->getPath().'?'.$request->getUri()->getQuery()));});
+   $this->login($this->admin);
+   $this->post('/number-administration/assign',$this->assignmentData('+12025550003'))->assertSessionHasErrors();$this->assertDatabaseCount('portal_number_requests',0);
+   $d=$this->assignmentData('+12025550123');$this->post('/number-administration/assign',$d)->assertRedirect('/number-administration/'.$d['id'])->assertSessionHasNoErrors();
+   $events=array_map(fn($line)=>json_decode($line,true),file($log,FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES));$this->assertCount(2,$events);$this->assertSame(['GET','GET'],array_column($events,'method'));$this->assertSame([500,200],array_column($events,'status'));
+   $this->assertDatabaseHas('portal_number_requests',['id'=>$d['id'],'status'=>'purchased','released_at'=>null]);
+  }finally{proc_terminate($proc);proc_close($proc);foreach($pipes as $pipe)if(is_resource($pipe))fclose($pipe);unlink($log);unlink($err);}
+ }
+
 }

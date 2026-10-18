@@ -21,6 +21,8 @@ Route::middleware(\App\Http\Middleware\PortalSession::class)->group(function(){
  Route::get('/companies/{tenant}/numbers',[$c,'index'])->whereNumber('tenant');
  Route::post('/companies/{tenant}/numbers',[$c,'store'])->whereNumber('tenant')->middleware('throttle:10,1');
  Route::get('/number-administration',[$c,'administration']);
+ Route::get('/number-administration/assign',[$c,'assignment']);
+ Route::post('/number-administration/assign',[$c,'assign'])->middleware('throttle:10,1');
  Route::get('/number-administration/{id}',[$c,'show'])->whereUuid('id');
  Route::post('/number-administration/{id}/{action}',[$c,'action'])->whereUuid('id')->whereIn('action',['quote','buy','adopt','reconcile','release','reject'])->middleware('throttle:10,1');
 });
