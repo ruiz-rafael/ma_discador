@@ -23,6 +23,7 @@ class CadenceReentry {
   if(!in_array($r->status,['active','waiting'],true))return;
   DB::table('voice_cadence_runs')->where('id',$r->id)->whereIn('status',['active','waiting'])->update(['status'=>'completed','exit_reason'=>$reason,'ended_at'=>now(),'updated_at'=>now()]);
   DB::table('voice_followups')->where('run_id',$r->id)->whereIn('status',['pending','blocked'])->update(['status'=>'cancelled','reason'=>'Participação encerrada: '.$reason,'updated_at'=>now()]);
+  DB::table('voice_email_followups')->where('run_id',$r->id)->whereIn('status',['pending','blocked'])->update(['status'=>'cancelled','reason'=>'Participação encerrada: '.$reason,'updated_at'=>now()]);
   app(VoiceLab::class)->audit($r->workspace_id,null,'cadence.exited',$r->id,['campaign_id'=>$r->campaign_id,'reason'=>$reason,'participation'=>$r->number]);
  }
  public function reconcile(object $r):void {
@@ -33,6 +34,8 @@ class CadenceReentry {
   if((clone $calls)->whereRaw(VoiceAnswering::stopsSql())->exists()){$this->finish($r,'answered');return;}
   if((clone $calls)->whereRaw(VoiceAnswering::reviewSql())->exists())return;
   if((clone $calls)->where(fn($q)=>$q->whereNull('capacity_released_at')->orWhere('status','unknown'))->exists())return;
+  $email=DB::table('voice_email_followups')->where('run_id',$r->id)->first();
+  if($email&&in_array($email->status,['pending','blocked','submitting','unknown'],true))return;
   $f=DB::table('voice_followups')->where('run_id',$r->id)->first();
   if($f){
    if(in_array($f->status,['pending','blocked','dispatching','unknown','sending'],true))return;
@@ -44,6 +47,10 @@ class CadenceReentry {
     if(now()->gte(CarbonImmutable::parse($since)->addHours(json_decode($r->policy,true)['reply_wait_hours'])))$this->finish($r,'no_response');
    }
    return;
+  }
+  if($email&&$email->status==='accepted'){
+   $since=$r->waiting_since??now();DB::table('voice_cadence_runs')->where('id',$r->id)->update(['status'=>'waiting','waiting_since'=>$since,'updated_at'=>now()]);
+   if(now()->gte(CarbonImmutable::parse($since)->addHours(json_decode($r->policy,true)['reply_wait_hours'])))$this->finish($r,'no_response');return;
   }
   $s=json_decode(DB::table('voice_campaigns')->where('id',$r->campaign_id)->value('settings'),true);
   if((clone $calls)->whereNotNull('started_at')->count()>=($s['max_attempts']??5))$this->finish($r,'attempts_exhausted');
@@ -60,7 +67,7 @@ class CadenceReentry {
   foreach($ids as $id){
    if(DB::table('voice_cadence_runs')->where('campaign_id',$c->id)->where('contact_id',$id)->exists())continue;
    $r=$this->create($c,DB::table('voice_contacts')->find($id),$p,'legacy',null,true);
-   foreach(['voice_outbound_calls','voice_followups','wa_messages']as $t)DB::table($t)->where('campaign_id',$c->id)->where('contact_id',$id)->whereNull('run_id')->update(['run_id'=>$r->id]);
+   foreach(['voice_outbound_calls','voice_followups','wa_messages','voice_email_followups']as $t)DB::table($t)->where('campaign_id',$c->id)->where('contact_id',$id)->whereNull('run_id')->update(['run_id'=>$r->id]);
    DB::table('voice_live_reservations')->where('campaign_id',$c->id)->where('contact_id',$id)->whereNull('run_id')->update(['run_id'=>$r->id]);
    $this->reconcile($r);
   }

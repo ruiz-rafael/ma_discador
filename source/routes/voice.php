@@ -179,3 +179,10 @@ Route::middleware(['auth','throttle:60,1'])->prefix('api/voice/supervision')->gr
     Route::get('/queues/{id}/diagnostic', [$c, 'diagnostic'])->whereNumber('id')->middleware('throttle:10,1,queue-diagnostic:');
     Route::post('/queues/{id}/pause', [$c, 'pause'])->whereNumber('id');
 });
+
+Route::middleware(['auth','throttle:60,1'])->prefix('api/voice/campaigns/{id}')->whereNumber('id')->group(function(){
+ $c=\App\Http\Controllers\CadenceImpactController::class;
+ Route::get('/impact',[$c,'show']);Route::put('/impact',[$c,'save']);
+ Route::post('/impact/email/{message}/retry',[$c,'retry'])->whereUuid('message');
+});
+Route::match(['GET','POST'],'/email/preferences/{id}',[\App\Http\Controllers\CadenceImpactController::class,'unsubscribe'])->whereUuid('id')->middleware(['signed','throttle:30,1'])->name('cadence.email.unsubscribe');

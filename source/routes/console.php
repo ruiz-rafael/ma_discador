@@ -23,3 +23,5 @@ Schedule::call(fn()=>app(\App\Services\VoiceRecordings::class)->purge())->hourly
 Schedule::call(fn()=>app(\App\Services\SpeechStudio::class)->purge())->hourly()->name('speech-retention')->withoutOverlapping(10);
 
 Schedule::call(function(){app(\App\Services\AiAgents::class)->sweep();app(\App\Services\AiWhatsApp::class)->tick();})->everyMinute()->name('ai-conversations')->withoutOverlapping(5);
+
+Schedule::call(function(){if(!config('discai.portal'))app(\App\Services\CadenceEmail::class)->run();})->everyMinute()->name('cadence-email')->withoutOverlapping(5);

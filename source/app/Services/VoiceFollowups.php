@@ -22,6 +22,7 @@ class VoiceFollowups
     {
         $call = DB::table('voice_outbound_calls')->find($id);
         if (!$call || !$call->started_at) { return; }
+        app(CadenceEmail::class)->observe($call);
         $run=$call->run_id?DB::table('voice_cadence_runs')->find($call->run_id):null;
         if (VoiceAnswering::stops($call)) {
             DB::table('voice_followups')->where('workspace_id', $call->workspace_id)->where('contact_id', $call->contact_id)->whereIn('status', ['pending', 'blocked'])->update(['status' => 'cancelled', 'reason' => 'Contato atendido por voz.', 'updated_at' => now()]);
