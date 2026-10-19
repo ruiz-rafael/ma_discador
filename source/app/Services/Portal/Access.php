@@ -16,7 +16,7 @@ class Access {
  public function authenticateTenant(\Illuminate\Http\Request $r){
   $d=$r->validate(['tenant'=>'required|string|max:48']);$t=DB::table('portal_tenants')->where('slug',$d['tenant'])->first();
   $stamp=$r->header('X-Discai-Time','');$sig=$r->header('X-Discai-Signature','');
-  abort_unless($t&&$t->secret&&ctype_digit($stamp)&&abs(time()-(int)$stamp)<=30&&strlen($r->getContent())<=4096,401);
+  abort_unless($t&&$t->secret&&ctype_digit($stamp)&&abs(time()-(int)$stamp)<=30&&strlen($r->getContent())<=($r->path()==='portal-internal/mail/send'?131072:4096),401);
   abort_unless(hash_equals(hash_hmac('sha256',$stamp.'.'.$r->path().'.'.$r->getContent(),Crypt::decryptString($t->secret)),$sig),401);
   return $t;
  }

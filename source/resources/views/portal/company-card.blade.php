@@ -10,5 +10,5 @@
  <a class="button primary" href="/t/{{$t->slug}}">Entrar na empresa →</a>
  @if($operator||in_array($t->role??null,['admin','supervisor']))<nav class="company-shortcuts" aria-label="Atalhos de {{$t->name}}"><a class="button shortcut" href="/t/{{$t->slug}}?section=supervision">Supervisão</a>@if($operator||($t->role??null)==='admin')<a href="/t/{{$t->slug}}?section=queues" class="button shortcut">Filas</a><a href="/t/{{$t->slug}}?section=journeys" class="button shortcut">Cadências</a>@endif</nav>@endif
  @else<p class="small">{{$t->status==='suspended'?'O acesso operacional está suspenso.':'Estamos preparando o ambiente exclusivo desta empresa.'}}</p>@endif
- @if($operator||($t->role??null)==='admin')<div class="company-foot"><a class="button company-manage" href="/companies/{{$t->id}}/numbers">Meus números →</a><a class="button company-manage" href="/administration/{{$t->id}}">{{$operator?'Gerenciar cliente e equipe':'Equipe e convites'}} →</a></div>@endif
+ @if($operator||($t->role??null)==='admin')<div class="company-foot"><a class="button company-manage" href="/companies/{{$t->id}}/email">E-mail →</a><a class="button company-manage" href="/companies/{{$t->id}}/numbers">Meus números →</a><a class="button company-manage" href="/administration/{{$t->id}}">{{$operator?'Gerenciar cliente e equipe':'Equipe e convites'}} →</a></div>@endif
 </article>

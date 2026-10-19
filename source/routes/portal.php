@@ -35,3 +35,20 @@ Route::middleware(\App\Http\Middleware\PortalSession::class)->group(function(){
  Route::get('/ai-administration/{id}',[$ai,'show'])->whereNumber('id');
  Route::post('/ai-administration/{id}',[$ai,'update'])->whereNumber('id')->middleware('throttle:10,1');
 });
+
+Route::middleware(\App\Http\Middleware\PortalSession::class)->group(function(){
+ $mail=\App\Http\Controllers\PortalMailController::class;
+ foreach(['/email-administration','/companies/{tenant}/email'] as $path){
+  Route::get($path,[$mail,'show'])->whereNumber('tenant');
+  Route::post($path,[$mail,'save'])->whereNumber('tenant');
+  Route::post($path.'/connect',[$mail,'connect'])->whereNumber('tenant')->middleware('throttle:10,1');
+  Route::post($path.'/disconnect',[$mail,'disconnect'])->whereNumber('tenant');
+ }
+ Route::get('/oauth/google/callback',[$mail,'callback'])->middleware('throttle:20,1');
+ $signup=\App\Http\Controllers\PortalSignupController::class;
+ Route::get('/signup-invitations',[$signup,'index']);Route::post('/signup-invitations',[$signup,'create'])->middleware('throttle:10,1');
+ foreach(['send','revoke','link'] as $action)Route::post('/signup-invitations/{id}/'.$action,[$signup,$action])->whereUuid('id')->middleware('throttle:10,1');
+});
+Route::post('/portal-internal/mail/{action}',[\App\Http\Controllers\PortalMailController::class,'internal'])->whereIn('action',['status','send'])->middleware('throttle:120,1');
+Route::get('/register/company/{token}',[\App\Http\Controllers\PortalSignupController::class,'form'])->middleware('throttle:30,1');
+Route::post('/register/company/{token}',[\App\Http\Controllers\PortalSignupController::class,'accept'])->middleware('throttle:5,1');

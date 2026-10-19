@@ -43,15 +43,15 @@ class CadenceEmail {
    $c=DB::table('voice_campaigns')->find($f->campaign_id);if($c&&($c->status==='paused'||!app(VoiceLab::class)->window(json_decode($c->settings,true))))return null;
    if(app(OperationPolicy::class)->get($f->workspace_id)['paused'])return null;
    try{[$c,$contact,$e]=$this->eligible($f);}catch(\Throwable){DB::table('voice_email_followups')->where('id',$id)->update(['status'=>'cancelled','reason'=>'Passo cancelado: configuração, participação ou autorização mudou.','updated_at'=>now()]);return null;}
-   if(!app(CadenceEmailTransport::class)->ready()){DB::table('voice_email_followups')->where('id',$id)->update(['status'=>'blocked','reason'=>'SMTP, remetente e endereço de resposta precisam ser liberados pela administração.','updated_at'=>now()]);return null;}
-   $used=DB::table('voice_email_followups')->where('workspace_id',$f->workspace_id)->where('submitted_at','>=',now()->startOfDay())->count();if($used>=config('cadence_email.daily_limit'))return null;
+   $channel=app(CadenceEmailTransport::class)->info();if(!$channel['ready']){DB::table('voice_email_followups')->where('id',$id)->update(['status'=>'blocked','reason'=>'Conecte e libere o e-mail da empresa antes de reavaliar este passo.','updated_at'=>now()]);return null;}
+   $used=DB::table('voice_email_followups')->where('workspace_id',$f->workspace_id)->where('submitted_at','>=',now()->startOfDay())->count();if($used>=$channel['daily_limit'])return null;
    $personalize=app(VoicePersonalization::class);$subject=preg_replace('/[\r\n]+/',' ',$personalize->render($e->subject,$contact,$c));$body=$personalize->render($e->body,$contact,$c);
    $url=URL::signedRoute('cadence.email.unsubscribe',['id'=>$id]);
    DB::table('voice_email_followups')->where('id',$id)->update(['status'=>'submitting','submitted_at'=>now(),'reason'=>null,'updated_at'=>now()]);
-   return [$f,$subject,$body."\n\nPara não receber mais estes e-mails, confirme seu descadastro:\n".$url];
+   return [$f,$subject,$body."\n\nPara não receber mais estes e-mails, confirme seu descadastro:\n".$url,$channel];
   });
-  if(!$prepared)return;[$f,$subject,$body]=$prepared;
-  try{app(CadenceEmailTransport::class)->send($id,$f->destination,$subject,$body);DB::table('voice_email_followups')->where('id',$id)->update(['status'=>'accepted','accepted_at'=>now(),'updated_at'=>now()]);}
+  if(!$prepared)return;[$f,$subject,$body,$channel]=$prepared;
+  try{app(CadenceEmailTransport::class)->send($id,$f->destination,$subject,$body,$channel);DB::table('voice_email_followups')->where('id',$id)->update(['status'=>'accepted','accepted_at'=>now(),'updated_at'=>now()]);}
   catch(\Throwable){DB::table('voice_email_followups')->where('id',$id)->update(['status'=>'unknown','reason'=>'O envio foi iniciado, mas a aceitação não foi confirmada. Confira o provedor; não haverá reenvio automático.','updated_at'=>now()]);}
  }
  public function run():void {
