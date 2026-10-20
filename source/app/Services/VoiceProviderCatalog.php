@@ -93,6 +93,7 @@ class VoiceProviderCatalog
     {
         $cfg=app(TwilioVoiceConnection::class)->read();if($call->method==='programmable_voice'&&($cfg['managed_by_portal']??false))abort_unless(DB::table('voice_managed_numbers')->where('number',$call->caller_id)->where('active',true)->exists(),422,'Número não liberado para esta empresa.');
         $snapshot = json_decode($call->context_snapshot ?? '{}', true);
+        if(!empty($snapshot['administrative_test'])){ $identity=app(\App\Services\Portal\TenantBridge::class)->call('check',['user_id'=>$snapshot['platform_operator']]);abort_unless(($identity['platform_admin']??false)===true,403);app(AdministrativeCalling::class)->origin($call->method,$call->caller_id);return;}
         if(!empty($snapshot['queue_channels_id'])){
             $q=DB::table('voice_live_queues')->where('workspace_id',$call->workspace_id)->find($snapshot['queue_channels_id']);
             abort_unless($q&&$q->channels_configured&&$q->calling_method===$call->method,422,'Configuração da fila alterada.');

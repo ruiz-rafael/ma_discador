@@ -12,7 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', \App\Http\Middleware\VoiceAccess::class);
         $middleware->trimStrings(except: [fn ($r) => $r->is('callbacks/twilio/whatsapp/*', 'callbacks/twilio/voice/*')]);
         $middleware->convertEmptyStringsToNull(except: [fn ($r) => $r->is('callbacks/twilio/whatsapp/*', 'callbacks/twilio/voice/*')]);
-        $middleware->validateCsrfTokens(except: ['callbacks/ai/sip/*','internal/ai/voice/*','number-hold','discai-internal/numbers','discai-internal/number-inventory','discai-internal/ai','portal-internal/*','api/v1/*','embed/api/*','hooks/lists/*', 'events', 'crm/catalog/sync', 'internal/voice/audio/event', 'internal/voice/calling/event', 'callbacks/twilio/whatsapp/*', 'callbacks/twilio/voice/*']);
+        $middleware->validateCsrfTokens(except: ['callbacks/ai/sip/*','internal/ai/voice/*','number-hold','discai-internal/numbers','discai-internal/number-inventory','discai-internal/calling','discai-internal/ai','portal-internal/*','api/v1/*','embed/api/*','hooks/lists/*', 'events', 'crm/catalog/sync', 'internal/voice/audio/event', 'internal/voice/calling/event', 'callbacks/twilio/whatsapp/*', 'callbacks/twilio/voice/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontFlash(['password','sip_password','api_secret','auth_token','api_key','sip_secret','local.api_key','openai.api_key','openai.sip_secret']);

@@ -53,3 +53,12 @@ Route::middleware(\App\Http\Middleware\PortalSession::class)->group(function(){
 Route::post('/portal-internal/mail/{action}',[\App\Http\Controllers\PortalMailController::class,'internal'])->whereIn('action',['status','send'])->middleware('throttle:120,1');
 Route::get('/register/company/{token}',[\App\Http\Controllers\PortalSignupController::class,'form'])->middleware('throttle:30,1');
 Route::post('/register/company/{token}',[\App\Http\Controllers\PortalSignupController::class,'accept'])->middleware('throttle:5,1');
+
+Route::middleware(\App\Http\Middleware\PortalSession::class)->group(function(){
+ $c=\App\Http\Controllers\PortalCallingController::class;
+ Route::get('/platform-calling',[$c,'show']);
+ Route::get('/platform-calling/catalog',[$c,'catalog'])->middleware('throttle:15,1,platform-calling-catalog:');
+ Route::post('/platform-calling/calls',[$c,'create'])->middleware('throttle:6,1,platform-calling-create:');
+ Route::get('/platform-calling/calls/{id}',[$c,'action'])->whereUuid('id')->middleware('throttle:60,1,platform-calling-status:');
+ Route::post('/platform-calling/calls/{id}/{action}',[$c,'action'])->whereUuid('id')->whereIn('action',['cancel','reconcile'])->middleware('throttle:30,1,platform-calling-action:');
+});
