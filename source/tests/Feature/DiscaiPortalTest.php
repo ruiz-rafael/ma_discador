@@ -54,6 +54,12 @@ class DiscaiPortalTest extends TestCase {
  $u=User::factory()->create(['email'=>'platform@example.test','password'=>'InternalPassword123']);DB::table('portal_operators')->insert(['user_id'=>$u->id]);$t=$this->tenant();$this->member($t,$u,'admin');
  $this->post('/login',['email'=>$u->email,'password'=>'InternalPassword123'])->assertRedirect('/companies');
 }
+ public function test_internal_checks_do_not_consume_login_allowance_and_login_remains_limited():void {
+  $t=$this->tenant();$u=User::factory()->create();$this->member($t,$u);
+  for($i=0;$i<8;$i++)$this->signed('/portal-internal/check',['tenant'=>'alpha','user_id'=>$u->id],str_repeat('alpha',16))->assertOk();
+  for($i=0;$i<5;$i++)$this->post('/login',['email'=>'nobody@example.test','password'=>'InvalidPassword123'])->assertRedirect()->assertSessionHasErrors('login');
+  $this->post('/login',['email'=>'nobody@example.test','password'=>'InvalidPassword123'])->assertStatus(429);
+ }
 
  public function test_invitation_cannot_take_over_existing_account_and_seat_limit_is_enforced():void{$u=User::factory()->create(['email'=>'existing@example.test','password'=>'OldPass9']);$t=$this->tenant();$token=str_repeat('f',64);DB::table('portal_invitations')->insert(['tenant_id'=>$t,'email'=>$u->email,'role'=>'agent','token_hash'=>hash('sha256',$token),'expires_at'=>now()->addHour()]);$this->postJson('/invite/'.$token,['name'=>'Name','password'=>'AttackerPassword123'])->assertUnprocessable();$this->assertTrue(Hash::check('OldPass9',$u->fresh()->password));DB::table('portal_tenants')->where('id',$t)->update(['seats'=>0]);$this->postJson('/invite/'.$token,['name'=>'Name','password'=>'OldPass9'])->assertUnprocessable();$this->assertDatabaseCount('portal_memberships',0);DB::table('portal_tenants')->where('id',$t)->update(['seats'=>3]);$this->post('/invite/'.$token,['name'=>'Name','password'=>'OldPass9'])->assertRedirect('/companies');}
  public function test_valid_invite_creates_only_its_membership_and_cannot_be_reused():void{$t=$this->tenant();$token=str_repeat('c',64);DB::table('portal_invitations')->insert(['tenant_id'=>$t,'email'=>'new@example.test','role'=>'agent','token_hash'=>hash('sha256',$token),'expires_at'=>now()->addHour()]);$this->post('/invite/'.$token,['name'=>'New person','password'=>'SafePassword12345'])->assertRedirect('/companies');$this->assertDatabaseHas('portal_memberships',['tenant_id'=>$t,'role'=>'agent']);$this->postJson('/invite/'.$token,['name'=>'New person','password'=>'SafePassword12345'])->assertStatus(410);}

@@ -21,6 +21,8 @@ O modal só minimiza por ação explícita. Exibe o andamento e o resultado conf
 
 ## Validação
 
-101 testes PHP de telefonia, filas, SIP, portal e e-mail; testes JavaScript de resultados e autorização de mídia; build Vite; testes de interface em 1440, 390 e 320 px. O contrato HTTP foi exercitado com servidor real em loopback para sucesso, conexão interrompida, redirecionamento e acesso revogado. Ambiente Postman/Orbit indisponível: usada a infraestrutura de fixtures HTTP já existente no projeto.
+102 testes PHP (797 asserções) de telefonia, filas, SIP, portal e e-mail; testes JavaScript de resultados e autorização de mídia; build Vite; testes de interface em 1440, 390 e 320 px. O contrato HTTP foi exercitado com servidor real em loopback para sucesso, conexão interrompida, redirecionamento e acesso revogado. Ambiente Postman/Orbit indisponível: usada a infraestrutura de fixtures HTTP já existente no projeto.
+
+A verificação em produção identificou que consultas internas consumiam o contador compartilhado do login, causando HTTP 429 sem tentativas de senha suficientes. O login passou a ter contador próprio, preservando cinco tentativas por minuto. O teste reproduziu a falha antes da correção e confirmou o isolamento e o bloqueio da sexta tentativa depois dela.
 
 Os testes usam banco e credenciais sintéticos, transporte simulado e SDK de mídia substituído no navegador. Nenhuma chamada, mensagem ou e-mail real faz parte desta validação. Qualidade de áudio, entrega e identificação de origem pela operadora ainda dependem de um teste real feito pelo usuário.
