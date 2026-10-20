@@ -42,6 +42,7 @@ Route::middleware(\App\Http\Middleware\PortalSession::class)->group(function(){
   Route::get($path,[$mail,'show'])->whereNumber('tenant');
   Route::post($path,[$mail,'save'])->whereNumber('tenant');
   Route::post($path.'/connect',[$mail,'connect'])->whereNumber('tenant')->middleware('throttle:10,1');
+  Route::post($path.'/senders',[$mail,'senders'])->whereNumber('tenant')->middleware('throttle:10,1');
   Route::post($path.'/disconnect',[$mail,'disconnect'])->whereNumber('tenant');
  }
  Route::get('/oauth/google/callback',[$mail,'callback'])->middleware('throttle:20,1');

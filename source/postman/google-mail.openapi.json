@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "DiscAI Gmail provider dependency",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Narrow outbound dependency. Local simulation: tests/Fixtures/google-mail-http.php. Production hosts are fixed in GoogleMail; test_base only in APP_ENV=testing."
   },
   "servers": [
@@ -238,6 +238,68 @@
             "bearerAuth": []
           }
         ]
+      }
+    },
+    "/senders": {
+      "get": {
+        "operationId": "sendAsList",
+        "description": "Production GET /gmail/v1/users/me/settings/sendAs. Requires optional gmail.settings.basic. Only primary or verificationStatus=accepted identities are offered; SMTP/signature data are discarded.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "sendAs identities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "sendAs"
+                  ],
+                  "properties": {
+                    "sendAs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sendAsEmail": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "isPrimary": {
+                            "type": "boolean"
+                          },
+                          "verificationStatus": {
+                            "type": "string",
+                            "enum": [
+                              "accepted",
+                              "pending"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Reconnect"
+          },
+          "403": {
+            "description": "Missing permission or disabled API; no send"
+          },
+          "503": {
+            "description": "Lookup unavailable; no send"
+          },
+          "302": {
+            "description": "Redirect refused; no send"
+          }
+        }
       }
     }
   },
