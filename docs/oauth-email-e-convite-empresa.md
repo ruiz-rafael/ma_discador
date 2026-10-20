@@ -41,3 +41,9 @@ Após instalar: administrador conecta a caixa Google, confere o endereço confir
 `PortalMailTest`, `PortalSignupTest`, `ManagedCadenceMailTest`, `GoogleMailHttpTest` e regressões existentes. O teste HTTP usa servidor local de contrato com troca de código, renovação, MIME, queda de conexão e redirecionamento; não utiliza Google real. Simulação local adotada porque o executável Postman disponível é o aplicativo desktop (CLI indisponível) e Orbit respondeu HTTP 403 sem autenticação. Contrato em `source/postman/google-mail.openapi.json`.
 
 Testes de navegador em portal isolado para desktop/celular, convite, cadastro, fluxo de autorização simulado, configuração e desconexão. Não são enviados e-mails reais, chamadas ou WhatsApp.
+
+## Correção de navegação OAuth — 20/10/2026
+
+O formulário POST de conexão redireciona para `https://accounts.google.com`. A CSP do vhost central permitia apenas `form-action 'self'`, fazendo o Chromium bloquear esse redirecionamento sem sair da tela. A configuração mantém as restrições existentes e acrescenta somente `https://accounts.google.com` a `form-action`. A alteração precisa estar no Nginx do portal, além do gerador `deploy/discai/configure_discai_domain.py`.
+
+Regressão de navegador: `python3 deploy/discai/test_oauth_form_policy.py` (Python + Playwright/Chromium). Verifica que o formulário pode redirecionar ao Google e que outro domínio continua bloqueado. As respostas externas são interceptadas via CDP, inclusive depois de redirecionamentos. Também foi reproduzido o bloqueio no formulário publicado e verificada a navegação após a correção, interrompendo antes do contato com o Google. A troca de tokens e o consentimento real continuam dependendo da autorização do usuário. Não há mudança de escopos, remetentes, permissões administrativas ou liberação de envios.
