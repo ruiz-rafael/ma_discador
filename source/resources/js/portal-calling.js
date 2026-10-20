@@ -1,7 +1,7 @@
 import {checkMicrophone,microphoneMessage} from './voice/microphone'
 import {callResult,activeAttempt,trustedGrant,mediaMessage} from './voice/platform-result'
 const $=id=>document.getElementById(id),dialog=$('admin-dialer'),audio=$('remote-audio')
-let numbers=[],history=[],current=null,busy=false,polling=false,loading=false,device=null,twilioCall=null,ua=null,sipCall=null,deadline=null,generation=0,closing=false
+let numbers=[],history=[],current=null,busy=false,polling=false,loading=false,device=null,twilioCall=null,ua=null,sipCall=null,deadline=null,generation=0,closing=false,editing=true
 function error(message=''){$('dial-error').textContent=message;$('dial-error').hidden=!message}
 async function api(path='',method='GET',body){
  let response
@@ -12,8 +12,14 @@ async function api(path='',method='GET',body){
 function selected(){return numbers.find(n=>n.route===$('dial-origin').value)}
 function render(){
  const active=current&&current.state!=='ended',result=callResult(current?.result)
- $('dial-state').textContent=busy&&!current?'Preparando microfone…':result.title;$('dial-detail').textContent=result.detail
+ if(active)editing=false
+ const composer=editing&&!busy&&!active
+ $('dial-form').hidden=!composer;$('dial-feedback').hidden=composer
+ $('dial-state').textContent=busy&&!current?'Preparando microfone…':!current&&$('dial-error').textContent?'Não foi possível iniciar':result.title;$('dial-detail').textContent=result.detail
+ $('dial-party').textContent=current?`${current.destination} · Saída: ${current.origin}`:''
+ $('dial-retry').hidden=busy||!!active
  $('dial-state').parentElement.dataset.active=String(!!active)
+ $('dial-state').parentElement.dataset.failed=String(!!$('dial-error').textContent||['cancelled','failed','unknown'].includes(current?.result?.status))
  $('dial-fields').disabled=busy||!!active;$('dial-start').disabled=busy||!!active||!selected()?.ready;$('dial-start').hidden=!!active
  $('dial-stop').hidden=!active;$('dial-stop').disabled=busy||closing
  $('dial-check').hidden=!current;$('dial-reconcile').hidden=!active||current?.method!=='programmable_voice'
@@ -27,7 +33,7 @@ function render(){
   title.textContent=item.destination;from.textContent='Saída: '+item.origin;state.textContent=callResult(item.result||{status:'pending'}).title
   date.textContent=item.created_at?new Date(item.created_at.replace(' ','T')+(/Z|[+-]\d\d:\d\d$/.test(item.created_at)?'':'Z')).toLocaleString('pt-BR'):''
   button.type='button';button.className='quiet';button.textContent='Ver resultado';button.disabled=!!active&&current.id!==item.id
-  button.addEventListener('click',()=>{current=item;error();render();dialog.showModal();if(item.state!=='ended')refresh()})
+  button.addEventListener('click',()=>{current=item;editing=false;error();render();dialog.showModal();if(item.state!=='ended')refresh()})
   a.append(title,from);b.append(state,date);row.append(a,b,button);$('call-history').append(row)
  }
 }
@@ -81,7 +87,7 @@ async function media(grant,epoch){
 async function begin(event){
  event.preventDefault();if(busy||current&&current.state!=='ended'||!selected()?.ready)return
  if(!$('dial-form').reportValidity())return
- busy=true;current=null;error();render();let id=null
+ busy=true;editing=false;current=null;error();render();let id=null
  try{
   await checkMicrophone();const n=selected();id=crypto.randomUUID();current={id,method:n.method,origin:n.number,destination:$('dial-destination').value,state:'creating',created_at:new Date().toISOString(),result:{status:'pending',ended:false}};render()
   const d=await api('/calls','POST',{request_id:id,route:n.route,destination:current.destination,consent_confirmed:true,consent_evidence:$('dial-evidence').value});if(!trustedGrant(d.grant))throw new Error('A conexão retornou uma configuração de áudio inválida. Consulte a tentativa.')
@@ -90,8 +96,7 @@ async function begin(event){
 }
 $('open-dialer').addEventListener('click',()=>dialog.showModal());$('close-dialer').addEventListener('click',()=>dialog.close());dialog.addEventListener('cancel',e=>e.preventDefault())
 $('refresh-numbers').addEventListener('click',catalog);$('dial-origin').addEventListener('change',originChanged);$('dial-form').addEventListener('submit',begin)
-// Required evidence must be visible for native validation.
-$('dial-evidence').addEventListener('invalid',()=>{$('dial-evidence').closest('details').open=true})
+$('dial-retry').addEventListener('click',()=>{if(busy||current&&current.state!=='ended')return;editing=true;error();render();$('dial-destination').focus()})
 $('dial-stop').addEventListener('click',stop);$('dial-check').addEventListener('click',()=>refresh());$('dial-reconcile').addEventListener('click',()=>refresh('reconcile'))
 $('dial-audio').addEventListener('click',async()=>{try{await audio.play();$('dial-audio').hidden=true}catch{error('Permita a reprodução de áudio nas configurações do navegador.')}})
 window.addEventListener('beforeunload',e=>{if(busy||current&&current.state!=='ended'){e.preventDefault();e.returnValue=''}})

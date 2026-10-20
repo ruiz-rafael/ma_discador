@@ -200,6 +200,7 @@ class TwilioVoiceTest extends TestCase
         $campaign=DB::table('voice_campaigns')->insertGetId(['workspace_id'=>1,'name'=>'QA','settings'=>json_encode(['business_number'=>'+551130000099'])]);
         $this->postJson('/api/voice/calling/calls',array_replace($this->payload(),['campaign_id'=>$campaign]))->assertStatus(422);
         $g=$this->reserve();$this->postJson('/api/voice/calling/calls/'.$g['id'].'/cancel')->assertOk();
+        $g=$this->reserve();$this->dial($g)->assertOk();$this->event($g,'canceled')->assertNoContent();
         $this->postJson('/api/voice/calling/calls',$this->payload())->assertStatus(429);
     }
 

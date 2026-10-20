@@ -37,3 +37,33 @@ main .card{border-color:#e1e7dd;box-shadow:0 8px 30px #243d3010}main .card:has(f
 body>header.portal-header-auth{display:grid;grid-template-columns:auto 1fr auto;gap:24px;height:auto;min-height:88px;padding-block:16px}.portal-header nav{justify-self:end;gap:8px}.portal-header nav>a{padding:11px 15px;border:1px solid transparent;border-radius:11px;font-size:13px;font-weight:600;line-height:1.4;text-align:center}.portal-header nav>a[aria-current=page]{background:#eaf0e4;border-color:#d8e3cf;color:#315331}.portal-header nav>a:hover{background:#f0f4eb;text-decoration:none}.portal-signout{margin:0}.console-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:20px}.console-tile{display:flex;flex-direction:column;align-items:flex-start;min-width:0;transition:border-color .18s,box-shadow .18s}.console-tile:hover{text-decoration:none;border-color:#afc09c;box-shadow:0 12px 30px #203a2414}.console-icon{display:grid;place-items:center;width:48px;height:48px;border:1px solid #e5dfc8;border-radius:14px;color:#9a742c;background:#f8f1df}.console-tile h2{font-size:21px;line-height:1.3;margin:20px 0 10px}.console-tile p{font-size:13px;line-height:1.8;margin:0 0 24px}.console-action{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;padding-top:16px;border-top:1px solid #e8ecdf;margin-top:auto;font-size:12px;font-weight:650;color:#4d6942}.console-action>span{font-size:19px;color:#a48135}
 @media(max-width:960px){.console-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){body>header.portal-header-auth{grid-template-columns:1fr auto;gap:12px;min-height:0;padding:14px 18px}.portal-header-auth .portal-signout{grid-column:2;grid-row:1}.portal-header-auth nav{grid-column:1/-1;width:100%;justify-self:stretch;display:flex;gap:8px}.portal-header-auth nav>a{flex:1;padding:11px 8px;font-size:12px}.console-grid{grid-template-columns:1fr;gap:14px}.console-tile{padding:24px}.console-tile h2{margin-top:16px}.console-tile p{margin-bottom:18px}}
+
+/* The dialer swaps entry and call progress inside one centered, persistent modal. */
+body:has(#admin-dialer[open]){overflow:hidden}
+#admin-dialer{width:min(540px,calc(100% - 24px));max-width:none;max-height:calc(100dvh - 24px);margin:auto;inset:0;overflow:auto;border-radius:24px}
+#admin-dialer .dial-shell{padding:24px;display:grid;gap:18px}
+#admin-dialer .dial-heading{align-items:center;gap:12px}
+#admin-dialer .dial-heading h2{font-size:26px;line-height:1.2;margin:6px 0 0}
+#admin-dialer .dial-heading .eyebrow{font-size:10px;letter-spacing:2px}
+#admin-dialer #close-dialer{width:40px;height:40px;min-height:40px;padding:0;background:#f1f4ed;border-radius:50%;font-size:15px}
+#admin-dialer form,#admin-dialer #dial-fields{margin:0;padding:0;background:transparent}
+#admin-dialer #dial-fields>label{margin:0 0 14px;gap:6px;line-height:1.4}
+#admin-dialer input,#admin-dialer select{min-height:44px;padding:10px 12px}
+#admin-dialer #dial-origin{font-size:12px}
+#admin-dialer #origin-help{margin:-6px 0 14px;font-size:11px;line-height:1.4}
+#admin-dialer #dial-destination{font-size:21px;letter-spacing:.02em}
+#admin-dialer #dial-fields .dial-check{margin:2px 0 0;line-height:1.4;font-size:12px;align-items:center}
+#admin-dialer #dial-fields .dial-check input{min-height:18px;padding:0;margin:0}
+#admin-dialer .dial-actions{margin-top:12px;gap:8px}
+#admin-dialer .dial-actions:has(>button:not([hidden])){display:flex}
+#admin-dialer .dial-actions:not(:has(>button:not([hidden]))){display:none}
+#admin-dialer .dial-actions .quiet{font-size:12px;padding:8px;min-height:38px}
+#admin-dialer .dial-footnote{margin:0;text-align:center;font-size:11px;line-height:1.5;color:#74816d}
+#admin-dialer #dial-party{margin:0 0 12px;line-height:1.5}
+#admin-dialer .dial-result{margin:0;padding:18px;border-radius:16px}
+#admin-dialer .dial-result[data-failed="true"]{background:#fff8e9;border-color:#e7d4a6}
+#admin-dialer #dial-error{margin:12px 0 0;padding:12px 14px;font-size:13px;line-height:1.5}
+#admin-dialer .dial-result p{font-size:13px;line-height:1.5}
+@media(max-width:600px){#admin-dialer .dial-shell{padding:20px;gap:16px}#admin-dialer .dial-heading h2{font-size:23px}#admin-dialer #dial-evidence{font-size:16px}#admin-dialer #dial-origin{font-size:12px}}
+@media(max-height:650px){#admin-dialer .dial-shell{padding:14px;gap:10px}#admin-dialer .dial-heading h2{font-size:22px}#admin-dialer #dial-fields>label{margin-bottom:10px}#admin-dialer #origin-help{margin-bottom:10px}#admin-dialer .dial-footnote{font-size:10px}#admin-dialer .dial-result{padding:14px}}
+@media(max-height:480px) and (min-width:640px){#admin-dialer{width:min(800px,calc(100% - 24px))}#admin-dialer #dial-fields{display:grid;grid-template-columns:1fr 1fr;column-gap:20px;align-items:start}#admin-dialer #origin-help{display:none}#admin-dialer #dial-fields .dial-check{align-self:center}#admin-dialer #dial-feedback{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}#admin-dialer #dial-party{grid-column:1/-1;margin:0}#admin-dialer #dial-error{margin:0}#admin-dialer #dial-feedback .dial-actions{margin:0}#admin-dialer #dial-feedback .dial-actions:has(#dial-retry){grid-column:1}#admin-dialer .dial-footnote br{display:none}}

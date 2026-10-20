@@ -140,8 +140,23 @@ class VoiceCallingTest extends TestCase
         $this->postJson('/api/voice/calling/calls', $this->payload())->assertStatus(422);
         config(['voice_calling_test.allowed_recipients' => ['+5511999990001'], 'voice_calling_test.daily_limit' => 1]);
         $g = $this->reserve();
-        $this->postJson('/api/voice/calling/calls/'.$g['id'].'/cancel')->assertOk();
         $this->postJson('/api/voice/calling/calls', $this->payload())->assertStatus(429);
+        $this->postJson('/api/voice/calling/calls/'.$g['id'].'/cancel')->assertOk();
+        $g = $this->reserve();
+        $this->event($g)->assertOk()->assertJsonPath('allowed',true);
+        $this->event($g,'finish',['dial_status'=>'CANCEL','bill_seconds'=>0])->assertOk();
+        $this->postJson('/api/voice/calling/calls', $this->payload())->assertStatus(429);
+    }
+
+    public function test_only_released_unstarted_cancellations_release_the_daily_allowance(): void
+    {
+        $g=$this->reserve();$policy=app(\App\Services\OperationPolicy::class);
+        foreach ([['pending',null,null,1],['cancelled',null,null,1],['unknown',null,now(),1],['failed',null,now(),1],['cancelled',now(),now(),1],['cancelled',null,now(),0]] as [$status,$started,$released,$expected]) {
+            DB::table('voice_outbound_calls')->where('id',$g['id'])->update(['status'=>$status,'started_at'=>$started,'capacity_released_at'=>$released]);
+            $this->assertSame($expected,$policy->outboundToday(1));$this->assertSame($expected,$policy->outboundToday());
+            $this->assertSame(0,$policy->outboundToday(99));
+            $this->getJson('/api/voice/health')->assertOk()->assertJsonPath('counts.calls_today',$expected);
+        }
     }
 
     public function test_echo_and_outbound_share_capacity(): void
