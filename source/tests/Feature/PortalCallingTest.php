@@ -45,4 +45,21 @@ class PortalCallingTest extends TestCase {
   $this->fake(['status'=>'completed','ended'=>true]);$this->getJson('/platform-calling/calls/'.$d['request_id'])->assertOk();$this->postJson('/platform-calling/calls',$this->payload())->assertOk();
  }
 
+ public function test_voice_proxy_requires_current_operator_and_live_sip_reservation():void {
+  $this->get('/platform-calling/voice-authorize')->assertForbidden();$this->operator();$this->get('/platform-calling/voice-authorize')->assertForbidden();Http::assertNothingSent();
+  $id=(string)Str::uuid();DB::table('portal_test_calls')->insert(['id'=>$id,'user_id'=>$this->user->id,'tenant_id'=>$this->tenant,'method'=>'sip_trunk','origin'=>'+551130000001','destination'=>'+5511999990001','request_hash'=>str_repeat('a',64),'state'=>'active','created_at'=>now(),'updated_at'=>now()]);
+  $this->fake(['found'=>true,'status'=>'pending','ended'=>false]);$this->get('/platform-calling/voice-authorize')->assertNoContent();
+  $other=User::factory()->create();DB::table('portal_operators')->insert(['user_id'=>$other->id]);$this->actingAs($other)->get('/platform-calling/voice-authorize')->assertForbidden();$this->actingAs($this->user);
+  DB::table('portal_test_calls')->where('id',$id)->update(['method'=>'programmable_voice']);$this->get('/platform-calling/voice-authorize')->assertForbidden();
+  DB::table('portal_test_calls')->where('id',$id)->update(['method'=>'sip_trunk']);$this->fake(['found'=>true,'status'=>'cancelled','ended'=>true,'started_at'=>null]);$this->get('/platform-calling/voice-authorize')->assertForbidden();$this->assertDatabaseHas('portal_test_calls',['id'=>$id,'state'=>'ended']);
+ }
+ public function test_sip_grant_uses_central_websocket_and_revocation_or_outage_deny_audio():void {
+  $this->operator();$route=Crypt::encryptString(json_encode(['tenant'=>$this->tenant,'user'=>$this->user->id,'number'=>'+551130000001','method'=>'sip_trunk','until'=>time()+3600]));
+  Http::fake(['https://tenant.example/*'=>Http::response(['tenant'=>'example','grant'=>['id'=>'sip-test','method'=>'sip_trunk','server'=>'wss://tenant.example/voice/ws','username'=>'fixture','password'=>'fixture-secret']])]);
+  $d=array_replace($this->payload(),['route'=>$route]);$this->postJson('/platform-calling/calls',$d)->assertOk()->assertJsonPath('grant.server','wss://app.discai.ia.br/platform-calling/voice/ws');
+  $this->fake(['found'=>false]);$this->get('/platform-calling/voice-authorize')->assertForbidden();
+  Http::swap(new \Illuminate\Http\Client\Factory);Http::preventStrayRequests();Http::fake(['*'=>Http::response([],503)]);$this->get('/platform-calling/voice-authorize')->assertStatus(503);
+  DB::table('portal_operators')->where('user_id',$this->user->id)->delete();$this->get('/platform-calling/voice-authorize')->assertForbidden();
+ }
+
 }

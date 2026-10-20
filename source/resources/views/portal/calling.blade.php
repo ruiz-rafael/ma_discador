@@ -1,7 +1,7 @@
 @extends('portal.layout')
 @section('title','Discador administrativo')
 @section('content')
-<a class="back-link" href="/administration">← Voltar à administração</a>
+<a class="back-link" href="/administration">← Console administrativo</a>
 <div class="heading"><div><span class="eyebrow">TELEFONIA · ADMINISTRAÇÃO GERAL</span><h1>Discador administrativo</h1><p>Use os números habilitados da DiscAI sem entrar no ambiente de um cliente.</p></div><button class="primary" id="open-dialer">Abrir discador</button></div>
 <div class="dial-overview"><article class="card"><span class="eyebrow">SEUS NÚMEROS</span><h2 id="number-count">Consultando conexões…</h2><p>Número, operadora e empresa juntos na seleção de saída.</p><button type="button" id="refresh-numbers" class="quiet">Atualizar números</button></article><article class="card"><span class="eyebrow">TESTE MANUAL</span><h2>Você no controle</h2><p>A ligação usa o áudio do navegador. O administrador não precisa ficar online em uma fila. O teste não inicia jornadas ou mensagens.</p></article></div>
 <p id="catalog-message" role="status"></p>

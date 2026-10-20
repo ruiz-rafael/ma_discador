@@ -1,5 +1,5 @@
 import {checkMicrophone,microphoneMessage} from './voice/microphone'
-import {callResult,activeAttempt,trustedGrant} from './voice/platform-result'
+import {callResult,activeAttempt,trustedGrant,mediaMessage} from './voice/platform-result'
 const $=id=>document.getElementById(id),dialog=$('admin-dialer'),audio=$('remote-audio')
 let numbers=[],history=[],current=null,busy=false,polling=false,loading=false,device=null,twilioCall=null,ua=null,sipCall=null,deadline=null,generation=0,closing=false
 function error(message=''){$('dial-error').textContent=message;$('dial-error').hidden=!message}
@@ -86,7 +86,7 @@ async function begin(event){
   await checkMicrophone();const n=selected();id=crypto.randomUUID();current={id,method:n.method,origin:n.number,destination:$('dial-destination').value,state:'creating',created_at:new Date().toISOString(),result:{status:'pending',ended:false}};render()
   const d=await api('/calls','POST',{request_id:id,route:n.route,destination:current.destination,consent_confirmed:true,consent_evidence:$('dial-evidence').value});if(!trustedGrant(d.grant))throw new Error('A conexão retornou uma configuração de áudio inválida. Consulte a tentativa.')
   current.method=d.grant.method;current.state='active';busy=false;render();const epoch=++generation;await media(d.grant,epoch)
- }catch(e){const message=microphoneMessage(e);error(message);if(id){await cleanup();await refresh('cancel');error(message)}}finally{busy=false;render()}
+ }catch(e){const message=mediaMessage(e)||microphoneMessage(e);error(message);if(id){await cleanup();await refresh('cancel');error(message)}}finally{busy=false;render()}
 }
 $('open-dialer').addEventListener('click',()=>dialog.showModal());$('close-dialer').addEventListener('click',()=>dialog.close());dialog.addEventListener('cancel',e=>e.preventDefault())
 $('refresh-numbers').addEventListener('click',catalog);$('dial-origin').addEventListener('change',originChanged);$('dial-form').addEventListener('submit',begin)

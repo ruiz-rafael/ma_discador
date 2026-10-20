@@ -4,7 +4,7 @@ Entrega de 17/10/2026. Qwen3-8B é uma alternativa ao GPT para respostas escrita
 
 ## Administração
 
-Portal central → Administrar plataforma → Inteligência artificial → empresa → Configurar IA.
+Portal central → Console administrativo → Inteligência artificial → empresa → Configurar IA.
 
 Somente operadores da plataforma acessam esta configuração. Administradores de clientes continuam definindo identidade, conhecimento e regras de seus agentes. Não recebem chaves, endereços de inferência ou formulário de credenciais; a configuração direta de OpenAI é bloqueada em ambientes conectados ao portal. Supervisores conservam acesso apenas à supervisão.
 

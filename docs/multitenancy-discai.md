@@ -33,8 +33,8 @@ No ambiente legado, contas que entraram diretamente pelo login antigo continuam 
 
 ## Operação do portal
 
-- **Minhas empresas:** seleção do ambiente e alteração da própria senha. Administradores gerais veem todos os clientes, indicadores agregados e atalhos para supervisão, filas e cadências. Os indicadores são snapshots locais com data da coleta; não são um painel em tempo real.
-- **Administrar plataforma:** cadastro de empresas, plano, limites contratados e auditoria.
+- **Meus clientes (administrador geral) / Minhas empresas (cliente):** seleção do ambiente e alteração da própria senha. Administradores gerais veem todos os clientes, indicadores agregados e atalhos para supervisão, filas e cadências. Os indicadores são snapshots locais com data da coleta; não são um painel em tempo real.
+- **Console administrativo:** cadastro de empresas, plano, limites contratados e auditoria.
 - **Gerenciar equipe:** convite individual, perfil e suspensão de vínculo. Administradores de empresa gerenciam apenas sua própria equipe.
 - Convites expiram em três dias e podem ser cancelados. O link é apresentado para compartilhamento manual. O botão de envio por e-mail só aparece quando há SMTP configurado; o transporte atual é log e não entrega e-mails. Um erro de transporte é informado como entrega não confirmada e não provoca reenvio automático. O emissor deve continuar autorizado no momento da aceitação.
 - Conta já existente deve confirmar a senha atual ao aceitar um convite. O convite não redefine senhas existentes.

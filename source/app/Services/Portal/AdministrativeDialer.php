@@ -3,6 +3,13 @@ namespace App\Services\Portal;
 use Illuminate\Support\Facades\{DB,Http,Crypt};
 class AdministrativeDialer {
  public function authorize(int $user):void {abort_unless(app(Access::class)->operator($user),403);}
+ public function authorizeVoice(int $user):void {
+  $this->authorize($user);
+  $row=DB::table('portal_test_calls')->where('user_id',$user)->where('method','sip_trunk')->where('state','active')->where('created_at','>',now()->subMinutes(10))->first();
+  abort_unless($row,403,'Não há uma chamada SIP administrativa autorizada.');
+  $result=$this->action($user,$row->id,'status')['call'];
+  abort_unless(($result['found']??false)===true&&!$result['ended']&&in_array($result['status'],['pending','dialing','answered'],true),403,'A autorização de áudio desta tentativa não está disponível.');
+ }
  private function tenant(int $id):object {$t=DB::table('portal_tenants')->find($id);abort_unless($t&&$t->status==='active'&&$t->secret&&str_starts_with($t->url??'','https://'),409,'A conexão deste número não está disponível.');return $t;}
  private function request(object $t,int $user,array $data):array {
   $this->authorize($user);$path='discai-internal/calling';$stamp=(string)time();$base=app()->environment('testing')&&config('platform_calling_test_base')?config('platform_calling_test_base'):$t->url;$body=json_encode(['tenant'=>$t->slug,'operator'=>$user]+$data,JSON_UNESCAPED_SLASHES);
@@ -49,6 +56,9 @@ class AdministrativeDialer {
   try{
    $result=$this->request($t,$user,['action'=>'reserve','request_id'=>$d['request_id'],'origin'=>$route['number'],'method'=>$route['method'],'destination'=>$phone,'consent_confirmed'=>true,'consent_evidence'=>$d['consent_evidence']]);
    abort_unless(is_array($result['grant']??null)&&($result['grant']['method']??null)===$route['method']&&is_string($result['grant']['id']??null),502,'A conexão não confirmou a reserva.');
+   // The central session cannot authenticate to a tenant's same-origin WebSocket.
+   // Use the portal's operator-only proxy; SIP credentials and one-use call token stay tenant-scoped.
+   if($route['method']==='sip_trunk')$result['grant']['server']=preg_replace('~^https://~','wss://',rtrim(config('discai.portal_url'),'/')).'/platform-calling/voice/ws';
    DB::table('portal_test_calls')->where('id',$d['request_id'])->update(['state'=>'active','updated_at'=>now()]);
    return ['id'=>$d['request_id'],'grant'=>$result['grant']];
   }catch(\Throwable $e){

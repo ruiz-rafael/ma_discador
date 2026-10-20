@@ -1,6 +1,6 @@
 # Atribuir um número existente a uma empresa
 
-O administrador geral acessa **Clientes e planos → Solicitações de números → Vincular número existente**. Também há atalho na administração de cada empresa, com o cliente previamente selecionado.
+O administrador geral acessa **Console administrativo → Números e solicitações → Vincular número existente**. Também há atalho na administração de cada empresa, com o cliente previamente selecionado.
 
 1. Seleciona a empresa ativa, escolhe o **Número e operadora** no inventário e define o uso desejado.
 2. Confirma a reserva. O portal consulta a conta Twilio configurada e verifica propriedade, capacidade de voz, ausência de rota e ausência de outro vínculo.

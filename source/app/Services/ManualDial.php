@@ -8,8 +8,9 @@ class ManualDial {
   $groups=[];$cfg=app(VoiceCallingConfig::class);
   foreach(DB::table('voice_live_queues')->where('workspace_id',$w)->where('direction','!=','inbound')->where('manual_enabled',true)->where('channels_configured',true)->orderBy('id')->get()as $q){
    if(!in_array($u,json_decode($q->agent_ids,true),true)||!$cfg->status($q->calling_method,$q->voice_number)['ready'])continue;
-   try{$origin=app(QueueChannels::class)->origin($q,$cfg->connection($q->calling_method,$q->voice_number)??[]);}catch(\Symfony\Component\HttpKernel\Exception\HttpException $e){continue;}
-   $groups[$origin]??=['number'=>$origin,'routes'=>[]];
+   $connection=$cfg->connection($q->calling_method,$q->voice_number)??[];
+   try{$origin=app(QueueChannels::class)->origin($q,$connection);}catch(\Symfony\Component\HttpKernel\Exception\HttpException $e){continue;}
+   $groups[$origin]??=['number'=>$origin,'provider_label'=>($connection['provider']??null)==='fale_vono'?'Fale Vono':'Twilio','routes'=>[]];
    $groups[$origin]['routes'][]=['queue_id'=>$q->id,'method'=>$q->calling_method,'allow_landline'=>(bool)$q->allow_landline,'allow_mobile'=>(bool)$q->allow_mobile];
   }
   return array_values($groups);

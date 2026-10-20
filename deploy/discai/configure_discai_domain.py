@@ -13,6 +13,9 @@ if not cert.exists():
  subprocess.run(['nginx','-t'],check=True);subprocess.run(['systemctl','reload','nginx'],check=True)
  subprocess.run(['certbot','certonly','--webroot','-w',str(acme),'-d',host,'--non-interactive','--agree-tos','--register-unsafely-without-email'],check=True)
 conf=http+'server { listen 443 ssl; listen [::]:443 ssl; server_name '+host+'; ssl_certificate '+str(cert/'fullchain.pem')+'; ssl_certificate_key '+str(cert/'privkey.pem')+'; ssl_protocols TLSv1.2 TLSv1.3; client_max_body_size 64k; access_log off; add_header X-Content-Type-Options nosniff always; add_header Referrer-Policy no-referrer always; add_header X-Frame-Options DENY always; add_header Content-Security-Policy "default-src \'self\'; style-src \'self\'; img-src \'self\' data:; connect-src \'self\' https://*.twilio.com wss://*.twilio.com wss://*.discai.ia.br wss://ma.zyrex.ia.br; media-src \'self\' blob: https://sdk.twilio.com; worker-src \'self\' blob:; form-action \'self\' https://accounts.google.com; frame-ancestors \'none\'; base-uri \'self\'" always; location / { proxy_pass http://127.0.0.1:19090; proxy_set_header Host $host; proxy_set_header X-Forwarded-Proto https; proxy_set_header X-Real-IP $remote_addr; } }'
+# Keep the WebSocket on the portal origin, protected by its own operator session.
+voice_locations=(Path(__file__).with_name('platform_voice_nginx.conf')).read_text()
+conf=conf.replace(' location / { proxy_pass http://127.0.0.1:19090;', '\n'+voice_locations+'\n location / { proxy_pass http://127.0.0.1:19090;')
 site.write_text(conf);site.chmod(0o644)
 if not link.exists():link.symlink_to(site)
 try:subprocess.run(['nginx','-t'],check=True);subprocess.run(['systemctl','reload','nginx'],check=True)

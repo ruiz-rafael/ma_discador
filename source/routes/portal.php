@@ -57,6 +57,7 @@ Route::post('/register/company/{token}',[\App\Http\Controllers\PortalSignupContr
 Route::middleware(\App\Http\Middleware\PortalSession::class)->group(function(){
  $c=\App\Http\Controllers\PortalCallingController::class;
  Route::get('/platform-calling',[$c,'show']);
+ Route::get('/platform-calling/voice-authorize',[$c,'authorizeVoice'])->middleware('throttle:20,1,platform-calling-voice:');
  Route::get('/platform-calling/catalog',[$c,'catalog'])->middleware('throttle:15,1,platform-calling-catalog:');
  Route::post('/platform-calling/calls',[$c,'create'])->middleware('throttle:6,1,platform-calling-create:');
  Route::get('/platform-calling/calls/{id}',[$c,'action'])->whereUuid('id')->middleware('throttle:60,1,platform-calling-status:');

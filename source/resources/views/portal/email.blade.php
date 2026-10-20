@@ -1,7 +1,7 @@
 @extends('portal.layout')
 @section('title',$company?'E-mail de '.$company->name:'E-mail da DiscAI')
 @section('content')
-<a href="{{$company?'/administration/'.$company->id:'/administration'}}">← Voltar à administração</a>
+<a href="{{$company?'/administration/'.$company->id:'/administration'}}">← {{$company?'Voltar à empresa':'Console administrativo'}}</a>
 <div class="heading"><div><span class="eyebrow">{{$company?'CONEXÃO DA EMPRESA':'COMUNICAÇÕES DA DISCAI'}}</span><h1>{{$company?'E-mail de '.$company->name:'E-mail da DiscAI'}}</h1><p>{{$company?'A conta usada nas jornadas desta empresa.':'A conta administrativa usada para enviar convites da plataforma.'}}</p></div><span class="badge">Google Workspace / Gmail</span></div>
 <div class="mail-grid">
 <section class="card mail-connection">
