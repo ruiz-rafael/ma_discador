@@ -38,6 +38,23 @@ class NumberProvider {
   return ['bundles'=>collect($b['results']??[])->filter(fn($v)=>($v['status']??null)==='twilio-approved')->map(fn($v)=>['sid'=>$v['sid'],'name'=>$v['friendly_name']??$v['sid']])->values()->all(),
    'addresses'=>collect($a['addresses']??[])->filter(fn($v)=>($v['iso_country']??null)==='BR')->map(fn($v)=>['sid'=>$v['sid'],'name'=>($v['friendly_name']??$v['customer_name']??'Endereço').' · '.($v['city']??'')])->values()->all()];
  }
+ /** Purchased inventory only: this never searches or buys new numbers. */
+ public function inventory():array {
+  $c=$this->config();abort_unless($c,503);$path='IncomingPhoneNumbers.json';$query=['PageSize'=>1000];$result=[];$seen=[];
+  for($page=0;$page<20;$page++){
+   $r=$this->request($path,$query);
+   abort_unless(isset($r['incoming_phone_numbers'])&&is_array($r['incoming_phone_numbers']),502,'Inventário da operadora não confirmado.');
+   foreach($r['incoming_phone_numbers'] as $n){
+    abort_unless(($n['account_sid']??null)===$c['account_sid']&&preg_match('/^PN[a-fA-F0-9]{32}$/D',$n['sid']??'')&&preg_match('/^\+[1-9][0-9]{7,14}$/D',$n['phone_number']??''),502,'Inventário da conta não confirmado.');
+    $result[$n['phone_number']]=$n;
+   }
+   $next=$r['next_page_uri']??null;if(!$next)return array_values($result);
+   $prefix='/2010-04-01/Accounts/'.$c['account_sid'].'/IncomingPhoneNumbers.json?';
+   abort_unless(is_string($next)&&str_starts_with($next,$prefix)&&!isset($seen[$next]),502,'Paginação do inventário não confirmada.');
+   $seen[$next]=true;$path='https://api.twilio.com'.parse_url($next,PHP_URL_PATH);parse_str(parse_url($next,PHP_URL_QUERY),$query);
+  }
+  abort(502,'O inventário excedeu o limite desta consulta.');
+ }
  public function owned(string $number):?array {
   $r=$this->request('IncomingPhoneNumbers.json',['PhoneNumber'=>$number,'PageSize'=>2]);
   $all=$r['incoming_phone_numbers']??[];abort_if(count($all)>1||!empty($r['next_page_uri']),409,'A consulta retornou mais de um número.');

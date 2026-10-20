@@ -14,7 +14,7 @@ class PortalNumbersController extends Controller {
   if($order->status==='quoted')try{$registrations=app(NumberProvider::class)->registrations();}catch(\Throwable){$providerError='Não foi possível consultar os cadastros da operadora. Atualize a página para tentar novamente.';}
   return view('portal.number-order',compact('order','tenant','registrations','providerError')+['labels'=>NumberOrders::LABELS,'quote'=>json_decode($order->quote??'{}',true)]);
  }
- public function assignment(Request $r){$this->operator($r);return view('portal.number-assign',['tenants'=>DB::table('portal_tenants')->where('status','active')->orderBy('name')->get(['id','name']),'configured'=>(bool)app(NumberProvider::class)->config()]);}
+ public function assignment(Request $r){$this->operator($r);return view('portal.number-assign',['tenants'=>DB::table('portal_tenants')->where('status','active')->orderBy('name')->get(['id','name']),'configured'=>(bool)app(NumberProvider::class)->config(),'inventory'=>app(\App\Services\Portal\NumberInventory::class)->catalog()]);}
  public function assign(Request $r){
   $this->operator($r);
   $d=$r->validate(['id'=>'required|uuid','tenant_id'=>'required|integer|exists:portal_tenants,id','number'=>['required','regex:/^\+[1-9][0-9]{7,14}$/D'],'purpose'=>'required|in:inbound,outbound,mixed','notes'=>'nullable|string|max:500','confirm'=>'required|accepted']);

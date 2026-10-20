@@ -7,3 +7,5 @@ Route::get('/discai/sso/complete',[B::class,'complete'])->middleware('throttle:2
 Route::post('/discai-internal/numbers',[\App\Http\Controllers\ManagedNumbersController::class,'receive'])->middleware('throttle:30,1');
 
 Route::post('/discai-internal/ai',[\App\Http\Controllers\ManagedAiController::class,'receive'])->middleware('throttle:30,1');
+
+Route::post('/discai-internal/number-inventory',[\App\Http\Controllers\ManagedNumbersController::class,'inventory'])->middleware('throttle:30,1,number-inventory:');

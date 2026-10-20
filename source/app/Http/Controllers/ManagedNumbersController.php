@@ -5,11 +5,21 @@ use App\Services\Portal\TenantBridge;
 use Illuminate\Support\Facades\{DB,Crypt};
 use Illuminate\Http\Request;
 class ManagedNumbersController extends Controller {
- public function receive(Request $r){
+ private function authorizeInventory(Request $r):void {
   $b=app(TenantBridge::class)->config();$stamp=$r->header('X-Discai-Time','');
   abort_unless($b&&ctype_digit($stamp)&&abs(time()-(int)$stamp)<=30&&strlen($r->getContent())<=10000,401);
   abort_unless(hash_equals(hash_hmac('sha256',$stamp.'.'.$r->path().'.'.$r->getContent(),$b['secret']),$r->header('X-Discai-Signature','')),401);
   abort_unless($r->input('tenant')===$b['slug'],403);
+ }
+ public function inventory(Request $r){
+  $this->authorizeInventory($r);$numbers=[];
+  foreach(DB::table('voice_sip_trunks')->get(['number','provider']) as $row)$numbers[$row->provider.':'.$row->number]=['number'=>$row->number,'provider'=>$row->provider];
+  foreach(DB::table('voice_managed_numbers')->pluck('number') as $number)$numbers['twilio:'.$number]=['number'=>$number,'provider'=>'twilio'];
+  foreach([app(TwilioVoiceConnection::class)->read(),app(VoiceCallingConfig::class)->trunk()] as $c)if(!empty($c['caller_id']))$numbers['twilio:'.$c['caller_id']]=['number'=>$c['caller_id'],'provider'=>'twilio'];
+  return response()->json(['tenant'=>$r->input('tenant'),'numbers'=>array_values($numbers)])->header('Cache-Control','no-store, private');
+ }
+ public function receive(Request $r){
+  $this->authorizeInventory($r);
   $d=$r->validate(['number'=>['required','regex:/^\+[1-9][0-9]{7,14}$/D'],'request_id'=>'required|uuid','provider_sid'=>['required','regex:/^PN[a-fA-F0-9]{32}$/D'],'activate'=>'sometimes|boolean','connection'=>'sometimes|array']);
   return DB::transaction(function()use($d){
    DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();$old=DB::table('voice_managed_numbers')->where('number',$d['number'])->first();

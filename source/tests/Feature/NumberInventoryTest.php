@@ -1,0 +1,40 @@
+<?php
+namespace Tests\Feature;
+use Tests\TestCase;
+use App\Models\User;
+use App\Services\Portal\{NumberInventory,NumberProvider};
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\{DB,Crypt,Http,Route};
+class NumberInventoryTest extends TestCase {
+ use RefreshDatabase;
+ private string $ac;private User $admin;
+ protected function setUp():void {parent::setUp();Http::preventStrayRequests();foreach(glob(database_path('portal-migrations/*.php')) as $m)(require $m)->up();config(['discai.portal'=>true]);Route::middleware('web')->group(base_path('routes/portal.php'));$this->admin=User::factory()->create();DB::table('portal_operators')->insert(['user_id'=>$this->admin->id]);$this->actingAs($this->admin)->withSession(['voice_auth_version'=>0]);$this->ac='AC'.str_repeat('a',32);config(['portal_numbers_test'=>['account_sid'=>$this->ac,'auth_token'=>'fixture']]);DB::table('portal_tenants')->insert(['id'=>1,'slug'=>'discai','name'=>'DiscAI Workspace','url'=>'https://tenant.example','secret'=>Crypt::encryptString('fixture-secret'),'status'=>'active']);}
+ private function phone(string $number,array $extra=[]):array{return $extra+['phone_number'=>$number,'account_sid'=>$this->ac,'sid'=>'PN'.str_repeat(substr($number,-1),32),'capabilities'=>['voice'=>true]];}
+ private function fakeInventory(array $phone=[],int $status=200):void {Http::fake(['api.twilio.com/*'=>Http::response(['incoming_phone_numbers'=>$phone]),'tenant.example/*'=>Http::response(['tenant'=>'discai','numbers'=>[['number'=>'+551154443245','provider'=>'fale_vono']]],$status)]);}
+ public function test_combo_shows_operator_and_blocks_assigned_numbers_without_writes():void {$this->fakeInventory([$this->phone('+551130001234'),$this->phone('+551130001235',['voice_url'=>'https://existing.example/voice'])]);$r=$this->get('/number-administration/assign?tenant=1')->assertOk()->assertSee('Número e operadora')->assertSee('Fale Vono')->assertSee('Twilio')->assertSee('+55 (11) 5444-3245')->assertSee('Vinculado a DiscAI Workspace')->assertDontSee('type="tel"',false);$this->assertStringContainsString('<select id="available-number"',$r->getContent());$c=app(NumberInventory::class)->catalog();$this->assertSame(1,$c['available']);$this->assertFalse(collect($c['numbers'])->firstWhere('number','+551154443245')['available']);$this->assertDatabaseCount('portal_number_requests',0);Http::assertNotSent(fn($r)=>str_contains($r->url(),'api.twilio.com')&&$r->method()!=='GET');}
+ public function test_pending_order_is_not_available_and_retains_company_name():void {$this->fakeInventory([$this->phone('+551130001234')]);DB::table('portal_number_requests')->insert(['id'=>(string)\Illuminate\Support\Str::uuid(),'tenant_id'=>1,'requested_by'=>$this->admin->id,'number'=>'+551130001234','purpose'=>'outbound','status'=>'purchased']);$c=app(NumberInventory::class)->catalog();$this->assertSame(0,$c['available']);$this->assertSame('Reservado para DiscAI Workspace',collect($c['numbers'])->firstWhere('number','+551130001234')['reason']);}
+ public function test_tenant_failure_keeps_inventory_visible_but_disables_free_selection():void {$this->fakeInventory([$this->phone('+551130001234')],503);$c=app(NumberInventory::class)->catalog();$this->assertSame(0,$c['available']);$this->assertNotEmpty($c['errors']);$this->assertSame('Conferência de vínculos pendente',$c['numbers'][0]['reason']);$this->get('/number-administration/assign')->assertOk()->assertSee('Não foi possível confirmar a disponibilidade.')->assertDontSee('Nenhum número livre no momento.');}
+ public function test_provider_failure_does_not_hide_known_sip_numbers():void {Http::fake(['api.twilio.com/*'=>Http::response([],503),'tenant.example/*'=>Http::response(['tenant'=>'discai','numbers'=>[['number'=>'+551154443245','provider'=>'fale_vono']]])]);$c=app(NumberInventory::class)->catalog();$this->assertSame('Fale Vono',$c['numbers'][0]['operator']);$this->assertNotEmpty($c['errors']);}
+ public function test_inventory_pagination_stays_in_same_account_and_never_buys():void {$count=0;Http::fake(function($r)use(&$count){$count++;return Http::response(['incoming_phone_numbers'=>[$this->phone($count===1?'+551130001234':'+551130001235')],'next_page_uri'=>$count===1?'/2010-04-01/Accounts/'.$this->ac.'/IncomingPhoneNumbers.json?Page=1':null]);});$this->assertCount(2,app(NumberProvider::class)->inventory());$this->assertSame(2,$count);Http::assertNotSent(fn($r)=>$r->method()!=='GET');}
+ public function test_inventory_rejects_external_next_page():void {Http::fake(['*'=>Http::response(['incoming_phone_numbers'=>[],'next_page_uri'=>'https://evil.example/steal'])]);$this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);app(NumberProvider::class)->inventory();}
+ public function test_client_cannot_view_platform_inventory():void {$this->actingAs(User::factory()->create());$this->get('/number-administration/assign')->assertForbidden();Http::assertNothingSent();}
+ public function test_catalog_over_real_http_paginates_and_blocks_assignment_on_tenant_failure():void {
+  // Reuse the loopback simulation approach: the installed Postman app has no simulation CLI.
+  $socket=stream_socket_server('tcp://127.0.0.1:0',$errno,$error);$address=stream_socket_get_name($socket,false);fclose($socket);
+  $log=tempnam(sys_get_temp_dir(),'inventory-http-');$err=tempnam(sys_get_temp_dir(),'inventory-err-');$flag=$log.'.fail';
+  $proc=proc_open([PHP_BINARY,'-S',$address,base_path('tests/Fixtures/number-inventory.php')],[0=>['pipe','r'],1=>['file',$err,'a'],2=>['file',$err,'a']],$pipes,null,['INVENTORY_HTTP_LOG'=>$log,'INVENTORY_FAIL_FLAG'=>$flag]);
+  try{
+   for($i=0;$i<50;$i++){if($ready=@stream_socket_client('tcp://'.$address,$errno,$error,.1)){fclose($ready);break;}usleep(20000);}
+   $this->assertTrue(isset($ready)&&$ready!==false);
+   Http::swap(new \Illuminate\Http\Client\Factory);
+   Http::globalRequestMiddleware(function($request)use($address){if(!in_array($request->getUri()->getHost(),['api.twilio.com','tenant.example'],true))throw new \RuntimeException('Unexpected simulation host');return $request->withUri(new \GuzzleHttp\Psr7\Uri('http://'.$address.$request->getUri()->getPath().'?'.$request->getUri()->getQuery()));});
+   $catalog=app(NumberInventory::class)->catalog();$this->assertSame(2,$catalog['available']);$this->assertEmpty($catalog['errors']);$this->assertCount(3,$catalog['numbers']);
+   touch($flag);$catalog=app(NumberInventory::class)->catalog();$this->assertSame(0,$catalog['available']);$this->assertNotEmpty($catalog['errors']);$this->assertDatabaseCount('portal_number_requests',0);
+   $events=array_map(fn($line)=>json_decode($line,true),file($log,FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES));$this->assertSame([200,200,200,200,200,503],array_column($events,'status'));
+   $this->assertSame(['GET','GET','POST','GET','GET','POST'],array_column($events,'method'));
+  }finally{proc_terminate($proc);proc_close($proc);foreach($pipes as $pipe)if(is_resource($pipe))fclose($pipe);foreach([$log,$err,$flag] as $file)if(is_file($file))unlink($file);}
+ }
+ public function test_signed_internal_inventory_never_decrypts_or_exposes_sip_credentials():void {
+ config(['discai_bridge_test'=>['slug'=>'discai','secret'=>'fixture-secret']]);DB::table('voice_sip_trunks')->insert(['id'=>(string)\Illuminate\Support\Str::uuid(),'workspace_id'=>1,'provider'=>'fale_vono','label'=>'QA','number'=>'+551154443245','configuration'=>'SECRET-SHOULD-NOT-LEAVE','enabled'=>true]);$path='/discai-internal/number-inventory';$this->postJson($path,['tenant'=>'discai'])->assertUnauthorized();$body=json_encode(['tenant'=>'discai']);$stamp=(string)time();$sig=hash_hmac('sha256',$stamp.'.'.ltrim($path,'/').'.'.$body,'fixture-secret');$r=$this->call('POST',$path,[],[],[],['CONTENT_TYPE'=>'application/json','HTTP_ACCEPT'=>'application/json','HTTP_X_DISCAI_TIME'=>$stamp,'HTTP_X_DISCAI_SIGNATURE'=>$sig],$body)->assertOk()->assertJsonPath('numbers.0.provider','fale_vono');$this->assertStringNotContainsString('SECRET-SHOULD-NOT-LEAVE',$r->getContent());$this->assertSame(['number','provider'],array_keys($r->json('numbers.0')));
+ }
+}
