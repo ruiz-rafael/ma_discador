@@ -96,7 +96,7 @@ class VoiceProviderCatalog
         if(!empty($snapshot['queue_channels_id'])){
             $q=DB::table('voice_live_queues')->where('workspace_id',$call->workspace_id)->find($snapshot['queue_channels_id']);
             abort_unless($q&&$q->channels_configured&&$q->calling_method===$call->method,422,'Configuração da fila alterada.');
-            abort_unless(app(QueueChannels::class)->origin($q,app(VoiceCallingConfig::class)->connection($call->method)??[])===$call->caller_id,422,'A origem da fila mudou. Faça uma nova reserva.');return;
+            abort_unless(app(QueueChannels::class)->origin($q,app(VoiceCallingConfig::class)->connection($call->method,$call->caller_id)??[])===$call->caller_id,422,'A origem da fila mudou. Faça uma nova reserva.');return;
         }
         if (($snapshot['origin_mode'] ?? 'configured') === 'same_ddd') {
             abort_unless(DB::table('voice_origins')->where('workspace_id', $call->workspace_id)->where('account_sid', $call->provider_account)->where('number', $call->caller_id)->where('enabled', true)->where('verified_at', '>=', now()->subDay())->exists(), 422, 'Origem desativada ou verificação vencida.');

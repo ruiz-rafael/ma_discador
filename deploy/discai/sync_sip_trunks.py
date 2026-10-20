@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""Apply authenticated front-end SIP settings to DiscAI's PBX. Never originates calls.
+Only reads DiscAI containers; credentials remain in private storage and PBX files.
+"""
+from pathlib import Path
+import fcntl, hashlib, json, os, re, shutil, subprocess, tempfile, time
+os.umask(0o077)
+ROOT=Path('/srv/zyrex-ma'); LIVE=ROOT/'voice-runtime/asterisk'
+def run(args, data=None):
+    p=subprocess.run(args,input=data,text=True,capture_output=True,timeout=60)
+    if p.returncode:raise RuntimeError('Local command failed; inspect the private runtime')
+    return p.stdout
+def cli(command,container='zyrex-ma-pbx-1'):
+    s=run(['docker','exec',container,'asterisk','-rx',command])
+    if 'No such command' in s:raise RuntimeError('PBX command unavailable')
+    return s
+def write(p,content,mode=0o640):
+    tmp=p.with_name('.'+p.name+'.next');tmp.write_text(content);os.chown(tmp,0,18080);tmp.chmod(mode);tmp.replace(p)
+def main():
+    lock=(ROOT/'voice-runtime/.sip-sync.lock').open('a')
+    try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    except BlockingIOError:return
+    containers=['zyrex-ma-app-1']
+    for p in sorted((ROOT/'discai/tenants').glob('*/compose.json')):
+        if re.fullmatch('[a-z0-9-]+',p.parent.name):
+            name='discai-tenant-'+p.parent.name+'-app-1'
+            if run(['docker','inspect','--format','{{.State.Running}}',name]).strip()=='true':containers.append(name)
+    configs={}
+    for name in containers:
+        configs[name]=json.loads(run(['docker','exec','-u','82:82',name,'php','artisan','voice:sip-runtime','export']))
+    pjsip='''; Managed by DiscAI SIP reconciler. Do not edit manually.
+[discai-vono-udp]
+type=transport
+protocol=udp
+bind=0.0.0.0:15060
+external_signaling_address=217.216.65.237
+external_media_address=217.216.65.237
+local_net=10.241.50.0/24
+'''
+    dialplan='[discai-sip-denied]\nexten => _.,1,Hangup(21)\n'
+    callbacks={};expected=[]
+    for name,c in configs.items():
+        for t in c['trunks']:
+            if not re.fullmatch(r'discai-vono-[a-f0-9]{32}',t['endpoint']):raise RuntimeError('Invalid endpoint identity')
+            if t['enabled']:pjsip+='\n'+t['configuration'];expected.append(t['endpoint'])
+        if not c['policy'] or not any(t['enabled'] for t in c['trunks']):continue
+        b=c['browser'];identity=b['username']
+        if not re.fullmatch(r'discai-browser-[a-f0-9]{16}',identity) or not re.fullmatch(r'[a-f0-9]{64}',b['password']):raise RuntimeError('Invalid browser identity')
+        if not re.fullmatch(r'https://[a-z0-9.-]+/internal/voice/calling/event',c['callback']):raise RuntimeError('Invalid tenant callback')
+        callbacks[identity]={'url':c['callback'],'secret':c['policy']['event_secret'],'endpoints':[t['endpoint'] for t in c['trunks'] if t['enabled']]}
+        pjsip+=f'''
+[{identity}]
+type=auth
+auth_type=userpass
+username={identity}
+password={b['password']}
+[{identity}]
+type=endpoint
+transport=transport-ws
+context={identity}
+auth={identity}
+disallow=all
+allow=ulaw,alaw
+webrtc=yes
+dtls_auto_generate_cert=yes
+media_encryption=dtls
+dtls_verify=fingerprint
+dtls_setup=actpass
+ice_support=yes
+rtcp_mux=yes
+use_avpf=yes
+direct_media=no
+force_rport=yes
+rewrite_contact=yes
+rtp_symmetric=yes
+rtp_timeout=20
+rtp_timeout_hold=30
+allow_transfer=no
+allow_subscribe=no
+'''
+        dialplan+='''
+[IDENTITY]
+exten => _[0-9a-f].,1,Set(MA_TOKEN=${EXTEN})
+ same => n,Set(MA_CHANNEL=${CHANNEL(uniqueid)})
+ same => n,Set(TIMEOUT(absolute)=30)
+ same => n,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,start,${MA_TOKEN},${MA_CHANNEL})
+ same => n,GotoIf($["${MA_ALLOWED}" != "1"]?deny)
+ same => n,Set(TIMEOUT(absolute)=$[${MA_RING}+${MA_SECONDS}+5])
+ same => n,Set(CALLERID(num)=${MA_CALLER})
+ same => n,Set(CALLERID(name)=)
+ same => n,Dial(PJSIP/${MA_NUMBER}@${MA_ENDPOINT},${MA_RING},giU(IDENTITY-answered^${MA_TOKEN}^${MA_CHANNEL})S(${MA_SECONDS}))
+ same => n,Hangup()
+ same => n(deny),Hangup(21)
+exten => h,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,finish,${MA_TOKEN},${MA_CHANNEL},${CDR(billsec)},${HANGUPCAUSE},${DIALSTATUS})
+[IDENTITY-answered]
+exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${ARG2})
+ same => n,ExecIf($["${MA_ALLOWED}" != "1"]?Set(GOSUB_RESULT=ABORT))
+ same => n,Return()
+'''.replace('IDENTITY',identity)
+    files={'discai-sip-pjsip.conf':pjsip,'discai-sip-extensions.conf':dialplan,'discai-sip-callbacks.json':json.dumps(callbacks,sort_keys=True),'discai-sip-event.py':(ROOT/'source/resources/voice/sip-event.py').read_text()}
+    for base,include in [('pjsip.conf','discai-sip-pjsip.conf'),('extensions.conf','discai-sip-extensions.conf')]:
+        text=(LIVE/base).read_text();line='#include '+include
+        files[base]=text if line in text.splitlines() else text+'\n'+line+'\n'
+    changed=any(not(LIVE/f).exists() or (LIVE/f).read_text()!=v for f,v in files.items())
+    if changed:
+        if any(c['busy'] for c in configs.values()) or '0 active channels' not in cli('core show channels count'):
+            print('SIP changes queued until current calls finish.');return
+        # Parse configuration in an isolated Asterisk with no network and no exposed ports.
+        stage=Path(tempfile.mkdtemp(prefix='sip-validate-',dir=ROOT/'releases'));check='discai-sip-validation'
+        started=False
+        try:
+            for p in LIVE.iterdir():
+                if p.is_file():shutil.copy2(p,stage/p.name)
+            for f,v in files.items():(stage/f).write_text(v)
+            os.chown(stage,0,18080);stage.chmod(0o750)
+            for p in stage.iterdir():os.chown(p,0,18080);p.chmod(0o750 if p.suffix=='.py' else 0o640)
+            run(['docker','run','-d','--name',check,'--network','none','--memory=256m','--cpus=.25','--cap-drop=ALL','--security-opt=no-new-privileges','-v',str(stage)+':/etc/asterisk:ro','zyrex-ma-pbx:22.9.0-1']);started=True
+            for attempt in range(30):
+                try:
+                    valid=all('discai-sip-denied' in cli('pjsip show endpoint '+e,check) for e in expected)
+                    valid=valid and all('Dial(' in cli('dialplan show '+b,check) for b in callbacks)
+                    valid=valid and 'Echo(' in cli('dialplan show ma-audio-only',check)
+                    if valid:break
+                except RuntimeError:pass
+                time.sleep(.5)
+            else:raise RuntimeError('Isolated SIP validation failed')
+            backup=ROOT/'backups'/('sip-'+time.strftime('%Y%m%dT%H%M%SZ'));backup.mkdir(mode=0o700)
+            previous={f:(LIVE/f).read_bytes() if (LIVE/f).exists() else None for f in files}
+            for f,v in previous.items():
+                if v is not None:(backup/f).write_bytes(v)
+            new_transport='discai-vono-udp' not in cli('pjsip show transports')
+            try:
+                for f,v in files.items():write(LIVE/f,v,0o750 if f.endswith('.py') else 0o640)
+                if new_transport:run(['docker','restart','zyrex-ma-pbx-1']);time.sleep(3)
+                else:
+                    cli('module reload res_pjsip.so');cli('module reload res_pjsip_outbound_registration.so');cli('dialplan reload')
+                for e in expected:
+                    if 'discai-sip-denied' not in cli('pjsip show endpoint '+e):raise RuntimeError('Live endpoint validation failed')
+                for b in callbacks:
+                    if 'Dial(' not in cli('dialplan show '+b):raise RuntimeError('Live dialplan validation failed')
+            except Exception:
+                for f,v in previous.items():
+                    if v is None:(LIVE/f).unlink(missing_ok=True)
+                    else:write(LIVE/f,v.decode(),0o750 if f.endswith('.py') else 0o640)
+                cli('module reload res_pjsip.so');cli('module reload res_pjsip_outbound_registration.so');cli('dialplan reload');raise
+        finally:
+            if started:run(['docker','rm','-f',check])
+            shutil.rmtree(stage)
+    output=cli('pjsip show registrations');summaries=[]
+    for name,c in configs.items():
+        states=[]
+        for t in c['trunks']:
+            if not t['enabled']:state='disabled'
+            else:
+                line=next((l for l in output.splitlines() if t['endpoint']+'-registration/' in l),'')
+                state='registered' if re.search(r'\bRegistered\b',line) else 'rejected' if re.search(r'\bRejected\b',line) else 'unregistered'
+                if state=='registered' and not c['policy']:state='no_policy'
+            states.append({'id':t['id'],'hash':t['hash'],'state':state})
+            summaries.append({'container':name,'connection':t['id'],'state':state})
+        run(['docker','exec','-i','-u','82:82',name,'php','artisan','voice:sip-runtime','status'],json.dumps(states))
+    print(json.dumps({'changed':changed,'connections':summaries,'calls_originated':0}))
+if __name__=='__main__':
+    try:main()
+    except Exception as error:
+        # Only our fixed operational messages may be logged; subprocess output is private.
+        safe=str(error) if type(error) is RuntimeError else type(error).__name__
+        print('SIP synchronization incomplete: '+safe);raise SystemExit(1)

@@ -1,0 +1,11 @@
+[Unit]
+Description=Reconcile DiscAI SIP connections every minute
+
+[Timer]
+OnBootSec=60
+OnUnitInactiveSec=60
+AccuracySec=5
+Unit=discai-sip-sync.service
+
+[Install]
+WantedBy=timers.target

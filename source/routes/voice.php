@@ -9,6 +9,8 @@ use App\Http\Controllers\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'throttle:120,1'])->prefix('api/voice')->group(function () {
+    Route::get('/providers', [\App\Http\Controllers\VoiceProvidersController::class, 'index']);
+    Route::put('/providers', [\App\Http\Controllers\VoiceProvidersController::class, 'save'])->middleware('throttle:10,1,voice-providers:');
     Route::get('/provider/twilio', [TwilioTrunkController::class, 'show']);
     Route::get('/audio', [A::class, 'index']);
     Route::get('/audio/authorize', [A::class, 'authorize']);

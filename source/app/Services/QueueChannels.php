@@ -7,9 +7,11 @@ class QueueChannels {
   foreach(['programmable_voice','sip_trunk']as $method){
    $c=app(VoiceCallingConfig::class)->connection($method);
    if($method==='programmable_voice'&&($c['managed_by_portal']??false)){foreach(DB::table('voice_managed_numbers')->where('active',true)->pluck('number')as $number)$numbers[]=['number'=>$number,'method'=>$method];continue;}
+   if(isset($c['sip_trunk_id']))continue;
    if(!empty($c['caller_id']))$numbers[]=['number'=>$c['caller_id'],'method'=>$method];
    if(!empty($c['account_sid']))foreach(DB::table('voice_origins')->where('workspace_id',$w)->where('account_sid',$c['account_sid'])->where('enabled',true)->where('verified_at','>=',now()->subDay())->pluck('number')as $number)$numbers[]=['number'=>$number,'method'=>$method];
   }
+  foreach(DB::table('voice_sip_trunks')->where('workspace_id',$w)->where('enabled',true)->get() as $sip)$numbers[]=['number'=>$sip->number,'method'=>'sip_trunk','provider'=>$sip->provider];
   return ['incoming_numbers'=>app(InboundVoice::class)->numbers($w,app(TwilioVoiceConnection::class)->read()),'voice_numbers'=>collect($numbers)->unique(fn($n)=>$n['method'].':'.$n['number'])->values()->all(),'senders'=>DB::table('wa_senders')->where('workspace_id',$w)->get(['id','label','number','provider','status'])];
  }
  public function apply(?object $q,array $s):array {
@@ -19,6 +21,7 @@ class QueueChannels {
  }
  public function origin(object $q,array $connection):string {
   abort_unless($q->voice_number,422,'Selecione o número de voz em Filas de atendimento.');
+  if(isset($connection['sip_trunk_id'])){abort_unless(($connection['enabled']??false)&&$connection['caller_id']===$q->voice_number&&DB::table('voice_sip_trunks')->where('id',$connection['sip_trunk_id'])->where('workspace_id',$q->workspace_id)->exists(),422,'Conexão SIP não liberada para esta empresa.');return $q->voice_number;}
   if($connection['managed_by_portal']??false){abort_unless(DB::table('voice_managed_numbers')->where('number',$q->voice_number)->where('active',true)->exists(),422,'Número não liberado para esta empresa.');return $q->voice_number;}
   $valid=$q->voice_number===($connection['caller_id']??null)||DB::table('voice_origins')->where('workspace_id',$q->workspace_id)->where('account_sid',$connection['account_sid']??'')->where('number',$q->voice_number)->where('enabled',true)->where('verified_at','>=',now()->subDay())->exists();
   abort_unless($valid,422,'O número da fila não está autorizado nesta conexão de voz. Atualize o catálogo ou selecione outra origem.');
@@ -26,7 +29,7 @@ class QueueChannels {
  }
  public function validate(object $q):void {
   if(!$q->channels_configured)return;
-  if($q->direction!=='inbound')$this->origin($q,app(VoiceCallingConfig::class)->connection($q->calling_method)??[]);
+  if($q->direction!=='inbound')$this->origin($q,app(VoiceCallingConfig::class)->connection($q->calling_method,$q->voice_number)??[]);
   $sender=$q->whatsapp_sender_id?DB::table('wa_senders')->where('workspace_id',$q->workspace_id)->where('id',$q->whatsapp_sender_id)->first():null;
   abort_if($q->whatsapp_sender_id&&!$sender,422,'Selecione um remetente WhatsApp deste workspace.');
   abort_if($sender&&$q->number_mode==='single'&&$sender->number!==$q->voice_number,422,'No modo número único, o WhatsApp deve corresponder à origem de voz da fila.');

@@ -1,0 +1,10 @@
+[Unit]
+Description=DiscAI SIP provider configuration reconciliation
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /srv/zyrex-ma/ops/sync_sip_trunks.py
+UMask=0077
+TimeoutStartSec=120
