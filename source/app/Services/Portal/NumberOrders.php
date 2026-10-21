@@ -7,9 +7,11 @@ class NumberOrders {
  public const DDDS=['11','12','13','14','15','16','17','18','19','21','22','24','27','28','31','32','33','34','35','37','38','41','42','43','44','45','46','47','48','49','51','53','54','55','61','62','63','64','65','66','67','68','69','71','73','74','75','77','79','81','82','83','84','85','86','87','88','89','91','92','93','94','95','96','97','98','99'];
  public const LABELS=['requested'=>'Solicitado','quoted'=>'Opções disponíveis','purchasing'=>'Contratação em andamento','uncertain'=>'Conferência necessária','purchased'=>'Contratado · aguardando liberação','releasing'=>'Configurando para o cliente','available'=>'Disponível','rejected'=>'Não aprovado'];
  public function tenant(int $id):object {return DB::table('portal_tenants')->where('status','active')->where('id',$id)->firstOrFail();}
+ // Requests live in the portal and do not require a provisioned telephony environment.
+ public function requestingTenant(int $id):object {return DB::table('portal_tenants')->whereIn('status',['active','provisioning'])->where('id',$id)->firstOrFail();}
  public function order(string $id):object {return DB::table('portal_number_requests')->where('id',$id)->firstOrFail();}
  public function request(int $tenant,int $actor,array $d):void {
-  $this->tenant($tenant);
+  $this->requestingTenant($tenant);
   DB::transaction(function()use($tenant,$actor,$d){
    $old=DB::table('portal_number_requests')->find($d['id']);if($old){abort_unless($old->tenant_id===$tenant&&$old->requested_by===$actor,409);return;}
    DB::table('portal_number_requests')->insert(['id'=>$d['id'],'tenant_id'=>$tenant,'requested_by'=>$actor,'ddd'=>$d['ddd'],'purpose'=>$d['purpose'],'notes'=>$d['notes']??null,'status'=>'requested','created_at'=>now(),'updated_at'=>now()]);

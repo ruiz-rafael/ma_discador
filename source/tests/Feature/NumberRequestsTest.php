@@ -35,6 +35,29 @@ class NumberRequestsTest extends TestCase {
   $this->get('/companies/999/numbers')->assertForbidden();$this->post('/companies/'.$this->tenant.'/numbers',array_replace($d,['id'=>(string)Str::uuid(),'ddd'=>'20']))->assertSessionHasErrors('ddd');
   DB::table('portal_memberships')->update(['role'=>'supervisor']);$this->get('/companies/'.$this->tenant.'/numbers')->assertForbidden();Http::assertNothingSent();
  }
+ public function test_provisioning_admin_can_view_and_request_without_provisioned_domain():void {
+  DB::table('portal_tenants')->where('id',$this->tenant)->update(['status'=>'provisioning','url'=>null,'secret'=>null]);
+  $this->login($this->client);$url='/companies/'.$this->tenant.'/numbers';
+  $this->get($url)->assertOk()->assertSee('Solicitar novo número')->assertSee('Sua empresa está em preparação')->assertSee('Voltar à minha empresa')->assertDontSee('Voltar à operação');
+  $id=(string)Str::uuid();$d=['id'=>$id,'ddd'=>'11','purpose'=>'mixed'];
+  $this->post($url,$d)->assertRedirect();$this->post($url,$d)->assertRedirect();
+  $this->assertDatabaseCount('portal_number_requests',1);$this->assertDatabaseHas('portal_number_requests',['id'=>$id,'tenant_id'=>$this->tenant,'requested_by'=>$this->client->id,'status'=>'requested']);
+  $this->get($url)->assertOk()->assertSee('Solicitado');
+  $this->login($this->admin);$this->get('/number-administration')->assertOk()->assertSee('Polishop');
+  $this->post('/number-administration/'.$id.'/quote')->assertRedirect()->assertSessionHasErrors('operation');
+  $this->post('/number-administration/'.$id.'/release',['confirm'=>1])->assertRedirect()->assertSessionHasErrors('operation');
+  $this->assertDatabaseHas('portal_number_requests',['id'=>$id,'status'=>'requested','released_at'=>null]);
+  Http::assertNothingSent();
+ }
+ public function test_provisioning_numbers_remain_restricted_to_authorized_admins():void {
+  DB::table('portal_tenants')->where('id',$this->tenant)->update(['status'=>'provisioning']);
+  $url='/companies/'.$this->tenant.'/numbers';$d=['id'=>(string)Str::uuid(),'ddd'=>'11','purpose'=>'mixed'];
+  $outsider=User::factory()->create();$this->login($outsider);$this->get($url)->assertForbidden();$this->post($url,$d)->assertForbidden();
+  $this->login($this->client);
+  foreach(['supervisor','agent']as $role){DB::table('portal_memberships')->where('tenant_id',$this->tenant)->update(['role'=>$role]);$this->get($url)->assertForbidden();$this->post($url,$d)->assertForbidden();}
+  DB::table('portal_memberships')->where('tenant_id',$this->tenant)->update(['role'=>'admin','active'=>false]);$this->get($url)->assertForbidden();$this->post($url,$d)->assertForbidden();
+  $this->assertDatabaseCount('portal_number_requests',0);Http::assertNothingSent();
+ }
  public function test_quote_filters_ddd_and_purchase_is_explicit_single_and_not_released():void {
   $id=$this->order();$this->fake();$this->login($this->admin);
   $this->post('/number-administration/'.$id.'/quote')->assertRedirect();$q=json_decode(app(NumberOrders::class)->order($id)->quote,true);$this->assertCount(1,$q['numbers']);
