@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(web: __DIR__.'/../routes/web.php', commands: __DIR__.'/../routes/console.php', health: '/up')
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->web(replace: [\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class => \App\Http\Middleware\RecoverExpiredLogin::class]);
         $middleware->appendToGroup('web', \App\Http\Middleware\DiscaiTenantSession::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\VoiceAccess::class);
         $middleware->trimStrings(except: [fn ($r) => $r->is('callbacks/twilio/whatsapp/*', 'callbacks/twilio/voice/*')]);

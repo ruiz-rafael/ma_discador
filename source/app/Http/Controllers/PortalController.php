@@ -6,7 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Auth,DB,Hash,Crypt};
 use Illuminate\Validation\Rule;
 class PortalController extends Controller {
- public function loginPage(){return view('portal.login');}
+ public function loginPage(){return response()->view('portal.login')->header('Cache-Control','no-store, private');}
+ public function loginSession(Request $r){return response()->json(['token'=>$r->session()->token()])->header('Cache-Control','no-store, private')->header('Vary','Cookie');}
  public function login(Request $r,Access $a){$d=$r->validate(['email'=>'required|email','password'=>'required|string|max:300']);$d['email']=strtolower(trim($d['email']));if(!Auth::attempt($d+['voice_enabled'=>true]))return back()->withErrors(['login'=>'E-mail ou senha inválidos.'])->onlyInput('email');$r->session()->regenerate();$r->session()->put('voice_auth_version',(int)$r->user()->voice_auth_version);$a->audit('login',$r->user()->id,null);$members=DB::table('portal_memberships')->join('portal_tenants','portal_tenants.id','=','tenant_id')->where('user_id',$r->user()->id)->where('active',true)->where('status','active')->get(['slug']);if(count($members)===1&&!$a->operator($r->user()->id))return redirect('/t/'.$members[0]->slug);return redirect('/companies');}
  public function logout(Request $r){$r->user()->increment('voice_auth_version');Auth::logout();$r->session()->invalidate();$r->session()->regenerateToken();return redirect('/login');}
  public function companies(Request $r,Access $a){$operator=$a->operator($r->user()->id);$tenants=$operator?DB::table('portal_tenants')->orderBy('name')->get():DB::table('portal_tenants')->join('portal_memberships','portal_tenants.id','=','tenant_id')->where('user_id',$r->user()->id)->where('active',true)->orderBy('name')->get(['portal_tenants.*','role']);if($operator)foreach($tenants as $t)$t->role='platform';return view('portal.companies',compact('tenants','operator'));}
