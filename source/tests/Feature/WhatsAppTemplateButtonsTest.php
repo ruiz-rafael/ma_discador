@@ -85,6 +85,24 @@ class WhatsAppTemplateButtonsTest extends TestCase
         $this->assertDatabaseCount('wa_messages', 0);
     }
 
+    public function test_approval_refresh_tracks_reclassification_without_inventing_approval(): void
+    {
+        $id = $this->create(['category' => 'UTILITY']);
+        DB::table('wa_templates')->where('id', $id)->update(['state' => 'created', 'content_sid' => 'HX'.str_repeat('5', 32), 'account_sid' => $this->account, 'approval_status' => 'pending']);
+        Http::fake(['*' => Http::sequence()
+            ->push(['whatsapp' => ['category' => 'MARKETING', 'status' => 'pending', 'rejection_reason' => '']])
+            ->push(['whatsapp' => ['category' => 'MARKETING', 'status' => 'approved', 'rejection_reason' => '']])
+            ->push(['whatsapp' => ['status' => 'approved']])
+            ->push(['whatsapp' => ['category' => 'UNRECOGNIZED', 'status' => 'approved']])]);
+        $url = '/api/voice/whatsapp/templates/'.$id.'/approval';
+        $this->postJson($url, ['submit' => false])->assertOk()->assertJsonPath('category', 'MARKETING')->assertJsonPath('approval_status', 'pending');
+        $this->getJson('/api/voice/whatsapp')->assertOk()->assertJsonPath('templates.0.category', 'MARKETING')->assertJsonPath('templates.0.approval_status', 'pending');
+        for ($i = 0; $i < 3; $i++) $this->postJson($url, ['submit' => false])->assertOk()->assertJsonPath('category', 'MARKETING')->assertJsonPath('approval_status', 'approved');
+        Http::assertSentCount(4);
+        Http::assertNotSent(fn ($r) => $r->method() !== 'GET');
+        $this->assertDatabaseCount('wa_messages', 0);
+    }
+
     public function test_link_and_phone_publish_documented_actions(): void
     {
         $id = $this->create(['buttons' => [['type' => 'url', 'title' => 'Ver imóveis', 'url' => 'https://example.com/imoveis'], ['type' => 'phone', 'title' => 'Falar com a Bossa', 'phone' => '+551149330254']]]);

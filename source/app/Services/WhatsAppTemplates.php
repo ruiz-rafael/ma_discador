@@ -191,7 +191,12 @@ return $this->get($w, $id);
         }if (! in_array($status, ['not_submitted', 'received', 'pending', 'approved', 'rejected', 'paused', 'disabled'])) {
             $status = 'unknown';
         }
-        DB::table('wa_templates')->where('id',$id)->update(['approval_status' => $status, 'rejection_reason' => mb_substr((string) ($a['rejection_reason'] ?? ''),0,500), 'synced_at' => now(), 'updated_at' => now()]);
+        // Meta may reclassify a template while its approval is still pending.
+        // Category and approval are independent provider fields; never infer approval from a category change.
+        $category = strtoupper((string) ($a['category'] ?? ''));
+        $updates = ['approval_status' => $status, 'rejection_reason' => mb_substr((string) ($a['rejection_reason'] ?? ''),0,500), 'synced_at' => now(), 'updated_at' => now()];
+        if (in_array($category, ['UTILITY', 'MARKETING'], true)) $updates['category'] = $category;
+        DB::table('wa_templates')->where('id',$id)->update($updates);
 
         return $this->get($w,$id);
     }

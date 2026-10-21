@@ -3,7 +3,7 @@
   "info": {
     "title": "DiscAI official WhatsApp templates with buttons",
     "version": "1.0.0",
-    "description": "Tenant-scoped authenticated session and CSRF token required. Provider contract checked against Twilio Content API docs on 2026-10-21."
+    "description": "Tenant-scoped authenticated session and CSRF token required. Provider contract checked against Twilio Content API docs on 2026-10-21. Approval refresh synchronizes the provider category independently from approval status. Missing or unsupported categories preserve the last known value."
   },
   "paths": {
     "/api/voice/whatsapp/templates": {
