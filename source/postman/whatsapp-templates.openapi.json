@@ -1,0 +1,259 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DiscAI official WhatsApp templates with buttons",
+    "version": "1.0.0",
+    "description": "Tenant-scoped authenticated session and CSRF token required. Provider contract checked against Twilio Content API docs on 2026-10-21."
+  },
+  "paths": {
+    "/api/voice/whatsapp/templates": {
+      "post": {
+        "description": "Save a local draft only. No provider requests.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Draft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Local template with provider state. Pending is not approved."
+          },
+          "403": {
+            "description": "Only the tenant administrator may configure templates."
+          },
+          "404": {
+            "description": "Template outside this tenant or not found."
+          },
+          "409": {
+            "description": "Immutable, duplicate or uncertain state; no automatic repeat."
+          },
+          "422": {
+            "description": "Invalid fields."
+          },
+          "502": {
+            "description": "Provider request was rejected or uncertain; reconcile before repeating."
+          }
+        }
+      }
+    },
+    "/api/voice/whatsapp/templates/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "put": {
+        "description": "Edit an unpublished draft; published content requires a copy.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Draft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Local template with provider state. Pending is not approved."
+          },
+          "403": {
+            "description": "Only the tenant administrator may configure templates."
+          },
+          "404": {
+            "description": "Template outside this tenant or not found."
+          },
+          "409": {
+            "description": "Immutable, duplicate or uncertain state; no automatic repeat."
+          },
+          "422": {
+            "description": "Invalid fields."
+          },
+          "502": {
+            "description": "Provider request was rejected or uncertain; reconcile before repeating."
+          }
+        }
+      }
+    },
+    "/api/voice/whatsapp/templates/{id}/submit": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "description": "Create Twilio Content then request Meta approval. If content exists, reuse it. Uncertain creation blocks retry; uncertain approval is consulted, never automatically repeated. No customer messages are sent.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "confirmed"
+                ],
+                "properties": {
+                  "confirmed": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Local template with provider state. Pending is not approved."
+          },
+          "403": {
+            "description": "Only the tenant administrator may configure templates."
+          },
+          "404": {
+            "description": "Template outside this tenant or not found."
+          },
+          "409": {
+            "description": "Immutable, duplicate or uncertain state; no automatic repeat."
+          },
+          "422": {
+            "description": "Invalid fields."
+          },
+          "502": {
+            "description": "Provider request was rejected or uncertain; reconcile before repeating."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Button": {
+        "type": "object",
+        "required": [
+          "type",
+          "title"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "reply",
+              "url",
+              "phone"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "reply",
+              "opt_out"
+            ],
+            "default": "reply"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Required for url. Static public HTTPS link; variables are not supported."
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+[1-9][0-9]{7,14}$",
+            "description": "Required for phone; E.164."
+          }
+        }
+      },
+      "Draft": {
+        "type": "object",
+        "required": [
+          "name",
+          "language",
+          "category",
+          "body",
+          "variables"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{2,99}$"
+          },
+          "language": {
+            "enum": [
+              "pt_BR",
+              "en",
+              "es"
+            ]
+          },
+          "category": {
+            "enum": [
+              "MARKETING",
+              "UTILITY"
+            ]
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "640 characters with URL/phone buttons."
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "buttons": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/Button"
+            },
+            "description": "One family per template: up to 10 reply buttons OR up to 2 URL and 1 phone. Titles must be distinct and static. At most one opt_out. Omitted means text only."
+          }
+        }
+      }
+    }
+  },
+  "x-provider-contract": {
+    "quickReply": "https://www.twilio.com/docs/content/twilio-quick-reply",
+    "callToAction": "https://www.twilio.com/docs/content/twilio-call-to-action",
+    "inbound": {
+      "signature": "X-Twilio-Signature, original form body and exact callback URL; account must match.",
+      "fields": [
+        "MessageSid",
+        "AccountSid",
+        "From",
+        "To",
+        "Body",
+        "ButtonText",
+        "ButtonPayload",
+        "OriginalRepliedMessageSid"
+      ],
+      "opt_out": "discai_opt_out marks contact suppressed in sender workspace; replies are deduplicated by MessageSid."
+    }
+  }
+}

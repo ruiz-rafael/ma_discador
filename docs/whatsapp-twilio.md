@@ -4,6 +4,20 @@ Atualização de 03/10/2026: entregue a [configuração de WhatsApp após X não
 
 Decisão de 01/10/2026: cada campanha escolhe `number_mode=single|separate`. Essa escolha atualiza a diretriz original do PDF de usar sempre o mesmo número; o documento original foi preservado. Toda a implementação pertence ao MA, sem alterações no projeto CRM.
 
+## Atualização de 21/10/2026: templates oficiais com botões
+
+No painel do cliente, abra **Canais → WhatsApp → Templates → API oficial → Novo template**. O editor permite salvar um rascunho local ou usar **Enviar para aprovação**, que cria o conteúdo na Twilio e solicita a análise da Meta. Acompanhe com **Consultar aprovação**; a plataforma não garante aprovação nem envia mensagens aos contatos ao publicar um template.
+
+- **Respostas rápidas:** até dez opções, títulos fixos de até 20 caracteres. O atalho **Usar interesse e descadastro** adiciona “Tenho interesse” e “Não receber ofertas”. O segundo registra a interrupção de abordagens ao telefone naquela empresa e cancela ações pendentes. As demais respostas entram na conversa; com referência à mensagem original, o clique também é atribuído à jornada.
+- **Link ou telefone:** até dois links HTTPS fixos e um telefone E.164, com texto de até 640 caracteres. Nesta versão, não se misturam respostas rápidas com links/telefone e não há URL dinâmica.
+- **Rascunhos existentes:** podem ser editados antes da publicação. Para um conteúdo publicado, **Criar cópia** preserva o conteúdo aprovado e permite enviar outro para análise.
+- **Categoria:** novas mensagens começam em Marketing; ofertas e prospecção de imóveis pertencem a essa categoria. Utilidade permanece disponível para comunicações pertinentes a solicitações ou transações existentes sem promoção.
+- **Integridade:** somente o administrador da empresa cria/edita/publica. Publicações incertas não são repetidas automaticamente; a reconciliação compara também os botões. Cliques recebidos exigem assinatura Twilio válida e são deduplicados pelo Message SID.
+
+Contrato: `source/postman/whatsapp-templates.openapi.json`. Tipos oficiais: [quick-reply](https://www.twilio.com/docs/content/twilio-quick-reply), [call-to-action](https://www.twilio.com/docs/content/twilio-call-to-action), [webhook de botões](https://www.twilio.com/docs/whatsapp/buttons). Testes isolados usam os formatos documentados e respostas HTTP controladas; não constituem aprovação real da Meta. O executável Postman disponível no ambiente é o aplicativo desktop, sem CLI de simulação utilizável; a integração foi validada com Laravel HTTP fake e testes de navegador com requisições interceptadas.
+
+Validação desta atualização: 82 testes e 468 assertions passaram, incluindo contratos dos botões, isolamento, assinatura de webhook, descadastro, atribuição à mensagem original e falhas de publicação. A compilação Vite passou e o editor foi validado em Chromium em desktop e celular com operações de escrita interceptadas. Implantação aditiva em MA, Bossa Nova e Polishop, com rascunhos preservados. Backup: `/srv/zyrex-ma/backups/wa-template-buttons-20261021T205815Z`. Nenhum envio real ou submissão de template de teste foi realizado.
+
 ## Uso na interface
 
 Em **Voz e cadências → Campanhas → Configurar**, a opção **Usar um único número para voz e WhatsApp** vem marcada, inclusive para campanhas antigas. Nesse modo, o número WhatsApp deriva do número de voz. Desmarcando, surge um campo independente. O remetente vinculado precisa pertencer ao mesmo workspace e corresponder ao número escolhido. A opção pode ser preparada antes de contratar os serviços; não comprova conexão ou disponibilidade do número nos dois canais.
@@ -12,11 +26,11 @@ Em **Voz e cadências → WhatsApp**:
 
 1. Cadastre nome, número em E.164 e origem: outra operadora ou Twilio. Esse cadastro é local e começa como não verificado.
 2. Cadastre/verifique o número na Twilio e informe o Sender SID `XE…`. **Verificar na Twilio** consulta o remetente real e exige correspondência exata do número.
-3. Crie um rascunho de template de texto, com idioma, categoria e exemplos das variáveis. Use `{{1}}`, `{{2}}` no texto e `{"1":"Ana","2":"123"}` nos exemplos. Sem variáveis, use `{}`.
-4. **Publicar na Twilio** cria o Content SID `HX…`. **Solicitar aprovação** submete o conteúdo para análise; **Consultar aprovação** atualiza o resultado. Aprovação é decidida pela Meta, não pelo MA. Conteúdo publicado não equivale a aprovado.
+3. Crie um rascunho de template com texto, botões opcionais, idioma, categoria e exemplos das variáveis. Use `{{1}}`, `{{2}}` no texto e `{"1":"Ana","2":"123"}` nos exemplos. Sem variáveis, use `{}`.
+4. **Enviar para aprovação** cria o Content SID `HX…` e submete o conteúdo para análise; **Consultar aprovação** atualiza o resultado. Aprovação é decidida pela Meta, não pelo MA. Conteúdo publicado não equivale a aprovado.
 5. Com remetente ONLINE, template aprovado e contato autorizado na lista de homologação, faça um envio manual. O sistema consulta novamente o provedor antes do envio. O histórico distingue fila, envio, entrega e leitura, além de falha ou resultado incerto.
 
-Templates desta etapa são de **texto**, nas categorias Marketing e Utilidade, em pt_BR/en/es. Mídia, botões, autenticação/OTP, edição e importação de templates existentes não fazem parte desta entrega. Um conteúdo alterado deve ser criado como novo rascunho, com outro nome.
+Templates aceitam texto e os botões descritos na atualização acima, nas categorias Marketing e Utilidade, em pt_BR/en/es. Mídia, autenticação/OTP e importação de templates do provedor não fazem parte desta entrega. Rascunhos locais são editáveis; conteúdo já publicado exige uma cópia com outro nome.
 
 Campanhas e cadências continuam simuladas. A API Twilio implementada serve aos testes manuais deste módulo; os nós legados de jornadas MA continuam dependentes do gateway de integração. Publicar um template aqui não cria automaticamente uma referência de template no CRM ou no catálogo legado. A execução automática das jornadas/cadências será conectada depois da homologação real, com regras de janela, orçamento e reconciliação por execução.
 
@@ -58,7 +72,9 @@ Rotas autenticadas, com CSRF e limite de frequência, sob `/api/voice/whatsapp`:
 | Vincular Sender SID | PUT `/senders/{id}` |
 | Consultar remetente | POST `/senders/{id}/sync` |
 | Criar rascunho | POST `/templates` |
-| Publicar conteúdo | POST `/templates/{uuid}/publish` |
+| Editar rascunho local | PUT `/templates/{uuid}` |
+| Publicar e solicitar aprovação | POST `/templates/{uuid}/submit`, `confirmed: true` |
+| Publicar conteúdo (compatibilidade) | POST `/templates/{uuid}/publish` |
 | Solicitar/consultar aprovação | POST `/templates/{uuid}/approval`, `submit: true/false` |
 | Conciliar publicação incerta | POST `/templates/{uuid}/reconcile`, `content_sid` |
 | Enviar teste | POST `/messages` |

@@ -57,6 +57,8 @@ Route::middleware(['auth', 'throttle:120,1'])->prefix('api/voice/whatsapp')->gro
     Route::post('/qr/messages', [$c, 'qrSend'])->middleware('throttle:10,1,wa-qr-send:');
     Route::post('/followups/{id}/retry', [$c, 'retryFollowup'])->whereUuid('id');
     Route::post('/templates', [$c, 'template']);
+    Route::put('/templates/{id}', [$c, 'updateTemplate'])->whereUuid('id');
+    Route::post('/templates/{id}/submit', [$c, 'submitTemplate'])->whereUuid('id');
     Route::post('/templates/{id}/publish', [$c, 'publish'])->whereUuid('id');
     Route::post('/templates/{id}/approval', [$c, 'approval'])->whereUuid('id');
     Route::post('/templates/{id}/reconcile', [$c, 'reconcileTemplate'])->whereUuid('id');

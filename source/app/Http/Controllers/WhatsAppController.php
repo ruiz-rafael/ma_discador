@@ -17,12 +17,19 @@ class WhatsAppController extends Controller
         return 1;
     }
 
+    private function templateWorkspace(Request $r): int
+    {
+        abort_unless($r->user()->voice_role === 'admin', 403, 'Somente o administrador da empresa configura templates oficiais.');
+        return $this->workspace($r);
+    }
+
     public function index(Request $r)
     {
         $w = $this->workspace($r);
 
         return response()->json(['platform_admin' => \App\Services\WhatsAppVerification::platform($r), 'connection' => app(TwilioWhatsAppConnection::class)->status(), 'senders' => DB::table('wa_senders')->where('workspace_id', $w)->orderByDesc('id')->get(), 'qr_templates' => app(\App\Services\WhatsAppQrTemplates::class)->catalog($w), 'templates' => DB::table('wa_templates')->where('workspace_id', $w)->orderByDesc('created_at')->limit(100)->get()->map(function ($t) {
             $t->variables = json_decode($t->variables, true);
+            $t->buttons = app(WhatsAppTemplates::class)->buttons($t);
 
             return $t;
         }), 'messages' => DB::table('wa_messages')->where('workspace_id', $w)->orderByDesc('created_at')->limit(100)->get(['id', 'sender_id', 'contact_id', 'campaign_id', 'template_id', 'direction', 'from_number', 'to_number', 'status', 'error_code', 'body', 'provider_sid', 'provider', 'provider_reference', 'created_at', 'qr_template_id', 'interactive']), 'contacts' => DB::table('voice_contacts')->where('workspace_id', $w)->limit(500)->get(['id', 'name', 'phone', 'consent', 'suppressed_at', 'replied_at']), 'campaigns' => DB::table('voice_campaigns')->where('workspace_id', $w)->get(['id', 'name'])])->header('Cache-Control', 'no-store, private');
@@ -60,26 +67,37 @@ class WhatsAppController extends Controller
 
     public function template(Request $r)
     {
-        return app(WhatsAppTemplates::class)->create($this->workspace($r), $r->all());
+        return app(WhatsAppTemplates::class)->create($this->templateWorkspace($r), $r->all());
     }
 
     public function publish(Request $r, string $id)
     {
-        return app(WhatsAppTemplates::class)->publish($this->workspace($r), $id);
+        return app(WhatsAppTemplates::class)->publish($this->templateWorkspace($r), $id);
+    }
+
+    public function updateTemplate(Request $r, string $id)
+    {
+        return app(WhatsAppTemplates::class)->update($this->templateWorkspace($r), $id, $r->all());
+    }
+
+    public function submitTemplate(Request $r, string $id)
+    {
+        $r->validate(['confirmed' => 'required|accepted']);
+        return app(WhatsAppTemplates::class)->submit($this->templateWorkspace($r), $id);
     }
 
     public function approval(Request $r, string $id)
     {
         $d = $r->validate(['submit' => 'required|boolean']);
 
-        return app(WhatsAppTemplates::class)->approval($this->workspace($r), $id, $d['submit']);
+        return app(WhatsAppTemplates::class)->approval($this->templateWorkspace($r), $id, $d['submit']);
     }
 
     public function reconcileTemplate(Request $r, string $id)
     {
         $d = $r->validate(['content_sid' => ['required', 'regex:/^HX[0-9a-fA-F]{32}$/D']]);
 
-        return app(WhatsAppTemplates::class)->reconcile($this->workspace($r), $id, $d['content_sid']);
+        return app(WhatsAppTemplates::class)->reconcile($this->templateWorkspace($r), $id, $d['content_sid']);
     }
 
     public function send(Request $r)
