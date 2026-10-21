@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """Tenant-scoped SIP AGI. The API supplies the endpoint and destination."""
-import hashlib,hmac,json,re,sys,time,urllib.request
+import hashlib,hmac,json,re,sys,time,urllib.request,urllib.error
 while sys.stdin.readline().strip():
     pass
 values={'MA_ALLOWED':'0'}
@@ -32,7 +32,11 @@ try:
             if not 30<=seconds<=180 or not 10<=ring<=45:raise ValueError('Invalid limits')
             values.update(MA_ENDPOINT=result['endpoint'],MA_NUMBER=result['dial_number'],MA_CALLER=result['caller_id'][1:],MA_SECONDS=str(seconds),MA_RING=str(ring))
         values['MA_ALLOWED']='1'
-except Exception:
+except Exception as error:
+    # Fixed categories only: never log tokens, credentials, request bodies or destinations.
+    category='HTTP_'+str(error.code) if isinstance(error,urllib.error.HTTPError) else 'UNREACHABLE' if isinstance(error,urllib.error.URLError) else 'INVALID_RESPONSE'
+    print('VERBOSE "DiscAI SIP callback failed: '+category+'" 1',flush=True)
+    sys.stdin.readline()
     values={'MA_ALLOWED':'0'}
 for key in [k for k in values if k!='MA_ALLOWED']+['MA_ALLOWED']:
     print('SET VARIABLE '+key+' '+values[key],flush=True)

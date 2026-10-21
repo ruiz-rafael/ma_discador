@@ -4,6 +4,7 @@ Only reads DiscAI containers; credentials remain in private storage and PBX file
 """
 from pathlib import Path
 import fcntl, hashlib, json, os, re, shutil, subprocess, tempfile, time
+from sip_callback_relay import relay_network, relay_target, relay_config
 os.umask(0o077)
 ROOT=Path('/srv/zyrex-ma'); LIVE=ROOT/'voice-runtime/asterisk'
 def run(args, data=None):
@@ -38,7 +39,9 @@ external_media_address=217.216.65.237
 local_net=10.241.50.0/24
 '''
     dialplan='[discai-sip-denied]\nexten => _.,1,Hangup(21)\n'
-    callbacks={};expected=[]
+    pbx=json.loads(run(['docker','inspect','zyrex-ma-pbx-1']))[0]
+    gateway,pbx_address=relay_network(pbx)
+    callbacks={};expected=[];relay_targets={}
     for name,c in configs.items():
         for t in c['trunks']:
             if not re.fullmatch(r'discai-vono-[a-f0-9]{32}',t['endpoint']):raise RuntimeError('Invalid endpoint identity')
@@ -47,7 +50,10 @@ local_net=10.241.50.0/24
         b=c['browser'];identity=b['username']
         if not re.fullmatch(r'discai-browser-[a-f0-9]{16}',identity) or not re.fullmatch(r'[a-f0-9]{64}',b['password']):raise RuntimeError('Invalid browser identity')
         if not re.fullmatch(r'https://[a-z0-9.-]+/internal/voice/calling/event',c['callback']):raise RuntimeError('Invalid tenant callback')
-        callbacks[identity]={'url':c['callback'],'secret':c['policy']['event_secret'],'endpoints':[t['endpoint'] for t in c['trunks'] if t['enabled']]}
+        if identity in callbacks:raise RuntimeError('Duplicate tenant browser identity')
+        web_name=name.removesuffix('-app-1')+'-web-1'
+        relay_targets[identity]=relay_target(name,c['callback'],json.loads(run(['docker','inspect',web_name]))[0])
+        callbacks[identity]={'url':f'http://{gateway}:18489/{identity}','secret':c['policy']['event_secret'],'endpoints':[t['endpoint'] for t in c['trunks'] if t['enabled']]}
         pjsip+=f'''
 [{identity}]
 type=auth
@@ -101,7 +107,11 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
     for base,include in [('pjsip.conf','discai-sip-pjsip.conf'),('extensions.conf','discai-sip-extensions.conf')]:
         text=(LIVE/base).read_text();line='#include '+include
         files[base]=text if line in text.splitlines() else text+'\n'+line+'\n'
-    changed=any(not(LIVE/f).exists() or (LIVE/f).read_text()!=v for f,v in files.items())
+    relay_path=Path('/etc/nginx/conf.d/discai-sip-callbacks.conf')
+    relay_text=relay_config(gateway,pbx_address,relay_targets)
+    relay_before=relay_path.read_text() if relay_path.exists() else None
+    relay_changed=relay_before!=relay_text
+    changed=relay_changed or any(not(LIVE/f).exists() or (LIVE/f).read_text()!=v for f,v in files.items())
     if changed:
         if any(c['busy'] for c in configs.values()) or '0 active channels' not in cli('core show channels count'):
             print('SIP changes queued until current calls finish.');return
@@ -128,8 +138,15 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
             previous={f:(LIVE/f).read_bytes() if (LIVE/f).exists() else None for f in files}
             for f,v in previous.items():
                 if v is not None:(backup/f).write_bytes(v)
+            if relay_before is not None:(backup/'callback-relay.conf').write_text(relay_before)
             new_transport='discai-vono-udp' not in cli('pjsip show transports')
             try:
+                if relay_changed:
+                    write(relay_path,relay_text,0o644)
+                    run(['nginx','-t']);run(['systemctl','reload','nginx'])
+                # Restrict the host firewall exception to this PBX and this private listener.
+                if shutil.which('ufw') and 'Status: active' in run(['ufw','status']):
+                    run(['ufw','allow','proto','tcp','from',pbx_address,'to',gateway,'port','18489','comment','DiscAI private PBX callbacks'])
                 for f,v in files.items():write(LIVE/f,v,0o750 if f.endswith('.py') else 0o640)
                 if new_transport:run(['docker','restart','zyrex-ma-pbx-1']);time.sleep(3)
                 else:
@@ -139,6 +156,13 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
                 for b in callbacks:
                     if 'Dial(' not in cli('dialplan show '+b):raise RuntimeError('Live dialplan validation failed')
             except Exception:
+                if relay_changed:
+                    if relay_before is None:relay_path.unlink(missing_ok=True)
+                    else:write(relay_path,relay_before,0o644)
+                    run(['nginx','-t']);run(['systemctl','reload','nginx'])
+                # Restrict the host firewall exception to this PBX and this private listener.
+                if shutil.which('ufw') and 'Status: active' in run(['ufw','status']):
+                    run(['ufw','allow','proto','tcp','from',pbx_address,'to',gateway,'port','18489','comment','DiscAI private PBX callbacks'])
                 for f,v in previous.items():
                     if v is None:(LIVE/f).unlink(missing_ok=True)
                     else:write(LIVE/f,v.decode(),0o750 if f.endswith('.py') else 0o640)
