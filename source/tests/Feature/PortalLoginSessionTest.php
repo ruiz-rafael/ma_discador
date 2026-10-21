@@ -37,6 +37,21 @@ class PortalLoginSessionTest extends TestCase {
  public function test_navigation_to_session_endpoint_returns_to_login_instead_of_exposing_json():void {
   $this->get('/login/session')->assertRedirect('/login')->assertHeader('Cache-Control','no-store, private');
  }
+ public function test_json_login_returns_only_a_local_destination_after_authentication():void {
+  $u=User::factory()->create(['email'=>'json@example.test','password'=>'CorrectPassword123']);
+  $tid=DB::table('portal_tenants')->insertGetId(['slug'=>'bossanova','name'=>'Bossa Nova','status'=>'active']);
+  DB::table('portal_memberships')->insert(['tenant_id'=>$tid,'user_id'=>$u->id,'role'=>'admin','active'=>true]);
+  $token=$this->getJson('/login/session')->json('token');
+  $this->postJson('/login',['email'=>$u->email,'password'=>'CorrectPassword123','_token'=>$token,'next'=>'https://evil.example'])
+   ->assertOk()->assertExactJson(['redirect'=>'/t/bossanova'])->assertHeader('Cache-Control','no-store, private');
+  $this->assertAuthenticatedAs($u);
+ }
+ public function test_json_invalid_login_is_actionable_and_does_not_retain_password():void {
+  $token=$this->getJson('/login/session')->json('token');
+  $this->postJson('/login',['email'=>'missing@example.test','password'=>'DoNotRetainPassword','_token'=>$token])
+   ->assertStatus(422)->assertJsonPath('message','E-mail ou senha inválidos.')->assertDontSee('DoNotRetainPassword')->assertSessionMissing('_old_input.password');
+  $this->assertGuest();
+ }
  public function test_invalid_credentials_after_background_refresh_return_to_usable_login():void {
   // Legacy clients updated Laravel's previous URL with this JSON GET.
   $token=$this->getJson('/login/session')->assertOk()->json('token');
