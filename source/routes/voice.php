@@ -38,6 +38,9 @@ Route::post('/internal/voice/audio/event', [A::class, 'event'])->middleware('thr
 Route::middleware(['auth', 'throttle:120,1'])->prefix('api/voice/whatsapp')->group(function () {
     $c = WhatsAppController::class;
     $onboarding = \App\Http\Controllers\WhatsAppOnboardingController::class;
+    $profile = \App\Http\Controllers\WhatsAppPublicProfileController::class;
+    Route::match(['GET', 'PUT'], '/senders/{id}/profile', [$profile, 'handle'])->whereNumber('id');
+    Route::post('/senders/{id}/profile/{action}', [$profile, 'handle'])->whereNumber('id')->whereIn('action', ['photo', 'sync', 'publish'])->middleware('throttle:10,1,wa-profile:');
     Route::match(['GET', 'PUT'], '/onboarding/settings', [$onboarding, 'settings']);
     Route::get('/senders/{id}/onboarding', [$onboarding, 'status'])->whereNumber('id');
     Route::post('/senders/{id}/onboarding/{action}', [$onboarding, 'action'])->whereNumber('id')->whereIn('action', ['discover', 'embedded', 'register', 'verify', 'webhook'])->middleware('throttle:10,1,wa-onboarding:');
@@ -59,6 +62,7 @@ Route::middleware(['auth', 'throttle:120,1'])->prefix('api/voice/whatsapp')->gro
 });
 Route::post('/callbacks/twilio/whatsapp/status/{id}', [WhatsAppWebhookController::class, 'status'])->whereUuid('id')->middleware('throttle:240,1,wa-hook:');
 Route::post('/callbacks/twilio/whatsapp/inbound', [WhatsAppWebhookController::class, 'inbound'])->middleware('throttle:240,1,wa-hook:');
+Route::get('/media/whatsapp-profile/{file}', [\App\Http\Controllers\WhatsAppPublicProfileController::class, 'image'])->where('file', '[0-9a-fA-F-]{36}\.(jpg|png)')->middleware('throttle:120,1,wa-profile-image:');
 
 Route::middleware(['auth', 'throttle:120,1'])->prefix('api/voice/calling')->group(function () {
     $c = VoiceCallingController::class;

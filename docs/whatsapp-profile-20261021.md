@@ -1,0 +1,11 @@
+# WhatsApp public profile and login recovery — 2026-10-21
+
+Administrators can save each official sender’s public name, about text and photo separately from the internal number label. Drafts work before provider credentials or activation exist. Publishing checks the live number, sender SID, account and bound WABA before submitting to Twilio v2. Names remain pending until the provider confirms the change; accepted partial responses never replace the last confirmed snapshot. An uncertain publication requires a read before another submission.
+
+Photos are square, opaque PNG/JPG, 640–4096px, up to 5 MiB. Only uploaded images receive a tenant-origin public image URL; arbitrary remote photo URLs are not accepted. Public image responses use a fixed MIME and nosniff. Administrative endpoints require the local tenant administrator and preserve CSRF/session checks. Contract: source/postman/whatsapp-profile.openapi.json.
+
+Login now bounds both session-token retrieval and credential submission, including response-body reads. It clears the password on failure and offers a safe local continuation if navigation stalls. The backend returns a local destination only after successful JSON authentication; standard HTML form behavior is retained.
+
+Validation: 37 PHP tests / 221 assertions (profile permissions, upload validation, identity mismatch, asynchronous acceptance, partial rejection, transport timeout, existing onboarding and login). Provider operations were intercepted in PHP tests; no live profile change or WhatsApp message was sent. Browser fault injection covered session timeout, login timeout, invalid credentials and rejected external redirects. Live checks confirmed valid administrator login, invalid-login recovery, and the Bossa Nova draft on desktop/mobile without horizontal overflow or JavaScript errors.
+
+Operational state: +551149330254 has a local Bossa Nova SIR draft, not an activated WhatsApp sender. Meta reported OTP rate limiting; no verification call was observed. The Meta authorization and provider/tenant messaging connection remain pending. +551154443245 (Vono) was not registered or sent an OTP; the user will test its manual voice verification later. Do not re-request codes repeatedly or report the draft as connected.

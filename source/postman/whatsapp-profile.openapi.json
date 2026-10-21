@@ -1,0 +1,223 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DiscAI WhatsApp public profile",
+    "version": "1.0.0",
+    "description": "Tenant administrator session and CSRF required. Draft/photo never contact the provider. publish checks live sender/account identity, submits once, and preserves the last confirmed snapshot; sync reads provider state. Unknown publication requires sync before retry. Twilio v2; name review is asynchronous."
+  },
+  "paths": {
+    "/api/voice/whatsapp/senders/{id}/profile": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Read draft and last confirmed profile",
+        "responses": {
+          "200": {
+            "description": "Draft, confirmed profile, submission_state, timestamps, can_publish, number"
+          },
+          "403": {
+            "description": "Not tenant administrator"
+          },
+          "409": {
+            "description": "Identity mismatch, concurrent update or reconciliation required"
+          },
+          "422": {
+            "description": "Invalid data or number not activated"
+          },
+          "502": {
+            "description": "Provider query unavailable; draft preserved"
+          }
+        }
+      },
+      "put": {
+        "summary": "Save name and about locally",
+        "responses": {
+          "200": {
+            "description": "Draft, confirmed profile, submission_state, timestamps, can_publish, number"
+          },
+          "403": {
+            "description": "Not tenant administrator"
+          },
+          "409": {
+            "description": "Identity mismatch, concurrent update or reconciliation required"
+          },
+          "422": {
+            "description": "Invalid data or number not activated"
+          },
+          "502": {
+            "description": "Provider query unavailable; draft preserved"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "about"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 255
+                  },
+                  "about": {
+                    "type": "string",
+                    "maxLength": 139
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/voice/whatsapp/senders/{id}/profile/photo": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Upload square opaque JPG/PNG, 640–4096px, up to 5 MiB",
+        "responses": {
+          "200": {
+            "description": "Draft, confirmed profile, submission_state, timestamps, can_publish, number"
+          },
+          "403": {
+            "description": "Not tenant administrator"
+          },
+          "409": {
+            "description": "Identity mismatch, concurrent update or reconciliation required"
+          },
+          "422": {
+            "description": "Invalid data or number not activated"
+          },
+          "502": {
+            "description": "Provider query unavailable; draft preserved"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "photo"
+                ],
+                "properties": {
+                  "photo": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/voice/whatsapp/senders/{id}/profile/publish": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Submit saved draft to Twilio; does not imply approval",
+        "responses": {
+          "200": {
+            "description": "Draft, confirmed profile, submission_state, timestamps, can_publish, number"
+          },
+          "403": {
+            "description": "Not tenant administrator"
+          },
+          "409": {
+            "description": "Identity mismatch, concurrent update or reconciliation required"
+          },
+          "422": {
+            "description": "Invalid data or number not activated"
+          },
+          "502": {
+            "description": "Provider query unavailable; draft preserved"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "confirmed"
+                ],
+                "properties": {
+                  "confirmed": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/voice/whatsapp/senders/{id}/profile/sync": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Read confirmed and pending name from Twilio",
+        "responses": {
+          "200": {
+            "description": "Draft, confirmed profile, submission_state, timestamps, can_publish, number"
+          },
+          "403": {
+            "description": "Not tenant administrator"
+          },
+          "409": {
+            "description": "Identity mismatch, concurrent update or reconciliation required"
+          },
+          "422": {
+            "description": "Invalid data or number not activated"
+          },
+          "502": {
+            "description": "Provider query unavailable; draft preserved"
+          }
+        }
+      }
+    }
+  }
+}

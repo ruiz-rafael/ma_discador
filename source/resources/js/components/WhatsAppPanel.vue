@@ -6,6 +6,7 @@ import WhatsAppQrTemplates from './WhatsAppQrTemplates.vue'
 import WhatsAppQrTest from './WhatsAppQrTest.vue'
 import WhatsAppQrSession from './WhatsAppQrSession.vue'
 import WhatsAppOnboarding from './WhatsAppOnboarding.vue'
+import WhatsAppPublicProfile from './WhatsAppPublicProfile.vue'
 const emit=defineEmits(['changed'])
 const data=ref(null),busy=ref(false),error=ref(''),notice=ref(''),senderSids=ref({}),contentSids=ref({})
 const tab=ref('numbers'),selectedId=ref(null),creating=ref(false),createStep=ref(1),templateEditor=ref(false),templateChannel=ref('qr'),testChannel=ref('qr')
@@ -74,8 +75,10 @@ onMounted(()=>run(refresh))
       <div class="wa-section-heading"><span class="eyebrow">{{channel(selected)}}</span><span class="wa-badge" :class="tone(selected.status)">{{label(selected.status)}}</span></div><h3 id="wa-connection-title" tabindex="-1">{{selected.label}}</h3><p class="wa-phone">{{selected.number}}</p>
       <WhatsAppQrSession v-if="selected.provider==='qr'" :sender="selected" @changed="run(refresh)"/>
       <template v-else>
-       <WhatsAppOnboarding :sender="selected" @changed="run(refresh)"/>
-       <details class="wa-details"><summary>Vínculo avançado por Sender SID</summary><p>Use somente se já tem o identificador do remetente cadastrado na Twilio.</p><form v-if="!selected.provider_sid" @submit.prevent="bindSender(selected)"><label>Identificador do remetente · Sender SID<input v-model="senderSids[selected.id]" required pattern="XE[0-9a-fA-F]{32}" placeholder="XE…"></label><button class="secondary" :disabled="busy">Vincular remetente</button></form><button v-else class="secondary" :disabled="busy||!connected" @click="action('/senders/'+selected.id+'/sync')">Verificar conexão na Twilio</button></details>
+       <WhatsAppPublicProfile :sender="selected"/>
+       <WhatsAppOnboarding v-if="connected" :sender="selected" @changed="run(refresh)"/>
+       <p v-else class="wa-notice">A conexão oficial deste ambiente aguarda configuração pelo administrador da plataforma. Você já pode preparar o perfil; a ativação do número será confirmada pela Meta e pela Twilio.</p>
+       <details v-if="connected" class="wa-details"><summary>Vínculo avançado por Sender SID</summary><p>Use somente se já tem o identificador do remetente cadastrado na Twilio.</p><form v-if="!selected.provider_sid" @submit.prevent="bindSender(selected)"><label>Identificador do remetente · Sender SID<input v-model="senderSids[selected.id]" required pattern="XE[0-9a-fA-F]{32}" placeholder="XE…"></label><button class="secondary" :disabled="busy">Vincular remetente</button></form><button v-else class="secondary" :disabled="busy||!connected" @click="action('/senders/'+selected.id+'/sync')">Verificar conexão na Twilio</button></details>
       </template>
       <p class="wa-sync">Última verificação: {{date(selected.synced_at)}}</p>
       <div class="wa-next"><span class="wa-mini-icon"><FileText :size="19"/></span><div><strong>Prepare a mensagem deste canal</strong><p>{{selected.provider==='qr'?'Use texto personalizado e modelos com até três botões.':'Crie um template e acompanhe a aprovação da Meta.'}}</p><button class="wa-text-button" @click="openTemplates(selected.provider)">Ir para templates <ArrowRight :size="15"/></button></div></div>
