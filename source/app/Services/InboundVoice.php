@@ -16,7 +16,14 @@ class InboundVoice {
    abort_unless(DB::table('voice_live_queues')->where('workspace_id',$w)->whereIn('direction',['inbound','mixed'])->get()->contains(fn($q)=>in_array($u,json_decode($q->agent_ids,true),true)),403,'Você não está vinculado a uma fila receptiva.');
    $c=app(TwilioVoiceConnection::class)->read();$sip=app(SipInbound::class)->grant($u);abort_unless($w===1 && (($c && $c['enabled']) || $sip),422,'Habilite uma conexão de voz para receber chamadas.');
    $old=DB::table('voice_inbound_devices')->where('user_id',$u)->first();
-   abort_if($old && $old->session_id!==$session && ($old->last_seen_at>now()->subSeconds(60)->toDateTimeString() || app(VoiceAgentCapacity::class)->inboundBusy($w,$u)),409,'A conexão anterior do receptivo ainda está registrada. Se acabou de recarregar, aguarde até 60 segundos e tente ficar online novamente. Se houver outra aba atendendo, use aquela aba.');
+   if($old && $old->session_id!==$session){
+    $active=app(VoiceAgentCapacity::class)->inboundBusy($w,$u);
+    $remaining=max(0,\Carbon\CarbonImmutable::parse($old->last_seen_at)->addSeconds(60)->getTimestamp()-now()->getTimestamp());
+    if($active||$remaining>0)throw new \Illuminate\Http\Exceptions\HttpResponseException(response()->json([
+     'message'=>$active?'Há um atendimento ou tabulação na conexão anterior. Conclua-o antes de reconectar.':'A conexão anterior do receptivo ainda está registrada. Se acabou de recarregar, aguarde até 60 segundos e tente ficar online novamente. Se houver outra aba atendendo, use aquela aba.',
+     'code'=>$active?'inbound_session_busy':'inbound_session_lease','retry_after'=>$active?null:$remaining+1,
+    ],409));
+   }
    $identity='ma_in_'.$w.'_'.$u.'_'.str_replace('-','',$session);
    DB::table('voice_inbound_devices')->updateOrInsert(['user_id'=>$u],['workspace_id'=>$w,'session_id'=>$session,'identity'=>$identity,'last_seen_at'=>now(),'ready'=>$old && $old->session_id===$session ? $old->ready:false,'sip_identity'=>$sip['username']??null,'sip_ready'=>$old && $old->session_id===$session ? $old->sip_ready:false]);
    if(!$c||!$c['enabled'])return ['sip'=>$sip];

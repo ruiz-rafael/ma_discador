@@ -15,6 +15,18 @@ class InboundVoiceTest extends TestCase {
  private function receive():string {return app(InboundVoice::class)->receive(['AccountSid'=>'AC'.str_repeat('a',32),'CallSid'=>'CA'.str_repeat('1',32),'From'=>'+5511999991111','To'=>'+16890000000']);}
  private function row():object{return DB::table('voice_inbound_calls')->first();}
  private function offer():object{return DB::table('voice_inbound_offers')->first();}
+ public function test_reconnect_exposes_wait_and_never_replaces_a_live_offer():void {
+  $next=(string)Str::uuid();
+  $this->postJson('/api/voice/inbound/token',['session_id'=>$next])->assertConflict()->assertJsonPath('code','inbound_session_lease')->assertJsonPath('retry_after',61);
+  $this->receive();$this->travel(65)->seconds();
+  $this->postJson('/api/voice/inbound/token',['session_id'=>$next])->assertConflict()->assertJsonPath('code','inbound_session_busy')->assertJsonPath('retry_after',null);
+ }
+ public function test_same_connection_can_retry_registration_without_locking_itself_out():void {
+  $sid=DB::table('voice_inbound_devices')->value('session_id');
+  $this->postJson('/api/voice/inbound/token',['session_id'=>$sid])->assertOk();
+  $this->postJson('/api/voice/inbound/token',['session_id'=>$sid])->assertOk();
+  $this->assertDatabaseHas('voice_inbound_devices',['session_id'=>$sid,'ready'=>true]);
+ }
  public function test_inbound_has_no_daily_ceiling_and_does_not_consume_outbound_limit():void {
   config(['voice_calling_test.daily_limit'=>1]);
   DB::table('ma_operation_policy')->insert(['workspace_id'=>1,'paused'=>false,'voice_daily_limit'=>1,'whatsapp_daily_limit'=>100,'revision'=>1]);
