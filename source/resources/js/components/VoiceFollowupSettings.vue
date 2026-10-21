@@ -9,7 +9,7 @@ watch(()=>sender.value?.provider,(next,old)=>{if(old==='qr'&&next!=='qr'){props.
 const qrTemplate=computed(()=>props.qrTemplates?.find(t=>t.id===props.settings.whatsapp_qr_template_id))
 function qrChanged(){props.settings.whatsapp_qr_buttons_confirmed=false}
 const variables=computed(()=>[...new Set([...((template.value?.body||'').matchAll(/\{\{([1-9][0-9]*)\}\}/g))].map(m=>m[1]))])
-const previewText=computed(()=>sender.value?.provider==='qr'?(qrTemplate.value?.body||props.settings.whatsapp_text):(template.value?.body||'').replace(/\{\{([1-9][0-9]*)\}\}/g,(_,key)=>props.settings.whatsapp_variables?.[key]||'[preencha a variável '+key+']'))
+const previewText=computed(()=>qrTemplate.value?.body||props.settings.whatsapp_text)
 function changedTemplate(){props.settings.whatsapp_variables=Object.fromEntries(variables.value.map(k=>[k,'']))}
 </script>
 <template>
@@ -32,7 +32,7 @@ function changedTemplate(){props.settings.whatsapp_variables=Object.fromEntries(
      <label v-for="key in variables" :key="key">Valor da variável {{key}}<input v-model="settings.whatsapp_variables[key]" required maxlength="500" placeholder="Texto, {nome} ou {telefone}"><span class="variable-chips"><button v-for="(label,field) in personalizationFields" type="button" :aria-label="'Inserir '+field+' na variável '+key" @click="settings.whatsapp_variables[key]=(settings.whatsapp_variables[key]||'')+'{'+field+'}'">{{'{'+field+'}'}}</button></span></label>
      <small>Crie o template na aba WhatsApp. O envio exige aprovação e remetente conectado na Twilio.</small>
     </template>
-    <PersonalizationPreview v-if="sender" :text="previewText" :contacts="contacts" :campaign-name="campaignName"/>
+    <PersonalizationPreview v-if="sender?.provider==='qr'" :text="previewText" :contacts="contacts" :campaign-name="campaignName"/>
     <p>Atendimento por voz, resposta no WhatsApp ou pedido de interrupção impedem a mensagem. Alterar a regra de mensagem cancela passos ainda pendentes. Um envio sem confirmação não será repetido automaticamente.</p>
    </template>
    <label v-else>Template de WhatsApp<select aria-label="Template de WhatsApp" v-model="settings.whatsapp_template_id" required><option value="">Selecione um template</option><option v-for="r in references" :key="r.id" :value="r.external_id">{{r.name}}</option></select></label>

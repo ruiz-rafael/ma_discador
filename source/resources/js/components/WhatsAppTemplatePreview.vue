@@ -4,7 +4,7 @@ defineProps({text:{type:String,default:''},buttons:{type:Array,default:()=>[]}})
 </script>
 <template>
  <div class="official-preview" aria-label="Prévia do template">
-  <div class="message-text">{{text||'Sua mensagem aparecerá aqui.'}}<small>Exemplo ilustrativo</small></div>
+  <div class="message-text">{{text||'Sua mensagem aparecerá aqui.'}}<small>Texto do template · variáveis preservadas</small></div>
   <div v-if="buttons.length" class="preview-buttons" aria-label="Prévia dos botões"><div v-for="(b,i) in buttons" :key="i" class="preview-button"><component :is="b.type==='reply'?MessageCircle:b.type==='url'?ExternalLink:Phone" :size="15"/><span>{{b.title||'Texto do botão'}}</span></div></div>
  </div>
 </template>

@@ -20,6 +20,8 @@ Validação desta atualização: 82 testes e 468 assertions passaram, incluindo 
 
 Correção de sincronização em 21/10/2026: **Consultar aprovação** passa a atualizar também `category` retornada em `whatsapp.category` pela Twilio. A categoria é independente de `status`: uma reclassificação de Utilidade para Marketing não significa aprovação. Respostas sem categoria válida preservam a última categoria conhecida. Validado com 30 testes / 173 assertions; o retorno real de `retorno_ativo` indicava `MARKETING` e `pending`. Backup: `/srv/zyrex-ma/backups/wa-category-20261021T210157Z`.
 
+Exibição dos templates oficiais: a lista, o editor e as configurações de envio preservam literalmente `{{1}}`, `{{2}}` e demais variáveis. Os exemplos para análise permanecem nos campos próprios; não substituem o texto mostrado no cartão. Os valores e a personalização usados no envio não foram alterados. Validado em Chromium em desktop e celular, com a compilação Vite concluída.
+
 ## Uso na interface
 
 Em **Voz e cadências → Campanhas → Configurar**, a opção **Usar um único número para voz e WhatsApp** vem marcada, inclusive para campanhas antigas. Nesse modo, o número WhatsApp deriva do número de voz. Desmarcando, surge um campo independente. O remetente vinculado precisa pertencer ao mesmo workspace e corresponder ao número escolhido. A opção pode ser preparada antes de contratar os serviços; não comprova conexão ou disponibilidade do número nos dois canais.
