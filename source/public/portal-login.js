@@ -22,7 +22,7 @@
       try {
         response = await fetch('/login/session', {
           credentials: 'same-origin', cache: 'no-store', redirect: 'error',
-          headers: { Accept: 'application/json' }, signal: controller.signal,
+          headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, signal: controller.signal,
         });
       } finally { clearTimeout(timer); }
       if (!response.ok) throw new Error('session_unavailable');

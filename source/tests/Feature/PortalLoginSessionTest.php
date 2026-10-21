@@ -29,10 +29,26 @@ class PortalLoginSessionTest extends TestCase {
   $u=User::factory()->create(['email'=>'member@example.test','password'=>'CorrectPassword123']);
   $tid=DB::table('portal_tenants')->insertGetId(['slug'=>'bossanova','name'=>'Bossa Nova','status'=>'active']);
   DB::table('portal_memberships')->insert(['tenant_id'=>$tid,'user_id'=>$u->id,'role'=>'admin','active'=>true]);
-  $r=$this->get('/login/session')->assertOk()->assertHeader('Cache-Control','no-store, private')->assertHeader('Vary','Cookie');
+  $r=$this->getJson('/login/session')->assertOk()->assertHeader('Cache-Control','no-store, private')->assertHeader('Vary','Cookie, Accept');
   $token=$r->json('token');$this->assertSame(40,strlen($token));
   $this->post('/login',['email'=>$u->email,'password'=>'CorrectPassword123','_token'=>$token])->assertRedirect('/t/bossanova');
   $this->assertAuthenticatedAs($u);$this->assertDatabaseHas('portal_audit',['event'=>'login','user_id'=>$u->id]);
+ }
+ public function test_navigation_to_session_endpoint_returns_to_login_instead_of_exposing_json():void {
+  $this->get('/login/session')->assertRedirect('/login')->assertHeader('Cache-Control','no-store, private');
+ }
+ public function test_invalid_credentials_after_background_refresh_return_to_usable_login():void {
+  // Legacy clients updated Laravel's previous URL with this JSON GET.
+  $token=$this->getJson('/login/session')->assertOk()->json('token');
+  $this->post('/login',['email'=>'missing@example.test','password'=>'DoNotRetainPassword','_token'=>$token])
+   ->assertRedirect('/login')->assertSessionHasErrors('login')->assertSessionHas('_old_input',['email'=>'missing@example.test']);
+  $this->assertGuest();
+  $this->get('/login')->assertOk()->assertSee('E-mail ou senha inválidos.')->assertDontSee('DoNotRetainPassword');
+ }
+ public function test_background_refresh_does_not_replace_previous_page():void {
+  $this->get('/login')->assertOk();$previous=session()->previousUrl();
+  $this->getJson('/login/session',['X-Requested-With'=>'XMLHttpRequest'])->assertOk();
+  $this->assertSame($previous,session()->previousUrl());
  }
  public function test_invalid_csrf_stays_rejected_for_json_and_other_actions():void {
   $this->postJson('/login',['email'=>'x@example.test','password'=>'secret'])->assertStatus(419);
