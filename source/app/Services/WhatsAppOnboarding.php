@@ -191,7 +191,10 @@ class WhatsAppOnboarding
         abort_unless($s->provider_sid, 422, 'Vincule o remetente primeiro.');
         // Verify the identity before changing the webhook of an existing sender.
         $this->apply($s, $this->api('GET', self::SENDERS.'/'.$s->provider_sid));
-        $this->apply($s, $this->api('POST', self::SENDERS.'/'.$s->provider_sid, ['webhook' => ['callback_url' => TwilioWhatsAppConnection::base().'/inbound', 'callback_method' => 'POST']]));
+        // Updates may return only a 202 acknowledgement, not a complete sender.
+        // Read back the resource to validate its identity and actual state.
+        $this->api('POST', self::SENDERS.'/'.$s->provider_sid, ['webhook' => ['callback_url' => TwilioWhatsAppConnection::base().'/inbound', 'callback_method' => 'POST']]);
+        $this->apply($s, $this->api('GET', self::SENDERS.'/'.$s->provider_sid));
         return $this->status($w, $id);
     }
 }

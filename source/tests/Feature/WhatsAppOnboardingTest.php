@@ -42,6 +42,7 @@ class WhatsAppOnboardingTest extends TestCase
                 return Http::response(count($this->requests) === 1 ? ['senders' => [], 'meta' => ['next_page_url' => 'https://untrusted.invalid/?PageToken=next']] : ['senders' => [$this->row('+5511999990001')], 'meta' => []]);
             }
             if ($r->method() === 'POST') {
+                if ($this->postMode === 'accepted') return Http::response(['sid' => 'XE'.str_repeat('a', 32)], 202);
                 if ($this->postMode === 'timeout') throw new ConnectionException('no response');
                 if ($this->postMode === 'rejected') return Http::response(['message' => 'private provider details'], 400);
                 if ($this->postMode === 'wrong') return Http::response($this->row('+5511999990009'));
@@ -136,6 +137,18 @@ class WhatsAppOnboardingTest extends TestCase
         $this->postJson($this->url('/webhook'), ['confirmed' => true])->assertOk();
         $this->assertCount(1, $this->posts());
     }
+    public function test_webhook_acceptance_is_reconciled_with_a_fresh_sender_read(): void
+    {
+        DB::table('wa_senders')->where('id', $this->sender)->update(['provider_sid' => 'XE'.str_repeat('a', 32)]);
+        $this->postMode = 'accepted';
+        $this->fetchedStatus = 'ONLINE';
+        $this->postJson($this->url('/webhook'), ['confirmed' => true])->assertOk()->assertJsonPath('sender.status', 'ONLINE');
+        $this->assertSame(['GET', 'POST', 'GET'], array_column($this->requests, 'method'));
+        $this->assertCount(1, $this->posts());
+        $this->assertSame('whatsapp:+5511999990001', 'whatsapp:'.DB::table('wa_senders')->where('id', $this->sender)->value('number'));
+        $this->assertDatabaseCount('wa_messages', 0);
+    }
+
     public function test_embedded_requires_configuration_and_dedicated_subaccount(): void
     {
         $this->postJson($this->url('/embedded'))->assertUnprocessable();
