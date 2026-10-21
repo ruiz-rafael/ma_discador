@@ -82,7 +82,6 @@ class VoiceCalling
             if(isset($campaign))abort_if(DB::table('voice_outbound_calls')->where('campaign_id',$campaign->id)->whereNull('capacity_released_at')->count()>=max(1,(int)($settings['concurrency']??1)),409,'Limite simultâneo da campanha atingido.');
             app(VoiceAudio::class)->expire();
             abort_if(DB::table('voice_audio_sessions')->whereIn('status', ['pending', 'connecting', 'active'])->exists(), 409, 'Finalize o teste interno de áudio antes de ligar.');
-            abort_if(app(OperationPolicy::class)->outboundToday() >= $p['daily_limit'], 429, 'Limite diário de tentativas atingido.');
             $policy = isset($campaign) ? DB::table('voice_campaign_policies')->where('campaign_id', $campaign->id)->first() : null;
             $profile = isset($campaign) ? app(VoiceAudience::class)->personalize($w, $campaign->id, $contact) : $contact;
             $snapshot = ['queue_channels_id'=>(isset($q)&&$q->channels_configured)?$q->id:null,'contact_name'=>$profile->name, 'campaign_name'=>$campaign->name??null, 'agent_name'=>DB::table('users')->where('id',$user)->value('name'), 'origin_mode'=>$policy->origin_mode??'configured'];

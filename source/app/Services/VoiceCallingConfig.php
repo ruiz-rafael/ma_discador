@@ -76,7 +76,7 @@ class VoiceCallingConfig
 
     public function save(array $d): void
     {
-        $d = Validator::make($d, ['allowed_recipients' => 'required|array|min:1|max:20', 'allowed_recipients.*' => ['required', 'regex:/^\+[1-9][0-9]{7,14}$/D'], 'daily_limit' => 'required|integer|between:1,50', 'max_seconds' => 'required|integer|between:30,180', 'ring_seconds' => 'required|integer|between:10,45', 'caller_id_confirmed' => 'required|accepted'])->validate();
+        $d = Validator::make($d, ['allowed_recipients' => 'required|array|min:1|max:20', 'allowed_recipients.*' => ['required', 'regex:/^\+[1-9][0-9]{7,14}$/D'], 'max_seconds' => 'required|integer|between:30,180', 'ring_seconds' => 'required|integer|between:10,45', 'caller_id_confirmed' => 'required|accepted'])->validate();
         DB::transaction(function () use ($d) {
             DB::table('voice_runtime')->where('id', 1)->lockForUpdate()->firstOrFail();
             abort_if(DB::table('voice_outbound_calls')->whereNull('capacity_released_at')->exists(), 409, 'Há chamada ou reserva pendente; finalize antes de alterar a política.');
@@ -105,9 +105,9 @@ class VoiceCallingConfig
             $tenantRuntime = isset($t['sip_trunk_id']) || app(TwilioSipRuntime::class)->state() !== null;
             $ready = $api ? ($p && $t && ($t['enabled'] ?? false)) : ($installed && ($tenantRuntime || app(VoiceAudio::class)->ready()));
 
-            return ['method' => $method, 'provider_configured' => (bool) $t, 'enabled' => $api ? (bool) ($t['enabled'] ?? false) : (bool) $installed, 'dial_url' => $api ? TwilioVoiceConnection::base().'/dial' : null, 'configured' => (bool) $p, 'trunk_configured' => ! $api && (bool) $t, 'installed' => (bool) $installed, 'ready' => (bool) $ready, 'caller_id' => $t['caller_id'] ?? null, 'allowed_recipients' => $p['allowed_recipients'] ?? [], 'max_seconds' => $p['max_seconds'] ?? 120, 'ring_seconds' => $p['ring_seconds'] ?? 30, 'daily_limit' => $p['daily_limit'] ?? 20, 'concurrency' => app(VoiceCapacity::class)->limit(), 'cps' => 1, 'incoming_enabled' => false];
+            return ['method' => $method, 'provider_configured' => (bool) $t, 'enabled' => $api ? (bool) ($t['enabled'] ?? false) : (bool) $installed, 'dial_url' => $api ? TwilioVoiceConnection::base().'/dial' : null, 'configured' => (bool) $p, 'trunk_configured' => ! $api && (bool) $t, 'installed' => (bool) $installed, 'ready' => (bool) $ready, 'caller_id' => $t['caller_id'] ?? null, 'allowed_recipients' => $p['allowed_recipients'] ?? [], 'max_seconds' => $p['max_seconds'] ?? 120, 'ring_seconds' => $p['ring_seconds'] ?? 30, 'daily_limit' => null, 'concurrency' => app(VoiceCapacity::class)->limit(), 'cps' => 1, 'incoming_enabled' => false];
         } catch (\Throwable) {
-            return ['method' => $method, 'provider_configured' => false, 'enabled' => false, 'dial_url' => $method === 'programmable_voice' ? TwilioVoiceConnection::base().'/dial' : null, 'configured' => false, 'trunk_configured' => false, 'installed' => false, 'ready' => false, 'configuration_error' => true, 'caller_id' => null, 'allowed_recipients' => [], 'max_seconds' => 120, 'ring_seconds' => 30, 'daily_limit' => 20, 'concurrency' => app(VoiceCapacity::class)->limit(), 'cps' => 1, 'incoming_enabled' => false];
+            return ['method' => $method, 'provider_configured' => false, 'enabled' => false, 'dial_url' => $method === 'programmable_voice' ? TwilioVoiceConnection::base().'/dial' : null, 'configured' => false, 'trunk_configured' => false, 'installed' => false, 'ready' => false, 'configuration_error' => true, 'caller_id' => null, 'allowed_recipients' => [], 'max_seconds' => 120, 'ring_seconds' => 30, 'daily_limit' => null, 'concurrency' => app(VoiceCapacity::class)->limit(), 'cps' => 1, 'incoming_enabled' => false];
         }
     }
 }

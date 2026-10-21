@@ -24,6 +24,22 @@ class SipInboundTest extends TestCase {
  }
  private function event(string $event,array $d=[]):array{return app(SipInbound::class)->event($d+['event'=>'inbound_'.$event,'endpoint'=>$this->endpoint,'channel_id'=>'fixture.123']);}
  private function start(array $d=[]):array{return $this->event('start',$d+['number'=>'+551149330254','from'=>'+5511999991111']);}
+ public function test_inbound_has_no_daily_ceiling_and_does_not_consume_outbound_limit():void {
+  config(['voice_calling_test.daily_limit'=>1]);
+  DB::table('ma_operation_policy')->insert(['workspace_id'=>1,'paused'=>false,'voice_daily_limit'=>1,'whatsapp_daily_limit'=>100,'revision'=>1]);
+  for($i=0;$i<60;$i++)DB::table('voice_inbound_calls')->insert(['id'=>(string)Str::uuid(),'workspace_id'=>1,'route_id'=>$this->route,'queue_id'=>$this->queue,'account_sid'=>'AC'.str_repeat('a',32),'call_sid'=>'CA'.str_pad((string)$i,32,'0',STR_PAD_LEFT),'from_number'=>'+5511999991111','to_number'=>'+551149330254','status'=>'completed','capacity_released_at'=>now(),'created_at'=>now()]);
+  $this->assertNull(app(\App\Services\OperationPolicy::class)->voiceReason(1));
+  $this->assertTrue($this->start()['allowed']);
+  $this->getJson('/api/voice/health')->assertOk()->assertJsonPath('limits.voice_daily',null)->assertJsonPath('limits.inbound_daily',null)->assertJsonPath('counts.outbound_calls_today',0)->assertJsonPath('counts.inbound_calls_today',61);
+ }
+ public function test_legacy_outbound_quota_does_not_block_inbound_but_pause_does():void {
+  config(['voice_calling_test.daily_limit'=>1]);
+  $this->partialMock(\App\Services\OperationPolicy::class,function($mock){$mock->shouldReceive('outboundToday')->andReturn(50);});
+  $this->assertNull(app(\App\Services\OperationPolicy::class)->voiceReason(1));
+  $this->assertTrue($this->start()['allowed']);
+  DB::table('ma_operation_policy')->insert(['workspace_id'=>1,'paused'=>true,'voice_daily_limit'=>50,'whatsapp_daily_limit'=>100,'revision'=>1]);
+  $this->assertNotNull(app(\App\Services\OperationPolicy::class)->inboundReason(1));
+ }
  public function test_sip_number_catalog_route_configuration_and_personal_receive_only_grant():void {
   $this->assertContains('+551149330254',app(\App\Services\QueueChannels::class)->catalog(1)['incoming_numbers']);
   $this->getJson('/api/voice/inbound')->assertOk()->assertJsonPath('available_numbers.0','+551149330254');

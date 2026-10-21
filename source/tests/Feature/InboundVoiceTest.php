@@ -15,6 +15,22 @@ class InboundVoiceTest extends TestCase {
  private function receive():string {return app(InboundVoice::class)->receive(['AccountSid'=>'AC'.str_repeat('a',32),'CallSid'=>'CA'.str_repeat('1',32),'From'=>'+5511999991111','To'=>'+16890000000']);}
  private function row():object{return DB::table('voice_inbound_calls')->first();}
  private function offer():object{return DB::table('voice_inbound_offers')->first();}
+ public function test_inbound_has_no_daily_ceiling_and_does_not_consume_outbound_limit():void {
+  config(['voice_calling_test.daily_limit'=>1]);
+  DB::table('ma_operation_policy')->insert(['workspace_id'=>1,'paused'=>false,'voice_daily_limit'=>1,'whatsapp_daily_limit'=>100,'revision'=>1]);
+  for($i=0;$i<60;$i++)DB::table('voice_inbound_calls')->insert(['id'=>(string)Str::uuid(),'workspace_id'=>1,'route_id'=>$this->route,'queue_id'=>$this->queue,'account_sid'=>'AC'.str_repeat('a',32),'call_sid'=>'CA'.str_pad((string)$i,32,'0',STR_PAD_LEFT),'from_number'=>'+5511999991111','to_number'=>'+551149330254','status'=>'completed','capacity_released_at'=>now(),'created_at'=>now()]);
+  $this->assertNull(app(\App\Services\OperationPolicy::class)->voiceReason(1));
+  $this->assertStringNotContainsString('<Reject',$this->receive());
+  $this->getJson('/api/voice/health')->assertOk()->assertJsonPath('limits.voice_daily',null)->assertJsonPath('limits.inbound_daily',null)->assertJsonPath('counts.outbound_calls_today',0)->assertJsonPath('counts.inbound_calls_today',61);
+ }
+ public function test_legacy_outbound_quota_does_not_block_inbound_but_pause_does():void {
+  config(['voice_calling_test.daily_limit'=>1]);
+  $this->partialMock(\App\Services\OperationPolicy::class,function($mock){$mock->shouldReceive('outboundToday')->andReturn(50);});
+  $this->assertNull(app(\App\Services\OperationPolicy::class)->voiceReason(1));
+  $this->assertStringNotContainsString('<Reject',$this->receive());
+  DB::table('ma_operation_policy')->insert(['workspace_id'=>1,'paused'=>true,'voice_daily_limit'=>50,'whatsapp_daily_limit'=>100,'revision'=>1]);
+  $this->assertNotNull(app(\App\Services\OperationPolicy::class)->inboundReason(1));
+ }
  public function test_inbound_reserves_agent_and_blocks_outbound_until_disposition():void {
   $xml=$this->receive();$this->assertStringContainsString('<Client',$xml);$this->assertStringContainsString('agent_'.$this->user->id,$xml);$this->assertTrue(app(VoiceAgentCapacity::class)->inboundBusy(1,$this->user->id));
   $claim=app(VoiceLiveQueue::class)->claim(1,$this->user->id,$this->queue,(string)Str::uuid());$this->assertNull($claim['reservation']);$this->assertStringContainsString('receptivo',$claim['message']);

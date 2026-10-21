@@ -42,7 +42,7 @@ class InboundVoice {
   return DB::transaction(function()use($d){$this->lock();$xml=new VoiceResponse;
    $route=DB::table('voice_inbound_routes')->where('number',$d['To'])->where('provider','programmable_voice')->where('enabled',true)->first();
    $queue=$route?DB::table('voice_live_queues')->where('workspace_id',$route->workspace_id)->find($route->queue_id):null;
-   if(!$route||!QueueRouting::incoming($queue)||!QueueOperationSettings::open($queue)||app(OperationPolicy::class)->voiceReason($route->workspace_id)){$xml->reject(['reason'=>'busy']);return (string)$xml;}
+   if(!$route||!QueueRouting::incoming($queue)||!QueueOperationSettings::open($queue)||app(OperationPolicy::class)->inboundReason($route->workspace_id)){$xml->reject(['reason'=>'busy']);return (string)$xml;}
    if(DB::table('voice_inbound_calls')->where('call_sid',$d['CallSid'])->exists())return app(TwilioVoiceCalling::class)->hangup();
    // Shared admission across inbound and outbound; production default remains one.
    if(DB::table('voice_audio_sessions')->whereIn('status',['pending','connecting','active'])->where('expires_at','>',now())->exists() || app(VoiceCapacity::class)->full()){$xml->reject(['reason'=>'busy']);return (string)$xml;}

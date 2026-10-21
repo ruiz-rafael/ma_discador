@@ -43,7 +43,7 @@ class SipInbound
     if($c)return ['allowed'=>false]; // Duplicate admission must not ring twice.
     $n=$this->numbers();$route=DB::table('voice_inbound_routes')->where('number',$d['number'])->where('provider','sip_trunk')->where('enabled',true)->first();
     $q=$route?DB::table('voice_live_queues')->where('workspace_id',$route->workspace_id)->find($route->queue_id):null;
-    if(!$route||($n[$d['number']]['endpoint']??null)!==$d['endpoint']||!QueueRouting::incoming($q)||!QueueOperationSettings::open($q)||app(OperationPolicy::class)->voiceReason($route->workspace_id))return ['allowed'=>false];
+    if(!$route||($n[$d['number']]['endpoint']??null)!==$d['endpoint']||!QueueRouting::incoming($q)||!QueueOperationSettings::open($q)||app(OperationPolicy::class)->inboundReason($route->workspace_id))return ['allowed'=>false];
     $trunk=$n[$d['number']];$busy=DB::table('voice_inbound_calls')->where('account_sid','SI'.md5($d['endpoint']))->whereNull('capacity_released_at')->count()+DB::table('voice_outbound_calls')->where('method','sip_trunk')->where('caller_id',$route->number)->whereNull('capacity_released_at')->count();if($busy>=$trunk['limit'])return ['allowed'=>false];
     if(app(VoiceCapacity::class)->full()||DB::table('voice_audio_sessions')->whereIn('status',['pending','connecting','active'])->where('expires_at','>',now())->exists())return ['allowed'=>false];
     $id=(string)Str::uuid();

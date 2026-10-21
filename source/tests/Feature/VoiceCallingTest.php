@@ -134,21 +134,21 @@ class VoiceCallingTest extends TestCase
         $this->assertDatabaseHas('voice_outbound_calls', ['id' => $g['id'], 'status' => 'cancelled']);
     }
 
-    public function test_daily_limit_and_allowlist_are_enforced(): void
+    public function test_legacy_daily_quota_is_ignored_while_allowlist_and_active_capacity_still_apply(): void
     {
         config(['voice_calling_test.allowed_recipients' => ['+5511999990099']]);
         $this->postJson('/api/voice/calling/calls', $this->payload())->assertStatus(422);
         config(['voice_calling_test.allowed_recipients' => ['+5511999990001'], 'voice_calling_test.daily_limit' => 1]);
         $g = $this->reserve();
-        $this->postJson('/api/voice/calling/calls', $this->payload())->assertStatus(429);
+        $this->postJson('/api/voice/calling/calls', $this->payload())->assertConflict();
         $this->postJson('/api/voice/calling/calls/'.$g['id'].'/cancel')->assertOk();
         $g = $this->reserve();
         $this->event($g)->assertOk()->assertJsonPath('allowed',true);
         $this->event($g,'finish',['dial_status'=>'CANCEL','bill_seconds'=>0])->assertOk();
-        $this->postJson('/api/voice/calling/calls', $this->payload())->assertStatus(429);
+        $this->postJson('/api/voice/calling/calls', $this->payload())->assertOk();
     }
 
-    public function test_only_released_unstarted_cancellations_release_the_daily_allowance(): void
+    public function test_daily_statistics_exclude_only_released_unstarted_cancellations(): void
     {
         $g=$this->reserve();$policy=app(\App\Services\OperationPolicy::class);
         foreach ([['pending',null,null,1],['cancelled',null,null,1],['unknown',null,now(),1],['failed',null,now(),1],['cancelled',now(),now(),1],['cancelled',null,now(),0]] as [$status,$started,$released,$expected]) {
