@@ -7,7 +7,14 @@ use Illuminate\Validation\Rule;
 class PortalNumbersController extends Controller {
  private function manager(Request $r,int $tenant):void {abort_unless(app(Access::class)->manages($tenant,$r->user()->id),403);app(NumberOrders::class)->requestingTenant($tenant);}
  private function operator(Request $r):void {abort_unless(app(Access::class)->operator($r->user()->id),403);}
- public function index(Request $r,int $tenant){$this->manager($r,$tenant);$t=app(NumberOrders::class)->requestingTenant($tenant);return view('portal.numbers', ['tenant'=>$t,'operator'=>app(Access::class)->operator($r->user()->id),'orders'=>DB::table('portal_number_requests')->where('tenant_id',$tenant)->latest()->paginate(20),'labels'=>NumberOrders::LABELS,'ddds'=>NumberOrders::DDDS]);}
+ public function index(Request $r,int $tenant){
+  $this->manager($r,$tenant);$t=app(NumberOrders::class)->requestingTenant($tenant);$linked=[];$inventoryError=null;
+  if($t->status==='active')try{
+   $ordered=DB::table('portal_number_requests')->where('tenant_id',$tenant)->whereNotNull('number')->pluck('number')->all();
+   $linked=array_values(array_filter(app(\App\Services\Portal\NumberInventory::class)->tenantNumbers($t),fn($n)=>!in_array($n['number'],$ordered,true)));
+  }catch(\Throwable){$inventoryError='Não foi possível atualizar os números vinculados. Atualize a página para tentar novamente.';}
+  return view('portal.numbers', ['tenant'=>$t,'linked'=>$linked,'inventoryError'=>$inventoryError,'operator'=>app(Access::class)->operator($r->user()->id),'orders'=>DB::table('portal_number_requests')->where('tenant_id',$tenant)->latest()->paginate(20),'labels'=>NumberOrders::LABELS,'ddds'=>NumberOrders::DDDS]);
+ }
  public function store(Request $r,int $tenant){$this->manager($r,$tenant);$d=$r->validate(['id'=>'required|uuid','ddd'=>['required',Rule::in(NumberOrders::DDDS)],'purpose'=>'required|in:inbound,outbound,mixed','notes'=>'nullable|string|max:500']);app(NumberOrders::class)->request($tenant,$r->user()->id,$d);return back()->with('notice','Solicitação enviada à administração DiscAI. Você pode acompanhar o andamento aqui.');}
  public function administration(Request $r){$this->operator($r);$r->validate(['status'=>['nullable',Rule::in(array_keys(NumberOrders::LABELS))]]);return view('portal.number-admin',['orders'=>DB::table('portal_number_requests as n')->join('portal_tenants as t','t.id','=','n.tenant_id')->select('n.*','t.name as tenant_name')->when($r->status,fn($q)=>$q->where('n.status',$r->status))->orderByDesc('n.created_at')->paginate(25)->withQueryString(),'labels'=>NumberOrders::LABELS,'configured'=>(bool)app(NumberProvider::class)->config()]);}
  public function show(Request $r,string $id){$this->operator($r);$order=app(NumberOrders::class)->order($id);$tenant=DB::table('portal_tenants')->find($order->tenant_id);$registrations=['bundles'=>[],'addresses'=>[]];$providerError=null;

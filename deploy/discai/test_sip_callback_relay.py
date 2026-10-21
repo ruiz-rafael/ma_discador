@@ -50,6 +50,14 @@ class AgiTest(unittest.TestCase):
         output=self.execute(reply);self.assertTrue(output.endswith('SET VARIABLE MA_ALLOWED 1\n'))
         reply['endpoint']='discai-vono-'+'d'*32
         self.assertNotIn('MA_ALLOWED 1',self.execute(reply))
+    def test_twilio_tls_endpoint_preserves_e164_caller_and_is_tenant_scoped(self):
+        self.endpoint='discai-twilio-'+'b'*32
+        reply={'allowed':True,'endpoint':self.endpoint,'dial_number':'+5511999990001','caller_id':'+551149330254','max_seconds':60,'ring_seconds':30}
+        output=self.execute(reply)
+        self.assertIn('MA_CALLER +551149330254',output)
+        self.assertTrue(output.endswith('SET VARIABLE MA_ALLOWED 1\n'))
+        reply['endpoint']='discai-twilio-'+'d'*32
+        self.assertNotIn('MA_ALLOWED 1',self.execute(reply))
     def test_denial_and_network_failures_fail_closed_and_redact_secrets(self):
         self.assertEqual(self.execute({'allowed':False}),'SET VARIABLE MA_ALLOWED 0\n')
         for error in [urllib.error.HTTPError('http://secret',403,'secret',{},None),urllib.error.URLError('secret')]:

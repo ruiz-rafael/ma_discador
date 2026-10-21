@@ -30,8 +30,9 @@ class VoiceAudioController extends Controller
 
     public function authorize(Request $r)
     {
-        $this->workspace($r);
-        abort_unless($this->audio->configuration()['enabled'] ?? false, 503);
+        $w=$this->workspace($r);
+        $sipReady=app(\App\Services\TwilioSipRuntime::class)->ready() || DB::table('voice_sip_trunks')->where('workspace_id',$w)->get()->contains(fn($row)=>app(\App\Services\SipTrunks::class)->ready($row));
+        abort_unless(($this->audio->configuration()['enabled'] ?? false) || $sipReady, 503);
         return response('', 204)->header('Cache-Control', 'no-store');
     }
 

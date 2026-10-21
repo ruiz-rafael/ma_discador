@@ -2,6 +2,7 @@
 Workers start only after migration and public HTTPS verification. No provider credentials are copied or campaigns enabled.
 """
 from pathlib import Path
+from tenant_voice_routes import install_tenant_voice_routes
 import base64,fcntl,json,os,re,secrets,shutil,socket,subprocess,time,ipaddress
 os.umask(0o077)
 ROOT=Path('/srv/zyrex-ma'); BASE=ROOT/'discai'; TENANTS=BASE/'tenants'; CODE=BASE/'release'
@@ -71,6 +72,7 @@ def provision(t):
   proc=subprocess.run(['certbot','certonly','--webroot','-w',str(acme),'-d',host,'--non-interactive','--agree-tos','--register-unsafely-without-email'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
   if proc.returncode:raise RuntimeError('Ambiente preparado. Aguardando validação HTTPS do domínio.')
  conf='server { listen 80; server_name '+host+'; location ^~ /.well-known/acme-challenge/ { root '+str(acme)+'; } location / { return 301 https://'+host+'$request_uri; } }\nserver { listen 443 ssl; server_name '+host+'; ssl_certificate '+str(cert/'fullchain.pem')+'; ssl_certificate_key '+str(cert/'privkey.pem')+'; client_max_body_size 8m; access_log off; add_header Referrer-Policy no-referrer always; add_header X-Content-Type-Options nosniff always; location ^~ /internal/ { return 404; } location / { proxy_pass http://127.0.0.1:'+str(port)+'; proxy_set_header Host $host; proxy_set_header X-Forwarded-Proto https; proxy_set_header X-Real-IP $remote_addr; } }'
+ conf=install_tenant_voice_routes(conf,host,port)
  old=site.read_text();site.write_text(conf);site.chmod(0o644)
  try:run(['nginx','-t'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);run(['systemctl','reload','nginx'])
  except Exception:site.write_text(old);raise

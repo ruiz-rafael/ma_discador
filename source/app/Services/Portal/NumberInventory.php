@@ -15,12 +15,7 @@ class NumberInventory {
   $complete=true;
   foreach(DB::table('portal_tenants')->whereIn('status',['active','suspended'])->whereNotNull('url')->get() as $t){
    try{
-    abort_unless(str_starts_with($t->url,'https://')&&$t->secret,503);
-    $path='discai-internal/number-inventory';$stamp=(string)time();$body=json_encode(['tenant'=>$t->slug],JSON_UNESCAPED_SLASHES);
-    $r=Http::acceptJson()->withoutRedirecting()->connectTimeout(2)->timeout(5)->withHeaders(['X-Discai-Time'=>$stamp,'X-Discai-Signature'=>hash_hmac('sha256',$stamp.'.'.$path.'.'.$body,Crypt::decryptString($t->secret))])->withBody($body,'application/json')->post(rtrim($t->url,'/').'/'.$path);
-    abort_unless($r->successful()&&$r->json('tenant')===$t->slug&&is_array($r->json('numbers')),502);
-    foreach($r->json('numbers') as $n){
-     abort_unless(in_array($n['provider']??null,['twilio','fale_vono'],true)&&preg_match('/^\+[1-9][0-9]{7,14}$/D',$n['number']??''),502);
+    foreach($this->tenantNumbers($t) as $n){
      $numbers[$n['provider'].':'.$n['number']]=['number'=>$n['number'],'provider'=>$n['provider'],'operator'=>$n['provider']==='twilio'?'Twilio':'Fale Vono','available'=>false,'reason'=>'Vinculado a '.$t->name];
     }
    }catch(\Throwable){$complete=false;$errors[]='Não foi possível conferir os vínculos de '.$t->name.'. Atualize a lista antes de vincular.';}
@@ -32,6 +27,20 @@ class NumberInventory {
   if(!$complete)foreach($numbers as &$n){if($n['available']){$n['available']=false;$n['reason']='Conferência de vínculos pendente';}}unset($n);
   $entries=collect($numbers)->sortBy(fn($n)=>($n['available']?'0':'1').$n['operator'].$n['number'])->values()->all();
   return ['numbers'=>$entries,'errors'=>$errors,'available'=>count(array_filter($entries,fn($n)=>$n['available']))];
+ }
+ /** Fetch only this tenant, after the controller has checked membership. */
+ public function tenantNumbers(object $t):array {
+  abort_unless($t->status==='active' || $t->status==='suspended',409);
+  abort_unless(str_starts_with($t->url??'','https://')&&$t->secret,503);
+  $path='discai-internal/number-inventory';$stamp=(string)time();$body=json_encode(['tenant'=>$t->slug],JSON_UNESCAPED_SLASHES);
+  $r=Http::acceptJson()->withoutRedirecting()->connectTimeout(2)->timeout(5)->withHeaders(['X-Discai-Time'=>$stamp,'X-Discai-Signature'=>hash_hmac('sha256',$stamp.'.'.$path.'.'.$body,Crypt::decryptString($t->secret))])->withBody($body,'application/json')->post(rtrim($t->url,'/').'/'.$path);
+  abort_unless($r->successful()&&$r->json('tenant')===$t->slug&&is_array($r->json('numbers')),502);
+  $numbers=[];
+  foreach($r->json('numbers') as $n){
+   abort_unless(in_array($n['provider']??null,['twilio','fale_vono'],true)&&preg_match('/^\+[1-9][0-9]{7,14}$/D',$n['number']??''),502);
+   $numbers[]=['number'=>$n['number'],'provider'=>$n['provider'],'operator'=>$n['provider']==='twilio'?'Twilio':'Fale Vono'];
+  }
+  return $numbers;
  }
  public static function display(string $number):string {
   if(preg_match('/^\+55(\d{2})(\d{4,5})(\d{4})$/D',$number,$m))return '+55 ('.$m[1].') '.$m[2].'-'.$m[3];

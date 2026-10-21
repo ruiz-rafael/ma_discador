@@ -24,13 +24,13 @@ try:
         result=json.load(response)
     if result.get('allowed') is True:
         if event=='start':
-            if not re.fullmatch(r'discai-vono-[a-f0-9]{32}',result.get('endpoint','')) or result['endpoint'] not in config['endpoints']:
+            if not re.fullmatch(r'discai-(?:vono|twilio)-[a-f0-9]{32}',result.get('endpoint','')) or result['endpoint'] not in config['endpoints']:
                 raise ValueError('Invalid endpoint')
             if not re.fullmatch(r'\+?[1-9][0-9]{7,14}',result.get('dial_number','')) or not re.fullmatch(r'\+[1-9][0-9]{7,14}',result.get('caller_id','')):
                 raise ValueError('Invalid number')
             seconds=int(result['max_seconds']);ring=int(result['ring_seconds'])
             if not 30<=seconds<=180 or not 10<=ring<=45:raise ValueError('Invalid limits')
-            values.update(MA_ENDPOINT=result['endpoint'],MA_NUMBER=result['dial_number'],MA_CALLER=result['caller_id'][1:],MA_SECONDS=str(seconds),MA_RING=str(ring))
+            values.update(MA_ENDPOINT=result['endpoint'],MA_NUMBER=result['dial_number'],MA_CALLER=(result['caller_id'] if result['endpoint'].startswith('discai-twilio-') else result['caller_id'][1:]),MA_SECONDS=str(seconds),MA_RING=str(ring))
         values['MA_ALLOWED']='1'
 except Exception as error:
     # Fixed categories only: never log tokens, credentials, request bodies or destinations.

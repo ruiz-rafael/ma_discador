@@ -41,10 +41,15 @@ local_net=10.241.50.0/24
     dialplan='[discai-sip-denied]\nexten => _.,1,Hangup(21)\n'
     pbx=json.loads(run(['docker','inspect','zyrex-ma-pbx-1']))[0]
     gateway,pbx_address=relay_network(pbx)
-    callbacks={};expected=[];relay_targets={}
+    callbacks={};expected=[];relay_targets={};tls=None;identities=set()
     for name,c in configs.items():
         for t in c['trunks']:
-            if not re.fullmatch(r'discai-vono-[a-f0-9]{32}',t['endpoint']):raise RuntimeError('Invalid endpoint identity')
+            if not re.fullmatch(r'discai-(?:vono|twilio)-[a-f0-9]{32}',t['endpoint']):raise RuntimeError('Invalid endpoint identity')
+            if t['endpoint'] in identities:raise RuntimeError('Duplicate trunk identity')
+            identities.add(t['endpoint'])
+            if t.get('kind')=='twilio_tls':
+                if tls is not None and tls!=t['transport_configuration']:raise RuntimeError('Conflicting TLS transports')
+                tls=t['transport_configuration']
             if t['enabled']:pjsip+='\n'+t['configuration'];expected.append(t['endpoint'])
         if not c['policy'] or not any(t['enabled'] for t in c['trunks']):continue
         b=c['browser'];identity=b['username']
@@ -104,9 +109,15 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
  same => n,Return()
 '''.replace('IDENTITY',identity)
     files={'discai-sip-pjsip.conf':pjsip,'discai-sip-extensions.conf':dialplan,'discai-sip-callbacks.json':json.dumps(callbacks,sort_keys=True),'discai-sip-event.py':(ROOT/'source/resources/voice/sip-event.py').read_text()}
+    if tls is not None:
+        # Keep the existing TLS binding; retire the shared browser and trunk identities.
+        files['ma-calling-pjsip.conf']=tls
+        files['ma-calling-extensions.conf']='; Legacy shared calling context retired. Tenant contexts authorize all calls.\n'
     for base,include in [('pjsip.conf','discai-sip-pjsip.conf'),('extensions.conf','discai-sip-extensions.conf')]:
         text=(LIVE/base).read_text();line='#include '+include
         files[base]=text if line in text.splitlines() else text+'\n'+line+'\n'
+        if tls is not None and base=='pjsip.conf' and '#include ma-calling-pjsip.conf' not in files[base].splitlines():
+            files[base]+='\n#include ma-calling-pjsip.conf\n'
     relay_path=Path('/etc/nginx/conf.d/discai-sip-callbacks.conf')
     relay_text=relay_config(gateway,pbx_address,relay_targets)
     relay_before=relay_path.read_text() if relay_path.exists() else None
@@ -175,6 +186,8 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
         states=[]
         for t in c['trunks']:
             if not t['enabled']:state='disabled'
+            elif t.get('kind')=='twilio_tls':
+                state='installed' if 'discai-sip-denied' in cli('pjsip show endpoint '+t['endpoint']) else 'error'
             else:
                 line=next((l for l in output.splitlines() if t['endpoint']+'-registration/' in l),'')
                 state='registered' if re.search(r'\bRegistered\b',line) else 'rejected' if re.search(r'\bRejected\b',line) else 'unregistered'

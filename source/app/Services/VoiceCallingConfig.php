@@ -45,6 +45,7 @@ class VoiceCallingConfig
     public function installed(?string $number = null): bool
     {
         if($number && ($sip=app(SipTrunks::class)->connection($number))) return $sip['runtime_ready'];
+        if (app(TwilioSipRuntime::class)->state() !== null) return app(TwilioSipRuntime::class)->ready();
         if (app()->environment('testing')) {
             return (bool) config('voice_calling_installed_test', false);
         }
@@ -101,7 +102,8 @@ class VoiceCallingConfig
             $t = $this->connection($method,$number);
             $api = $method === 'programmable_voice';
             $installed = ! $api && $p && $t && (isset($t['sip_trunk_id']) ? $t['runtime_ready'] : $this->installed());
-            $ready = $api ? ($p && $t && ($t['enabled'] ?? false)) : ($installed && app(VoiceAudio::class)->ready());
+            $tenantRuntime = isset($t['sip_trunk_id']) || app(TwilioSipRuntime::class)->state() !== null;
+            $ready = $api ? ($p && $t && ($t['enabled'] ?? false)) : ($installed && ($tenantRuntime || app(VoiceAudio::class)->ready()));
 
             return ['method' => $method, 'provider_configured' => (bool) $t, 'enabled' => $api ? (bool) ($t['enabled'] ?? false) : (bool) $installed, 'dial_url' => $api ? TwilioVoiceConnection::base().'/dial' : null, 'configured' => (bool) $p, 'trunk_configured' => ! $api && (bool) $t, 'installed' => (bool) $installed, 'ready' => (bool) $ready, 'caller_id' => $t['caller_id'] ?? null, 'allowed_recipients' => $p['allowed_recipients'] ?? [], 'max_seconds' => $p['max_seconds'] ?? 120, 'ring_seconds' => $p['ring_seconds'] ?? 30, 'daily_limit' => $p['daily_limit'] ?? 20, 'concurrency' => app(VoiceCapacity::class)->limit(), 'cps' => 1, 'incoming_enabled' => false];
         } catch (\Throwable) {

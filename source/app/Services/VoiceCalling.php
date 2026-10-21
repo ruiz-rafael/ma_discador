@@ -89,6 +89,7 @@ class VoiceCalling
             $answering=app(VoiceAnswering::class)->snapshot($w,$method,$settings??[]);
             if(isset($t['sip_trunk_id']))app(SipTrunks::class)->assertCapacity($t);
             $snapshot['sip_trunk_id']=$t['sip_trunk_id']??null;
+            $snapshot['tenant_twilio_sip']=$method==='sip_trunk'&&!isset($t['sip_trunk_id'])&&app(TwilioSipRuntime::class)->ready();
             if($platform){$snapshot['platform_operator']=$platform['operator'];$snapshot['administrative_test']=true;}
             $id = (string) Str::uuid();
             $token = hash_hmac('sha256', $id, $p['event_secret']);
@@ -106,7 +107,7 @@ class VoiceCalling
             return app(TwilioVoiceConnection::class)->grant($row, $p);
         }
         $snapshot=json_decode($row->context_snapshot??'{}',true);
-        if(!empty($snapshot['sip_trunk_id'])){
+        if(!empty($snapshot['sip_trunk_id'])||!empty($snapshot['tenant_twilio_sip'])){
             $browser=app(SipTrunks::class)->browser();$host=parse_url(\App\Services\Portal\TenantUrls::origin(),PHP_URL_HOST);
             return ['id'=>$row->id,'method'=>'sip_trunk','server'=>'wss://'.$host.'/voice/ws','aor'=>'sip:'.$browser['username'].'@'.$host,'username'=>$browser['username'],'password'=>$browser['password'],'destination'=>'sip:'.hash_hmac('sha256',$row->id,$p['event_secret']).'@'.$host,'max_seconds'=>$row->max_seconds,'ring_seconds'=>$row->ring_seconds];
         }
@@ -194,6 +195,11 @@ class VoiceCalling
             $result+=['endpoint'=>$c['endpoint'],'dial_number'=>match($c['dial_format']){'national'=>substr($m->destination,3),'digits'=>substr($m->destination,1),default=>$m->destination}];
             // National formatting is valid only for Brazilian destinations.
             if($c['dial_format']==='national'&&!str_starts_with($m->destination,'+55'))return ['allowed'=>false];
+        }
+        if(!empty($snapshot['tenant_twilio_sip'])){
+            $runtime=app(TwilioSipRuntime::class);$d=$runtime->descriptor();
+            if(!$runtime->ready()||$d['caller_id']!==$m->caller_id)return ['allowed'=>false];
+            $result+=['endpoint'=>$d['endpoint'],'dial_number'=>$m->destination];
         }
         return $result;
     }
