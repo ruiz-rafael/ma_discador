@@ -3,7 +3,7 @@
 Only reads DiscAI containers; credentials remain in private storage and PBX files.
 """
 from pathlib import Path
-import fcntl, hashlib, json, os, re, shutil, subprocess, tempfile, time, socket
+import fcntl, hashlib, json, os, re, shutil, subprocess, tempfile, time, socket, ssl
 from sip_inbound_runtime import agent_config, ingress_config, tenant_dialplan, routes_dialplan
 from sip_callback_relay import relay_network, relay_target, relay_config
 os.umask(0o077)
@@ -18,6 +18,25 @@ def cli(command,container='zyrex-ma-pbx-1'):
     return s
 def write(p,content,mode=0o640):
     tmp=p.with_name('.'+p.name+'.next');tmp.write_text(content);os.chown(tmp,0,18080);tmp.chmod(mode);tmp.replace(p)
+def inbound_tls_ready(address):
+    """Check the actual listener, not only PJSIP's configured transport objects."""
+    try:
+        context=ssl.create_default_context()
+        with socket.create_connection((address,15062),timeout=3) as connection:
+            with context.wrap_socket(connection,server_hostname='app.discai.ia.br'):
+                return True
+    except (OSError,ssl.SSLError):
+        return False
+def ensure_inbound_listener(address,configs):
+    if inbound_tls_ready(address):return False
+    # Recheck under the reconciler lock. Never restart over an active reservation/call.
+    if any(c['busy'] for c in configs.values()) or not re.search(r'^0 active channels\s*$',cli('core show channels count'),re.M):
+        raise RuntimeError('Inbound TLS unavailable; recovery deferred until current calls finish')
+    run(['docker','restart','zyrex-ma-pbx-1'])
+    for attempt in range(15):
+        if inbound_tls_ready(address):return True
+        time.sleep(1)
+    raise RuntimeError('Inbound TLS unavailable after PBX restart')
 def main():
     lock=(ROOT/'voice-runtime/.sip-sync.lock').open('a')
     try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -141,7 +160,7 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
     relay_changed=relay_before!=relay_text
     changed=relay_changed or any(not(LIVE/f).exists() or (LIVE/f).read_text()!=v for f,v in files.items())
     if changed:
-        if any(c['busy'] for c in configs.values()) or '0 active channels' not in cli('core show channels count'):
+        if any(c['busy'] for c in configs.values()) or not re.search(r'^0 active channels\s*$',cli('core show channels count'),re.M):
             print('SIP changes queued until current calls finish.');return
         # Parse configuration in an isolated Asterisk with no network and no exposed ports.
         stage=Path(tempfile.mkdtemp(prefix='sip-validate-',dir=ROOT/'releases'));check='discai-sip-validation'
@@ -172,7 +191,7 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
             for f,v in previous.items():
                 if v is not None:(backup/f).write_bytes(v)
             if relay_before is not None:(backup/'callback-relay.conf').write_text(relay_before)
-            new_transport='discai-inbound-tls' not in cli('pjsip show transports') or any(previous.get(f)!=files[f].encode() for f in ['discai-inbound.crt','discai-inbound.key'])
+            new_transport=not inbound_tls_ready(pbx_address) or 'discai-inbound-tls' not in cli('pjsip show transports') or any(previous.get(f)!=files[f].encode() for f in ['discai-inbound.crt','discai-inbound.key'])
             try:
                 if relay_changed:
                     write(relay_path,relay_text,0o644)
@@ -203,6 +222,7 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
         finally:
             if started:run(['docker','rm','-f',check])
             shutil.rmtree(stage)
+    listener_recovered=ensure_inbound_listener(pbx_address,configs)
     output=cli('pjsip show registrations');summaries=[]
     for name,c in configs.items():
         channels=[]
@@ -224,7 +244,7 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
             states.append({'id':t['id'],'hash':t['hash'],'state':state})
             summaries.append({'container':name,'connection':t['id'],'state':state})
         run(['docker','exec','-i','-u','82:82',name,'php','artisan','voice:sip-runtime','status'],json.dumps(states))
-    print(json.dumps({'changed':changed,'connections':summaries,'calls_originated':0}))
+    print(json.dumps({'changed':changed,'inbound_tls_ready':True,'listener_recovered':listener_recovered,'connections':summaries,'calls_originated':0}))
 if __name__=='__main__':
     try:main()
     except Exception as error:
