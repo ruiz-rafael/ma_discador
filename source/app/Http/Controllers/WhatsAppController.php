@@ -21,7 +21,7 @@ class WhatsAppController extends Controller
     {
         $w = $this->workspace($r);
 
-        return response()->json(['connection' => app(TwilioWhatsAppConnection::class)->status(), 'senders' => DB::table('wa_senders')->where('workspace_id', $w)->orderByDesc('id')->get(), 'qr_templates' => app(\App\Services\WhatsAppQrTemplates::class)->catalog($w), 'templates' => DB::table('wa_templates')->where('workspace_id', $w)->orderByDesc('created_at')->limit(100)->get()->map(function ($t) {
+        return response()->json(['platform_admin' => \App\Services\WhatsAppVerification::platform($r), 'connection' => app(TwilioWhatsAppConnection::class)->status(), 'senders' => DB::table('wa_senders')->where('workspace_id', $w)->orderByDesc('id')->get(), 'qr_templates' => app(\App\Services\WhatsAppQrTemplates::class)->catalog($w), 'templates' => DB::table('wa_templates')->where('workspace_id', $w)->orderByDesc('created_at')->limit(100)->get()->map(function ($t) {
             $t->variables = json_decode($t->variables, true);
 
             return $t;

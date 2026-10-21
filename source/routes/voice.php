@@ -36,6 +36,9 @@ Route::middleware(['auth', 'throttle:120,1'])->prefix('api/voice')->group(functi
 Route::post('/internal/voice/audio/event', [A::class, 'event'])->middleware('throttle:120,1');
 
 Route::middleware(['auth', 'throttle:120,1'])->prefix('api/voice/whatsapp')->group(function () {
+    $verification = \App\Http\Controllers\WhatsAppVerificationController::class;
+    Route::get('/verification', [$verification, 'handle']);
+    Route::post('/verification/{action}', [$verification, 'handle'])->whereIn('action', ['status', 'inspect', 'request', 'verify', 'settings'])->middleware('throttle:10,1,wa-verification:');
     $c = WhatsAppController::class;
     $onboarding = \App\Http\Controllers\WhatsAppOnboardingController::class;
     $profile = \App\Http\Controllers\WhatsAppPublicProfileController::class;

@@ -20,7 +20,8 @@ class TwilioWhatsAppApi
             throw new \RuntimeException('twilio_unknown');
         }
         if (! $r->successful()) {
-            throw new \RuntimeException($r->status() >= 500 || $r->status() < 400 ? 'twilio_unknown' : 'twilio_rejected_'.(int) $r->status());
+            $code = $r->json('code');
+            throw new TwilioWhatsAppException($r->status(), is_numeric($code) ? (int) $code : null);
         }
         $body = $r->json();
         if (! is_array($body)) {

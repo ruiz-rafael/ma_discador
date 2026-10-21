@@ -1,0 +1,328 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DiscAI client WhatsApp voice verification",
+    "version": "1.0.0",
+    "description": "Authenticated tenant admin session and CSRF. Separate database per tenant. No public phone input. First provider authorization is a platform prerequisite, not replaced by OTP. Request creation and verification use Twilio Senders API v2; no undocumented resend endpoint. Errors 63114/429 cause a conservative local 24-hour pause, not a provider deadline. Provider mutations never retry automatically."
+  },
+  "paths": {
+    "/api/voice/whatsapp/verification": {
+      "get": {
+        "summary": "List locally assigned active phone numbers and operator labels. Policy included only for platform operator. No provider request.",
+        "responses": {
+          "200": {
+            "description": "numbers[], platform_admin, optional policy"
+          }
+        }
+      }
+    },
+    "/api/voice/whatsapp/verification/status": {
+      "post": {
+        "summary": "Local status and inbound readiness; never sends a code",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-TOKEN",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "number"
+                ],
+                "properties": {
+                  "number": {
+                    "type": "string",
+                    "pattern": "^\\+[1-9][0-9]{7,14}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sanitized state; no credentials or OTP. can_request/can_verify, setup_ready, reception.ready, retry_after (local pause, not provider guarantee)."
+          },
+          "403": {
+            "description": "Not tenant administrator or not platform operator for settings"
+          },
+          "404": {
+            "description": "Number not assigned to this tenant"
+          },
+          "409": {
+            "description": "Account/WABA mismatch, missing reception, first sender not authorized, or previous request pending"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Local throttle or persisted pause; no provider POST"
+          },
+          "502": {
+            "description": "Provider read unavailable; no automatic retry"
+          }
+        }
+      }
+    },
+    "/api/voice/whatsapp/verification/inspect": {
+      "post": {
+        "summary": "Read provider state; never resend or recreate",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-TOKEN",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "number"
+                ],
+                "properties": {
+                  "number": {
+                    "type": "string",
+                    "pattern": "^\\+[1-9][0-9]{7,14}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sanitized state; no credentials or OTP. can_request/can_verify, setup_ready, reception.ready, retry_after (local pause, not provider guarantee)."
+          },
+          "403": {
+            "description": "Not tenant administrator or not platform operator for settings"
+          },
+          "404": {
+            "description": "Number not assigned to this tenant"
+          },
+          "409": {
+            "description": "Account/WABA mismatch, missing reception, first sender not authorized, or previous request pending"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Local throttle or persisted pause; no provider POST"
+          },
+          "502": {
+            "description": "Provider read unavailable; no automatic retry"
+          }
+        }
+      }
+    },
+    "/api/voice/whatsapp/verification/request": {
+      "post": {
+        "summary": "Explicit one-time voice OTP request to assigned number, using operator-bound WABA",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-TOKEN",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "number",
+                  "name",
+                  "confirmed"
+                ],
+                "properties": {
+                  "number": {
+                    "type": "string",
+                    "pattern": "^\\+[1-9][0-9]{7,14}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 100
+                  },
+                  "confirmed": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sanitized state; no credentials or OTP. can_request/can_verify, setup_ready, reception.ready, retry_after (local pause, not provider guarantee)."
+          },
+          "403": {
+            "description": "Not tenant administrator or not platform operator for settings"
+          },
+          "404": {
+            "description": "Number not assigned to this tenant"
+          },
+          "409": {
+            "description": "Account/WABA mismatch, missing reception, first sender not authorized, or previous request pending"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Local throttle or persisted pause; no provider POST"
+          },
+          "502": {
+            "description": "Provider read unavailable; no automatic retry"
+          }
+        }
+      }
+    },
+    "/api/voice/whatsapp/verification/verify": {
+      "post": {
+        "summary": "Submit code once after provider identity and state check; never retain code",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-TOKEN",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "number",
+                  "code"
+                ],
+                "properties": {
+                  "number": {
+                    "type": "string",
+                    "pattern": "^\\+[1-9][0-9]{7,14}$"
+                  },
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[0-9]{6}$",
+                    "writeOnly": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sanitized state; no credentials or OTP. can_request/can_verify, setup_ready, reception.ready, retry_after (local pause, not provider guarantee)."
+          },
+          "403": {
+            "description": "Not tenant administrator or not platform operator for settings"
+          },
+          "404": {
+            "description": "Number not assigned to this tenant"
+          },
+          "409": {
+            "description": "Account/WABA mismatch, missing reception, first sender not authorized, or previous request pending"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Local throttle or persisted pause; no provider POST"
+          },
+          "502": {
+            "description": "Provider read unavailable; no automatic retry"
+          }
+        }
+      }
+    },
+    "/api/voice/whatsapp/verification/settings": {
+      "post": {
+        "summary": "Platform operator only: bind authorization to current account and WABA",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-TOKEN",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "enabled"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "waba_id": {
+                    "type": "string",
+                    "nullable": true,
+                    "pattern": "^[0-9]{5,40}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sanitized state; no credentials or OTP. can_request/can_verify, setup_ready, reception.ready, retry_after (local pause, not provider guarantee)."
+          },
+          "403": {
+            "description": "Not tenant administrator or not platform operator for settings"
+          },
+          "404": {
+            "description": "Number not assigned to this tenant"
+          },
+          "409": {
+            "description": "Account/WABA mismatch, missing reception, first sender not authorized, or previous request pending"
+          },
+          "422": {
+            "description": "Invalid input"
+          },
+          "429": {
+            "description": "Local throttle or persisted pause; no provider POST"
+          },
+          "502": {
+            "description": "Provider read unavailable; no automatic retry"
+          }
+        }
+      }
+    }
+  }
+}
