@@ -21,6 +21,9 @@ class WhatsAppOnboardingTest extends TestCase
     private string $postMode = 'ok';
     private bool $parent = false;
     private bool $pagination = false;
+    private array $capabilities = ['sms' => false, 'voice' => true];
+    private bool $foreignNumber = false;
+    private string $fetchedStatus = 'PENDING_VERIFICATION';
     private function url(string $suffix = ''): string { return '/api/voice/whatsapp/senders/'.$this->sender.'/onboarding'.$suffix; }
     protected function setUp(): void
     {
@@ -44,8 +47,9 @@ class WhatsAppOnboardingTest extends TestCase
                 if ($this->postMode === 'wrong') return Http::response($this->row('+5511999990009'));
                 return Http::response($this->row('+5511999990001', isset($r['configuration']['verification_code']) ? 'ONLINE' : 'PENDING_VERIFICATION'), 201);
             }
+            if (str_contains($r->url(), '/IncomingPhoneNumbers.json')) return Http::response(['incoming_phone_numbers' => [['phone_number' => '+5511999990001', 'account_sid' => $this->foreignNumber ? 'AC'.str_repeat('f', 32) : $this->account, 'capabilities' => $this->capabilities]]]);
             if (str_contains($r->url(), '/Accounts/')) return Http::response(['sid' => $this->account, 'owner_account_sid' => $this->parent ? $this->account : 'AC'.str_repeat('f', 32)]);
-            if (str_contains($r->url(), '/Senders/')) return Http::response($this->row('+5511999990001'));
+            if (str_contains($r->url(), '/Senders/')) return Http::response($this->row('+5511999990001', $this->fetchedStatus));
             return Http::response(['senders' => $this->rows, 'meta' => ['next_page_url' => null]]);
         });
     }
@@ -173,6 +177,45 @@ class WhatsAppOnboardingTest extends TestCase
         DB::table('wa_senders')->where('id', $this->sender)->update(['account_sid' => 'AC'.str_repeat('f', 32)]);
         $this->postJson($this->url('/discover'))->assertConflict();
         Http::assertNothingSent();
+    }
+    public function test_twilio_voice_only_number_offers_call_and_rejects_sms_before_creation(): void
+    {
+        DB::table('wa_senders')->where('id', $this->sender)->update(['ownership' => 'twilio']);
+        $this->postJson($this->url('/discover'))->assertOk()->assertJsonPath('verification.methods', ['voice'])->assertJsonPath('verification.recommended', 'voice')->assertJsonPath('verification.automatic_sms', false);
+        $this->postJson($this->url('/register'), $this->payload())->assertUnprocessable();
+        $this->assertCount(0, $this->posts());
+        $this->postJson($this->url('/register'), array_replace($this->payload(), ['verification_method' => 'voice']))->assertOk()->assertJsonPath('sender.status', 'PENDING_VERIFICATION');
+        $this->assertSame('voice', $this->posts()[0]['data']['configuration']['verification_method']);
+        $this->assertCount(1, $this->posts());
+    }
+    public function test_capabilities_cannot_be_used_from_a_different_twilio_account(): void
+    {
+        DB::table('wa_senders')->where('id', $this->sender)->update(['ownership' => 'twilio']);$this->foreignNumber = true;
+        $this->postJson($this->url('/discover'))->assertUnprocessable();
+        $this->postJson($this->url('/register'), $this->payload())->assertUnprocessable();
+        $this->assertCount(0, $this->posts());
+    }
+    public function test_console_pending_sender_can_verify_without_duplicate_registration(): void
+    {
+        $this->rows[] = $this->row('+5511999990001');
+        $this->postJson($this->url('/discover'))->assertOk()->assertJsonPath('found', true);
+        $this->assertDatabaseCount('wa_onboardings', 0);
+        $r = $this->postJson($this->url('/verify'), ['code' => '654321'])->assertOk()->assertJsonPath('sender.status', 'ONLINE');
+        $this->assertCount(1, $this->posts());
+        $this->assertStringEndsWith('/Senders/XE'.str_repeat('a', 32), $this->posts()[0]['url']);
+        $this->assertStringNotContainsString('654321', $r->getContent());
+        $this->assertStringNotContainsString('654321', DB::table('wa_onboardings')->get()->toJson());
+        $this->assertDatabaseCount('wa_messages', 0);
+        $this->assertDatabaseCount('voice_outbound_calls', 0);
+    }
+    public function test_provider_state_is_checked_before_submitting_an_otp(): void
+    {
+        $this->rows[] = $this->row('+5511999990001');$this->postJson($this->url('/discover'))->assertOk();
+        $this->fetchedStatus = 'TWILIO_REVIEW';
+        $this->postJson($this->url('/verify'), ['code' => '654321'])->assertUnprocessable();
+        $this->fetchedStatus = 'ONLINE';
+        $this->postJson($this->url('/verify'), ['code' => '654321'])->assertOk()->assertJsonPath('sender.status', 'ONLINE');
+        $this->assertCount(0, $this->posts());
     }
     public function test_discovery_paginates_without_following_untrusted_host(): void
     {

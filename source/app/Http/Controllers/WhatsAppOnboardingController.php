@@ -44,7 +44,7 @@ class WhatsAppOnboardingController extends Controller
                 'discover' => $service->discover($w, $id),
                 'embedded' => $service->beginEmbedded($w, $id, $r->user()->id),
                 'register' => $service->register($w, $id, $r->user()->id, $data),
-                'verify' => $service->verify($w, $id, $data['code']),
+                'verify' => $service->verify($w, $id, $data['code'], $r->user()->id),
                 'webhook' => $service->webhook($w, $id),
                 default => abort(404),
             };

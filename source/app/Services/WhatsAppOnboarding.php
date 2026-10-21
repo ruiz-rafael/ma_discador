@@ -87,10 +87,23 @@ class WhatsAppOnboarding
         $s = $this->sender($w, $id);
         $rows = $this->inventory();
         foreach ($rows as $row) {
-            if (($row['sender_id'] ?? '') === 'whatsapp:'.$s->number) return ['found' => true, 'sender' => $this->apply($s, $row), 'can_register' => true];
+            if (($row['sender_id'] ?? '') === 'whatsapp:'.$s->number) return ['found' => true, 'sender' => $this->apply($s, $row), 'can_register' => true, 'verification' => $this->verificationOptions($s)];
         }
         $eligible = collect($rows)->contains(fn ($row) => ($row['status'] ?? '') === 'ONLINE' && !empty($row['configuration']['waba_id']));
-        return ['found' => false, 'can_register' => $eligible, 'message' => $eligible ? 'Conta pronta para cadastrar um número adicional.' : 'Conclua o primeiro cadastro no console Twilio. Depois clique em Buscar número na Twilio.'];
+        return ['found' => false, 'can_register' => $eligible, 'verification' => $this->verificationOptions($s), 'message' => $eligible ? 'Conta pronta para cadastrar um número adicional.' : 'Esta conta ainda não tem um WhatsApp oficial ativo. Autorize a empresa pela Meta no console Twilio e depois volte aqui para consultar e concluir o vínculo.'];
+    }
+
+    private function verificationOptions(object $s): array
+    {
+        if ($s->ownership !== 'twilio') return ['methods' => ['sms', 'voice'], 'recommended' => 'sms', 'automatic_sms' => false, 'message' => 'O código será enviado ao número informado. Escolha SMS ou ligação conforme o que essa linha consegue receber.'];
+        $account = app(TwilioWhatsAppConnection::class)->require()['account_sid'];
+        $result = $this->api('GET', 'https://api.twilio.com/2010-04-01/Accounts/'.$account.'/IncomingPhoneNumbers.json', ['PhoneNumber' => $s->number, 'PageSize' => 20]);
+        $number = collect($result['incoming_phone_numbers'] ?? [])->first(fn ($n) => ($n['phone_number'] ?? '') === $s->number && ($n['account_sid'] ?? '') === $account);
+        abort_unless($number, 422, 'Este número não foi encontrado na conta Twilio configurada. Confira a operadora e a empresa selecionadas.');
+        $sms = ($number['capabilities']['sms'] ?? false) === true;
+        $voice = ($number['capabilities']['voice'] ?? false) === true;
+        return ['methods' => array_values(array_filter(['sms' => $sms ? 'sms' : null, 'voice' => $voice ? 'voice' : null])), 'recommended' => $sms ? 'sms' : ($voice ? 'voice' : null), 'automatic_sms' => $sms,
+            'message' => $sms ? 'Este número Twilio recebe SMS. A Twilio pode concluir a verificação automaticamente.' : ($voice ? 'Este número recebe ligações, mas não SMS. Antes de pedir o código, prepare o recebimento da ligação de verificação. A configuração de voz existente será preservada.' : 'A linha não informa capacidade para receber SMS ou ligação. Revise o número com a operadora.')];
     }
 
     public function beginEmbedded(int $w, int $id, int $user): array
@@ -119,6 +132,7 @@ class WhatsAppOnboarding
         $wabas = collect($rows)->pluck('configuration.waba_id')->filter()->unique()->values()->all();
         if ($d['mode'] === 'own') {
             abort_unless(collect($rows)->contains(fn ($row) => ($row['status'] ?? '') === 'ONLINE' && !empty($row['configuration']['waba_id'])), 422, 'O primeiro número precisa ser cadastrado no console Twilio.');
+            abort_unless(in_array($d['verification_method'], $this->verificationOptions($s)['methods'], true), 422, 'Esta linha não recebe códigos pelo método escolhido. Consulte o número e selecione uma opção disponível.');
         } else {
             abort_unless($this->settings($w)['enabled'], 422, 'Cadastro de clientes desabilitado.');
             abort_if($wabas && (count($wabas) !== 1 || $wabas[0] !== $d['waba_id']), 409, 'Esta subconta já pertence a outra conta WhatsApp. Use um workspace e uma subconta dedicados à empresa.');
@@ -147,10 +161,20 @@ class WhatsAppOnboarding
         return $this->status($w, $id);
     }
 
-    public function verify(int $w, int $id, string $code): array
+    public function verify(int $w, int $id, string $code, int $user): array
     {
         $s = $this->sender($w, $id);
         abort_unless($s->provider_sid && $s->status !== 'ONLINE', 422, 'Consulte o cadastro antes de informar o código.');
+        // A sender created in the console can be resumed here without being registered twice.
+        $s = $this->apply($s, $this->api('GET', self::SENDERS.'/'.$s->provider_sid));
+        if ($s->status === 'ONLINE') return $this->status($w, $id);
+        abort_unless($s->status === 'PENDING_VERIFICATION', 422, 'Este cadastro não está aguardando um código. Consulte o estado da conexão antes de continuar.');
+        DB::transaction(function () use ($w, $id, $user, $s) {
+            DB::table('wa_senders')->where('id', $id)->lockForUpdate()->firstOrFail();
+            if (!DB::table('wa_onboardings')->where('sender_id', $id)->exists()) {
+                DB::table('wa_onboardings')->insert(['sender_id' => $id, 'workspace_id' => $w, 'user_id' => $user, 'account_sid' => $s->account_sid, 'mode' => 'own', 'state' => 'pending', 'created_at' => now(), 'updated_at' => now()]);
+            }
+        });
         $reserved = DB::table('wa_onboardings')->where('sender_id', $id)->where('account_sid', app(TwilioWhatsAppConnection::class)->require()['account_sid'])->where(function ($q) { $q->whereNull('last_request_at')->orWhere('last_request_at', '<=', now()->subMinute()); })->update(['last_request_at' => now(), 'updated_at' => now()]);
         abort_unless($reserved, 429, 'Aguarde um minuto e consulte o estado antes de confirmar outro código.');
         try {
