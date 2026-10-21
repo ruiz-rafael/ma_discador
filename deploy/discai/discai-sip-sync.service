@@ -5,6 +5,7 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
+ExecStartPre=/usr/bin/python3 /srv/zyrex-ma/ops/sip_ingress_firewall.py
 ExecStart=/usr/bin/python3 /srv/zyrex-ma/ops/sync_sip_trunks.py
 UMask=0077
 TimeoutStartSec=120

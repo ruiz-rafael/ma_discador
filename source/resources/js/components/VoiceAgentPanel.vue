@@ -12,7 +12,7 @@ import VoiceDispositionForm from './VoiceDispositionForm.vue'
 const VoiceAudioPanel=defineAsyncComponent(()=>import('./VoiceAudioPanel.vue'))
 const props=defineProps({toolbarTarget:String,visible:{type:Boolean,default:true}})
 const emit=defineEmits(['open-operation'])
-const catalog=ref(null),state=ref(null),error=ref(''),notice=ref(''),busy=ref(false),control=ref(null),inbound=ref(null),dialer=ref(null),inboundReady=ref(false),inboundActive=ref(false),diagnostic=ref(false),audio=ref(null),dialOpen=ref(false)
+const catalog=ref(null),state=ref(null),error=ref(''),notice=ref(''),busy=ref(true),control=ref(null),inbound=ref(null),dialer=ref(null),inboundReady=ref(false),inboundActive=ref(false),diagnostic=ref(false),audio=ref(null),dialOpen=ref(false)
 const callFeedback=ref(''),callPhase=ref('idle'),callAudioBlocked=ref(false),endingCall=ref(false)
 const toolbarReady=ref(!props.toolbarTarget)
 const session=crypto.randomUUID(),labels={available:'Online',paused:'Pausado',offline:'Offline'}
@@ -70,7 +70,7 @@ async function cancel(){epoch++;await api('/operations/reservations/'+state.valu
 async function shutdown(){if(occupied.value)throw Error('Conclua a chamada e a tabulação antes de sair da conta.');if(owned)await availability('offline');else await inbound.value?.disconnect()}
 function beforeUnload(e){if(occupied.value){e.preventDefault();e.returnValue=''}}
 function pageHide(){if(!owned)return;const data={status:'offline',session_id:session};if(isEmbedded()){fetch(voiceBase()+'/queues/presence',{method:'POST',credentials:'omit',keepalive:true,headers:{'Content-Type':'application/json',...voiceAuth()},body:JSON.stringify(data)}).catch(()=>{});return}navigator.sendBeacon('/api/voice/queues/presence',new Blob([JSON.stringify({...data,_token:document.querySelector('meta[name="csrf-token"]').content})],{type:'application/json'}))}
-onMounted(async()=>{await nextTick();toolbarReady.value=true;try{catalog.value=await api('/operations/catalog');await load()}catch(e){error.value=e.message}uiTimer=setInterval(()=>clock.value=Date.now(),1000);timer=setInterval(tick,5000);window.addEventListener('pagehide',pageHide);window.addEventListener('beforeunload',beforeUnload)})
+onMounted(async()=>{await nextTick();toolbarReady.value=true;try{catalog.value=await api('/operations/catalog');await load()}catch(e){error.value=e.message}finally{busy.value=false}uiTimer=setInterval(()=>clock.value=Date.now(),1000);timer=setInterval(tick,5000);window.addEventListener('pagehide',pageHide);window.addEventListener('beforeunload',beforeUnload)})
 onBeforeUnmount(()=>{disposed=true;epoch++;clearInterval(timer);clearInterval(uiTimer);window.removeEventListener('pagehide',pageHide);window.removeEventListener('beforeunload',beforeUnload);pageHide()})
 defineExpose({requestLeave:fn=>fn(),shutdown})
 </script>

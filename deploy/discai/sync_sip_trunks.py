@@ -3,7 +3,8 @@
 Only reads DiscAI containers; credentials remain in private storage and PBX files.
 """
 from pathlib import Path
-import fcntl, hashlib, json, os, re, shutil, subprocess, tempfile, time
+import fcntl, hashlib, json, os, re, shutil, subprocess, tempfile, time, socket
+from sip_inbound_runtime import agent_config, ingress_config, tenant_dialplan, routes_dialplan
 from sip_callback_relay import relay_network, relay_target, relay_config
 os.umask(0o077)
 ROOT=Path('/srv/zyrex-ma'); LIVE=ROOT/'voice-runtime/asterisk'
@@ -27,6 +28,7 @@ def main():
             name='discai-tenant-'+p.parent.name+'-app-1'
             if run(['docker','inspect','--format','{{.State.Running}}',name]).strip()=='true':containers.append(name)
     configs={}
+    vono_addresses=sorted({a[4][0] for a in socket.getaddrinfo('vono2.me',5060,socket.AF_INET,socket.SOCK_DGRAM)})
     for name in containers:
         configs[name]=json.loads(run(['docker','exec','-u','82:82',name,'php','artisan','voice:sip-runtime','export']))
     pjsip='''; Managed by DiscAI SIP reconciler. Do not edit manually.
@@ -41,7 +43,7 @@ local_net=10.241.50.0/24
     dialplan='[discai-sip-denied]\nexten => _.,1,Hangup(21)\n'
     pbx=json.loads(run(['docker','inspect','zyrex-ma-pbx-1']))[0]
     gateway,pbx_address=relay_network(pbx)
-    callbacks={};expected=[];relay_targets={};tls=None;identities=set()
+    callbacks={};expected=[];relay_targets={};tls=None;identities=set();incoming_routes=[];agent_names=[]
     for name,c in configs.items():
         for t in c['trunks']:
             if not re.fullmatch(r'discai-(?:vono|twilio)-[a-f0-9]{32}',t['endpoint']):raise RuntimeError('Invalid endpoint identity')
@@ -50,7 +52,11 @@ local_net=10.241.50.0/24
             if t.get('kind')=='twilio_tls':
                 if tls is not None and tls!=t['transport_configuration']:raise RuntimeError('Conflicting TLS transports')
                 tls=t['transport_configuration']
-            if t['enabled']:pjsip+='\n'+t['configuration'];expected.append(t['endpoint'])
+            if t['enabled']:
+                rendered=t['configuration']
+                if t['endpoint'].startswith('discai-vono-'):
+                    rendered=rendered.replace('context=discai-sip-denied','context=discai-vono-incoming\ndeny=0.0.0.0/0\n'+'\n'.join('permit='+ip+'/32' for ip in vono_addresses))
+                pjsip+='\n'+rendered;expected.append(t['endpoint'])
         if not c['policy'] or not any(t['enabled'] for t in c['trunks']):continue
         b=c['browser'];identity=b['username']
         if not re.fullmatch(r'discai-browser-[a-f0-9]{16}',identity) or not re.fullmatch(r'[a-f0-9]{64}',b['password']):raise RuntimeError('Invalid browser identity')
@@ -58,7 +64,14 @@ local_net=10.241.50.0/24
         if identity in callbacks:raise RuntimeError('Duplicate tenant browser identity')
         web_name=name.removesuffix('-app-1')+'-web-1'
         relay_targets[identity]=relay_target(name,c['callback'],json.loads(run(['docker','inspect',web_name]))[0])
-        callbacks[identity]={'url':f'http://{gateway}:18489/{identity}','secret':c['policy']['event_secret'],'endpoints':[t['endpoint'] for t in c['trunks'] if t['enabled']]}
+        callbacks[identity]={'url':f'http://{gateway}:18489/{identity}','secret':c['policy']['event_secret'],'endpoints':[t['endpoint'] for t in c['trunks'] if t['enabled']],'agents':[a['username'] for a in c.get('inbound_agents',[])]}
+        for a in c.get('inbound_agents',[]):
+            if a['username'] in agent_names:raise RuntimeError('Duplicate agent identity')
+            pjsip+=agent_config(a);agent_names.append(a['username'])
+        for route in c.get('inbound_routes',[]):
+            trunk=next((t for t in c['trunks'] if t['enabled'] and t['endpoint']==route['endpoint']),None)
+            if trunk:incoming_routes.append(route|{'tenant':identity,'username':trunk.get('username')})
+        dialplan+=tenant_dialplan(identity)
         pjsip+=f'''
 [{identity}]
 type=auth
@@ -108,7 +121,11 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
  same => n,ExecIf($["${MA_ALLOWED}" != "1"]?Set(GOSUB_RESULT=ABORT))
  same => n,Return()
 '''.replace('IDENTITY',identity)
-    files={'discai-sip-pjsip.conf':pjsip,'discai-sip-extensions.conf':dialplan,'discai-sip-callbacks.json':json.dumps(callbacks,sort_keys=True),'discai-sip-event.py':(ROOT/'source/resources/voice/sip-event.py').read_text()}
+    pjsip+=ingress_config(vono_addresses)
+    dialplan+=routes_dialplan(incoming_routes)
+    files={'discai-sip-inbound-event.py':(ROOT/'source/resources/voice/sip-inbound-event.py').read_text(),'discai-sip-pjsip.conf':pjsip,'discai-sip-extensions.conf':dialplan,'discai-sip-callbacks.json':json.dumps(callbacks,sort_keys=True),'discai-sip-event.py':(ROOT/'source/resources/voice/sip-event.py').read_text()}
+    files['discai-inbound.crt']=Path('/etc/letsencrypt/live/app.discai.ia.br/fullchain.pem').read_text()
+    files['discai-inbound.key']=Path('/etc/letsencrypt/live/app.discai.ia.br/privkey.pem').read_text()
     if tls is not None:
         # Keep the existing TLS binding; retire the shared browser and trunk identities.
         files['ma-calling-pjsip.conf']=tls
@@ -135,10 +152,15 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
             for f,v in files.items():(stage/f).write_text(v)
             os.chown(stage,0,18080);stage.chmod(0o750)
             for p in stage.iterdir():os.chown(p,0,18080);p.chmod(0o750 if p.suffix=='.py' else 0o640)
-            run(['docker','run','-d','--name',check,'--network','none','--memory=256m','--cpus=.25','--cap-drop=ALL','--security-opt=no-new-privileges','-v',str(stage)+':/etc/asterisk:ro','zyrex-ma-pbx:22.9.0-1']);started=True
-            for attempt in range(30):
+            host_args=[]
+            for host in sorted(set(re.findall(r'contact=sip:([a-z0-9.-]+):',pjsip))):
+                host_args+=['--add-host',host+':127.0.0.2']
+            run(['docker','run','-d',*host_args,'--name',check,'--network','none','--memory=256m','--cpus=.25','--cap-drop=ALL','--security-opt=no-new-privileges','-v',str(stage)+':/etc/asterisk:ro','zyrex-ma-pbx:22.9.0-1']);started=True
+            for attempt in range(60):
                 try:
-                    valid=all('discai-sip-denied' in cli('pjsip show endpoint '+e,check) for e in expected)
+                    valid=all(('discai-vono-incoming' if e.startswith('discai-vono-') else 'discai-sip-denied') in cli('pjsip show endpoint '+e,check) for e in expected)
+                    valid=valid and all('discai-sip-denied' in cli('pjsip show endpoint '+e,check) for e in agent_names)
+                    valid=valid and all('incoming' in cli('dialplan show '+b+'-incoming',check) for b in callbacks)
                     valid=valid and all('Dial(' in cli('dialplan show '+b,check) for b in callbacks)
                     valid=valid and 'Echo(' in cli('dialplan show ma-audio-only',check)
                     if valid:break
@@ -150,7 +172,7 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
             for f,v in previous.items():
                 if v is not None:(backup/f).write_bytes(v)
             if relay_before is not None:(backup/'callback-relay.conf').write_text(relay_before)
-            new_transport='discai-vono-udp' not in cli('pjsip show transports')
+            new_transport='discai-inbound-tls' not in cli('pjsip show transports') or any(previous.get(f)!=files[f].encode() for f in ['discai-inbound.crt','discai-inbound.key'])
             try:
                 if relay_changed:
                     write(relay_path,relay_text,0o644)
@@ -163,7 +185,7 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
                 else:
                     cli('module reload res_pjsip.so');cli('module reload res_pjsip_outbound_registration.so');cli('dialplan reload')
                 for e in expected:
-                    if 'discai-sip-denied' not in cli('pjsip show endpoint '+e):raise RuntimeError('Live endpoint validation failed')
+                    if ('discai-vono-incoming' if e.startswith('discai-vono-') else 'discai-sip-denied') not in cli('pjsip show endpoint '+e):raise RuntimeError('Live endpoint validation failed')
                 for b in callbacks:
                     if 'Dial(' not in cli('dialplan show '+b):raise RuntimeError('Live dialplan validation failed')
             except Exception:
@@ -183,7 +205,14 @@ exten => s,1,AGI(/etc/asterisk/discai-sip-event.py,IDENTITY,answered,${ARG1},${A
             shutil.rmtree(stage)
     output=cli('pjsip show registrations');summaries=[]
     for name,c in configs.items():
-        states=[]
+        channels=[]
+        for line in cli('core show channels concise').splitlines():
+            channel=line.split('!',1)[0]
+            if re.fullmatch(r'[A-Za-z0-9_./-]+',channel):
+                details=cli('core show channel '+channel)
+                match=re.search(r'UniqueID:\s*([A-Za-z0-9_.:-]+)',details)
+                if match:channels.append(match.group(1))
+        states=[{'id':'inbound_channels','channels':channels}]
         for t in c['trunks']:
             if not t['enabled']:state='disabled'
             elif t.get('kind')=='twilio_tls':

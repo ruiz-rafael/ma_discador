@@ -60,6 +60,16 @@ class VoiceCallingController extends Controller
         $secret = app(VoiceCallingConfig::class)->read()['event_secret'] ?? '';
         $stamp = $r->header('X-Voice-Timestamp', '');
         abort_unless($secret && ctype_digit($stamp) && abs(time() - (int) $stamp) <= 30 && strlen($r->getContent()) <= 4096 && hash_equals(hash_hmac('sha256', $stamp.'.'.$r->getContent(), $secret), $r->header('X-Voice-Signature', '')), 401);
+        if(str_starts_with((string)$r->input('event'),'inbound_')){
+            $d=$r->validate(['event'=>'required|in:inbound_start,inbound_dispatch,inbound_answer,inbound_result,inbound_end',
+                'endpoint'=>['required','regex:/^discai-(?:vono|twilio)-[a-f0-9]{32}$/D'],
+                'channel_id'=>['required','regex:/^[a-zA-Z0-9_.:-]{1,120}$/D'],
+                'number'=>['required_if:event,inbound_start','regex:/^\\+[1-9][0-9]{7,14}$/D'],
+                'from'=>['sometimes','regex:/^(?:\\+?[0-9]{1,20}|anonymous|unknown)$/D'],
+                'offer_id'=>'required_if:event,inbound_answer,inbound_result|uuid',
+                'bill_seconds'=>'sometimes|integer|between:0,86400']);
+            return app(\App\Services\SipInbound::class)->event($d);
+        }
         $d = $r->validate(['event' => 'required|in:start,answered,finish', 'token' => ['required', 'regex:/^[a-f0-9]{64}$/D'], 'channel_id' => ['required', 'regex:/^[a-zA-Z0-9_.:-]{1,120}$/D'], 'dial_status' => 'nullable|in:ANSWER,BUSY,NOANSWER,CANCEL,CHANUNAVAIL,CONGESTION,INVALIDARGS,DONTCALL,TORTURE', 'cause' => ['nullable', 'regex:/^[0-9]{1,3}$/D'], 'bill_seconds' => 'sometimes|integer|between:0,240']);
 
         return app(VoiceCalling::class)->event($d);

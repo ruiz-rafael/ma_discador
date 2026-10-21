@@ -14,32 +14,33 @@ class InboundVoice {
   return DB::transaction(function()use($w,$u,$session){$this->lock();
    abort_unless(DB::table('users')->where('id',$u)->where('voice_workspace_id',$w)->where('voice_enabled',true)->exists(),403);
    abort_unless(DB::table('voice_live_queues')->where('workspace_id',$w)->whereIn('direction',['inbound','mixed'])->get()->contains(fn($q)=>in_array($u,json_decode($q->agent_ids,true),true)),403,'Você não está vinculado a uma fila receptiva.');
-   $c=app(TwilioVoiceConnection::class)->read();abort_unless($w===1 && $c && $c['enabled'],422,'Habilite a conexão Twilio API.');
+   $c=app(TwilioVoiceConnection::class)->read();$sip=app(SipInbound::class)->grant($u);abort_unless($w===1 && (($c && $c['enabled']) || $sip),422,'Habilite uma conexão de voz para receber chamadas.');
    $old=DB::table('voice_inbound_devices')->where('user_id',$u)->first();
    abort_if($old && $old->session_id!==$session && ($old->last_seen_at>now()->subSeconds(60)->toDateTimeString() || app(VoiceAgentCapacity::class)->inboundBusy($w,$u)),409,'A conexão anterior do receptivo ainda está registrada. Se acabou de recarregar, aguarde até 60 segundos e tente ficar online novamente. Se houver outra aba atendendo, use aquela aba.');
    $identity='ma_in_'.$w.'_'.$u.'_'.str_replace('-','',$session);
-   DB::table('voice_inbound_devices')->updateOrInsert(['user_id'=>$u],['workspace_id'=>$w,'session_id'=>$session,'identity'=>$identity,'last_seen_at'=>now(),'ready'=>$old && $old->session_id===$session ? $old->ready:false]);
+   DB::table('voice_inbound_devices')->updateOrInsert(['user_id'=>$u],['workspace_id'=>$w,'session_id'=>$session,'identity'=>$identity,'last_seen_at'=>now(),'ready'=>$old && $old->session_id===$session ? $old->ready:false,'sip_identity'=>$sip['username']??null,'sip_ready'=>$old && $old->session_id===$session ? $old->sip_ready:false]);
+   if(!$c||!$c['enabled'])return ['sip'=>$sip];
    $token=new AccessToken($c['account_sid'],$c['api_key'],$c['api_secret'],300,$identity);$grant=new VoiceGrant;$grant->setIncomingAllow(true);$token->addGrant($grant);
-   return ['access_token'=>$token->toJWT(),'edge'=>$c['edge'],'expires_in'=>300];
+   return ['access_token'=>$token->toJWT(),'edge'=>$c['edge'],'expires_in'=>300]+($sip?['sip'=>$sip]:[]);
   });
  }
- public function device(int $w,int $u,string $session,bool $ready):void {
-  DB::transaction(function()use($w,$u,$session,$ready){$this->lock();
+ public function device(int $w,int $u,string $session,bool $ready,bool $sipReady=false):void {
+  DB::transaction(function()use($w,$u,$session,$ready,$sipReady){$this->lock();
    $device=DB::table('voice_inbound_devices')->where('workspace_id',$w)->where('user_id',$u)->where('session_id',$session);
    if(!$ready){
     if($device->exists())app(QueueOperationSettings::class)->disconnected($w,$u);
     // An explicit release must not renew the old session's lease. Keep its identity
     // only while an offer, call or tabulation still belongs to this connection.
-    if(app(VoiceAgentCapacity::class)->inboundBusy($w,$u))$device->update(['ready'=>false]);
+    if(app(VoiceAgentCapacity::class)->inboundBusy($w,$u))$device->update(['ready'=>false,'sip_ready'=>false]);
     else $device->delete();
     return; // Repeated or late release from an old session is harmless.
    }
-   abort_unless($device->update(['ready'=>true,'last_seen_at'=>now()]),409,'Reconecte o receptivo nesta aba.');
+   abort_unless($device->update(['ready'=>true,'sip_ready'=>$sipReady,'last_seen_at'=>now()]),409,'Reconecte o receptivo nesta aba.');
   });
  }
  public function receive(array $d):string {
   return DB::transaction(function()use($d){$this->lock();$xml=new VoiceResponse;
-   $route=DB::table('voice_inbound_routes')->where('number',$d['To'])->where('enabled',true)->first();
+   $route=DB::table('voice_inbound_routes')->where('number',$d['To'])->where('provider','programmable_voice')->where('enabled',true)->first();
    $queue=$route?DB::table('voice_live_queues')->where('workspace_id',$route->workspace_id)->find($route->queue_id):null;
    if(!$route||!QueueRouting::incoming($queue)||!QueueOperationSettings::open($queue)||app(OperationPolicy::class)->voiceReason($route->workspace_id)){$xml->reject(['reason'=>'busy']);return (string)$xml;}
    if(DB::table('voice_inbound_calls')->where('call_sid',$d['CallSid'])->exists())return app(TwilioVoiceCalling::class)->hangup();
@@ -50,14 +51,14 @@ class InboundVoice {
    return $this->dispatch($id,$d['CallSid']);
   });
  }
- private function candidates(object $call):\Illuminate\Support\Collection {
+ public function candidates(object $call,bool $sip=false):\Illuminate\Support\Collection {
   $q=DB::table('voice_live_queues')->where('workspace_id',$call->workspace_id)->find($call->queue_id);
   if(!QueueRouting::incoming($q))return collect();
   return DB::table('users as u')->join('voice_agent_presence as p','p.user_id','=','u.id')->join('voice_inbound_devices as d','d.user_id','=','u.id')
    ->where('u.voice_workspace_id',$call->workspace_id)->where('u.voice_enabled',true)->whereIn('u.id',json_decode($q->agent_ids,true))
    ->where('p.workspace_id',$call->workspace_id)->where('p.status','available')->where('p.last_seen_at','>',now()->subSeconds(90))
    ->where(fn($b)=>$b->whereNull('p.available_after')->orWhere('p.available_after','<=',now()))
-   ->where('d.workspace_id',$call->workspace_id)->where('d.ready',true)->where('d.last_seen_at','>',now()->subSeconds(45))->orderBy('p.updated_at')->orderBy('u.id')->get(['u.id','u.name','d.identity'])
+   ->where('d.workspace_id',$call->workspace_id)->where($sip?'d.sip_ready':'d.ready',true)->where('d.last_seen_at','>',now()->subSeconds(45))->orderBy('p.updated_at')->orderBy('u.id')->get(['u.id','u.name',$sip?'d.sip_identity as identity':'d.identity'])
    ->filter(fn($u)=>AgentAvailability::available($call->workspace_id,$u->id,$call->queue_id)&&!app(VoiceAgentCapacity::class)->busy($call->workspace_id,$u->id))->values();
  }
  public function dispatch(string $id,string $sid):string {
@@ -72,7 +73,7 @@ class InboundVoice {
    $offer=$this->offer($c,$agent);return $this->render($offer);
   });
  }
- private function offer(object $c,object $agent,bool $transfer=false):string {
+ public function offer(object $c,object $agent,bool $transfer=false):string {
   $id=(string)Str::uuid();DB::table('voice_inbound_offers')->insert(['id'=>$id,'call_id'=>$c->id,'user_id'=>$agent->id,'identity'=>$agent->identity,'status'=>$transfer?'transfer_pending':'offered','created_at'=>now(),'updated_at'=>now()]);
   app(QueueDistribution::class)->record(DB::table('voice_live_queues')->find($c->queue_id),$agent->id,'inbound');
   if(!$transfer)DB::table('voice_inbound_calls')->where('id',$c->id)->update(['status'=>'ringing','user_id'=>$agent->id,'updated_at'=>now()]);
@@ -123,7 +124,7 @@ class InboundVoice {
   });
  }
  public function transfer(int $w,int $u,string $id,int $target):array {
-  $offer=DB::transaction(function()use($w,$u,$id,$target){$this->lock();$c=DB::table('voice_inbound_calls')->where('workspace_id',$w)->where('user_id',$u)->find($id);abort_unless($c,404);abort_unless($c->status==='answered'&&!$c->capacity_released_at,409,'A chamada não está em conversa.');
+  $offer=DB::transaction(function()use($w,$u,$id,$target){$this->lock();$c=DB::table('voice_inbound_calls')->where('workspace_id',$w)->where('user_id',$u)->find($id);abort_unless($c,404);abort_if($c->provider==='sip_trunk',422,'A transferência SIP ainda não está disponível.');abort_unless($c->status==='answered'&&!$c->capacity_released_at,409,'A chamada não está em conversa.');
    abort_if(DB::table('voice_inbound_offers')->where('call_id',$id)->where('status','transfer_pending')->exists(),409,'Uma transferência aguarda confirmação.');
    $agent=$this->candidates($c)->firstWhere('id',$target);abort_unless($agent,409,'Destino indisponível para receber a transferência.');return $this->offer($c,$agent,true);
   });
@@ -150,10 +151,10 @@ class InboundVoice {
   }
   DB::table('voice_inbound_routes')->where('id',$id)->update(['provider_number_sid'=>$n['sid'],'provider_synced_at'=>now(),'updated_at'=>now()]);app(VoiceLab::class)->audit($w,$u,'inbound.route_published',$id);return ['configured'=>true,'number'=>$route->number];
  }
- private function stopCadences(object $c):void {
+ public function stopCadences(object $c):void {
   $contact=DB::table('voice_contacts')->where('workspace_id',$c->workspace_id)->where('phone',$c->from_number)->first();if(!$contact)return;DB::table('voice_contacts')->where('id',$contact->id)->whereNull('replied_at')->update(['replied_at'=>now(),'updated_at'=>now()]);foreach(['voice_followups','voice_actions'] as $table)DB::table($table)->where('workspace_id',$c->workspace_id)->where('contact_id',$contact->id)->whereIn('status',['pending','blocked'])->update(['status'=>'cancelled','reason'=>'Conversa receptiva atendida.','updated_at'=>now()]);
  }
  private function http(object $c):\Illuminate\Http\Client\PendingRequest {$cfg=app(TwilioVoiceConnection::class)->read();abort_unless($cfg && $cfg['account_sid']===$c->account_sid,409);return Http::withBasicAuth($cfg['api_key'],$cfg['api_secret'])->asForm()->connectTimeout(3)->timeout(8)->withoutRedirecting();}
  private function callUrl(object $c):string{return 'https://api.twilio.com/2010-04-01/Accounts/'.$c->account_sid.'/Calls/'.$c->call_sid.'.json';}
- public function reconcile(object $c):array {$r=$this->http($c)->get($this->callUrl($c));abort_unless($r->successful()&&$r->json('sid')===$c->call_sid&&$r->json('account_sid')===$c->account_sid,502,'A Twilio não confirmou a chamada.');$this->ended(['AccountSid'=>$c->account_sid,'CallSid'=>$c->call_sid,'CallStatus'=>$r->json('status'),'CallDuration'=>$r->json('duration')]);return ['status'=>$r->json('status')];}
+ public function reconcile(object $c):array {if($c->provider==='sip_trunk')return ['status'=>$c->status,'message'=>'O Asterisk confere os canais automaticamente a cada minuto.'];$r=$this->http($c)->get($this->callUrl($c));abort_unless($r->successful()&&$r->json('sid')===$c->call_sid&&$r->json('account_sid')===$c->account_sid,502,'A Twilio não confirmou a chamada.');$this->ended(['AccountSid'=>$c->account_sid,'CallSid'=>$c->call_sid,'CallStatus'=>$r->json('status'),'CallDuration'=>$r->json('duration')]);return ['status'=>$r->json('status')];}
 }

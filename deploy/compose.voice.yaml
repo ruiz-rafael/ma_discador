@@ -11,6 +11,8 @@ services:
     security_opt: [no-new-privileges:true]
     ports:
       - '127.0.0.1:18488:8088'
+      - '217.216.65.237:5061:15062/tcp'
+      - '217.216.65.237:15060:15060/udp'
       - '20000-20019:20000-20019/udp'
     volumes:
       - ./voice-runtime/asterisk:/etc/asterisk:ro

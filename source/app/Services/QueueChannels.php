@@ -12,7 +12,7 @@ class QueueChannels {
    if(!empty($c['account_sid']))foreach(DB::table('voice_origins')->where('workspace_id',$w)->where('account_sid',$c['account_sid'])->where('enabled',true)->where('verified_at','>=',now()->subDay())->pluck('number')as $number)$numbers[]=['number'=>$number,'method'=>$method];
   }
   foreach(DB::table('voice_sip_trunks')->where('workspace_id',$w)->where('enabled',true)->get() as $sip)$numbers[]=['number'=>$sip->number,'method'=>'sip_trunk','provider'=>$sip->provider];
-  return ['incoming_numbers'=>app(InboundVoice::class)->numbers($w,app(TwilioVoiceConnection::class)->read()),'voice_numbers'=>collect($numbers)->unique(fn($n)=>$n['method'].':'.$n['number'])->values()->all(),'senders'=>DB::table('wa_senders')->where('workspace_id',$w)->get(['id','label','number','provider','status'])];
+  return ['incoming_numbers'=>array_values(array_unique(array_merge(app(InboundVoice::class)->numbers($w,app(TwilioVoiceConnection::class)->read()),array_keys(app(SipInbound::class)->numbers())))),'voice_numbers'=>collect($numbers)->unique(fn($n)=>$n['method'].':'.$n['number'])->values()->all(),'senders'=>DB::table('wa_senders')->where('workspace_id',$w)->get(['id','label','number','provider','status'])];
  }
  public function apply(?object $q,array $s):array {
   if(!$q||!$q->channels_configured)return $s;
@@ -47,10 +47,10 @@ class QueueChannels {
  }
  public function incoming(object $q,?string $number):void {
   if(!$number)return;
-  abort_unless($q->direction!=='outbound'&&in_array($number,app(InboundVoice::class)->numbers($q->workspace_id,app(TwilioVoiceConnection::class)->read()),true),422,'Selecione um número próprio autorizado para uma fila receptiva ou mista.');
+  abort_unless($q->direction!=='outbound'&&in_array($number,$this->catalog($q->workspace_id)['incoming_numbers'],true),422,'Selecione um número próprio autorizado para uma fila receptiva ou mista.');
   $old=DB::table('voice_inbound_routes')->where('number',$number)->first();
   abort_if($old&&($old->workspace_id!==$q->workspace_id||$old->queue_id!==$q->id),409,'Este número já está vinculado a outra fila. Altere a rota em Receptivo.');
-  if(!$old)DB::table('voice_inbound_routes')->insert(['workspace_id'=>$q->workspace_id,'number'=>$number,'queue_id'=>$q->id,'enabled'=>false,'ring_seconds'=>20,'wait_seconds'=>120,'revision'=>1,'created_at'=>now(),'updated_at'=>now()]);
+  if(!$old)DB::table('voice_inbound_routes')->insert(['provider'=>isset(app(SipInbound::class)->numbers()[$number])?'sip_trunk':'programmable_voice','workspace_id'=>$q->workspace_id,'number'=>$number,'queue_id'=>$q->id,'enabled'=>false,'ring_seconds'=>20,'wait_seconds'=>120,'revision'=>1,'created_at'=>now(),'updated_at'=>now()]);
  }
  public function propagate(object $q):void {
   if(!$q->channels_configured)return;

@@ -60,7 +60,7 @@ class SipTrunks
  }
  public function assertCapacity(array $c,?string $ignore=null):void {
   $q=DB::table('voice_outbound_calls')->where('method','sip_trunk')->where('provider_account',$c['account_sid'])->when($ignore,fn($q)=>$q->where('id','!=',$ignore));
-  abort_if((clone $q)->whereNull('capacity_released_at')->count()>=$c['concurrency'],409,'Todos os canais contratados desta conexão estão ocupados.');
+  abort_if(((clone $q)->whereNull('capacity_released_at')->count()+DB::table('voice_inbound_calls')->where('provider','sip_trunk')->where('account_sid','SI'.md5($c['endpoint']))->whereNull('capacity_released_at')->count())>=$c['concurrency'],409,'Todos os canais contratados desta conexão estão ocupados.');
  }
  public function browser():array {
   $p=app(VoiceCallingConfig::class)->read();abort_unless($p,422,'Defina os limites de homologação antes de liberar a conexão.');
