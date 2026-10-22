@@ -25,3 +25,7 @@ Schedule::call(fn()=>app(\App\Services\SpeechStudio::class)->purge())->hourly()-
 Schedule::call(function(){app(\App\Services\AiAgents::class)->sweep();app(\App\Services\AiWhatsApp::class)->tick();})->everyMinute()->name('ai-conversations')->withoutOverlapping(5);
 
 Schedule::call(function(){if(!config('discai.portal'))app(\App\Services\CadenceEmail::class)->run();})->everyMinute()->name('cadence-email')->withoutOverlapping(5);
+
+// Provider reads run independently so approval latency cannot block voice scheduling.
+Schedule::command('voice:whatsapp:sync-templates')->everyTenMinutes()
+    ->name('whatsapp-template-approvals')->withoutOverlapping(60)->runInBackground();

@@ -22,6 +22,14 @@ Correção de sincronização em 21/10/2026: **Consultar aprovação** passa a a
 
 Exibição dos templates oficiais: a lista, o editor e as configurações de envio preservam literalmente `{{1}}`, `{{2}}` e demais variáveis. Os exemplos para análise permanecem nos campos próprios; não substituem o texto mostrado no cartão. Os valores e a personalização usados no envio não foram alterados. Validado em Chromium em desktop e celular, com a compilação Vite concluída.
 
+## Atualização de 22/10/2026: consulta automática de aprovação
+
+O agendador executa `voice:whatsapp:sync-templates` a cada dez minutos, em segundo plano e sem sobreposição. Consulta somente templates publicados com aprovação pendente/incerta, da conta privada e do workspace 1 da instalação. Portais e tenants sem conexão são ignorados; rascunhos e aprovações concluídas não geram consultas periódicas. Consultas recentes têm uma tolerância de nove minutos para não pular uma rodada por diferença de segundos no tempo de resposta.
+
+A operação usa exclusivamente GET e reutiliza a sincronização de status, categoria e motivo de rejeição. Erros preservam o último estado confirmado e sua data; cada template falho é registrado sem credenciais e será tentado na próxima rodada. O agendador não publica, não reenvia templates e não manda mensagens. A consulta continua com o navegador fechado.
+
+Os cartões exibem a última consulta bem-sucedida à Twilio. Com a aba Templates/API oficial aberta e visível, o navegador relê a lista local a cada minuto, sem interromper edição de rascunhos. Essa consulta não acelera a análise da Meta. O botão Consultar aprovação permanece disponível.
+
 ## Uso na interface
 
 Em **Voz e cadências → Campanhas → Configurar**, a opção **Usar um único número para voz e WhatsApp** vem marcada, inclusive para campanhas antigas. Nesse modo, o número WhatsApp deriva do número de voz. Desmarcando, surge um campo independente. O remetente vinculado precisa pertencer ao mesmo workspace e corresponder ao número escolhido. A opção pode ser preparada antes de contratar os serviços; não comprova conexão ou disponibilidade do número nos dois canais.
