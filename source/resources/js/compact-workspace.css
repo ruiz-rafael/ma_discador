@@ -1,0 +1,165 @@
+/* Compact workspace layout. The DiscAI brand and palette stay unchanged. */
+:root{
+  --compact-nav:196px;
+  --compact-topbar:54px;
+  --compact-gap:12px;
+  --compact-radius:12px;
+}
+
+@media (min-width:761px){
+  body .workspace .main-nav{
+    width:var(--compact-nav);
+    padding:18px 12px 12px;
+  }
+  body .workspace .main-area{margin-left:var(--compact-nav)}
+  body .workspace .brand{gap:8px;padding:0 8px;font-size:24px;letter-spacing:-1.2px}
+  body .workspace .discai-mark{width:38px;height:38px;border-radius:11px}
+  body .workspace .workspace-label{margin:7px 8px 12px;padding:0;font-size:7px;letter-spacing:1.7px}
+  body .workspace .workspace-switch{margin:0 0 10px;padding:9px 8px;border-radius:10px;gap:8px}
+  body .workspace .workspace-avatar{width:27px;height:27px;border-radius:7px}
+  body .workspace .workspace-switch small{font-size:9px;margin-top:2px}
+  body .workspace .nav-groups{gap:10px;margin-top:7px}
+  body .workspace .nav-group{gap:1px}
+  body .workspace .nav-group .nav-caption{padding:0 9px 4px;font-size:7px;letter-spacing:1.45px}
+  body .workspace .nav-item{min-height:34px;padding:8px 9px;margin:0;border-radius:8px;gap:10px;font-size:11px}
+  body .workspace .nav-item svg{width:16px;height:16px}
+  body .workspace .nav-count{padding:1px 5px;font-size:8px}
+  body .workspace .main-nav .profile{margin-top:10px;padding-top:12px}
+  body .workspace .avatar{width:28px;height:28px}
+}
+
+body .workspace .topbar{
+  position:sticky;
+  top:0;
+  z-index:18;
+  height:var(--compact-topbar);
+  min-height:var(--compact-topbar);
+  padding:0 24px;
+  background:#fbfbf8f2;
+  backdrop-filter:blur(12px);
+}
+body .workspace .topbar-tools{gap:12px}
+body .workspace .platform-access{padding:7px 10px;font-size:9px}
+body .workspace .topbar:has(#agent-toolbar:not(:empty)){height:64px;min-height:64px}
+body .workspace .content{max-width:none;padding:20px 24px 30px}
+body .workspace .cadence-nav{margin:10px 24px 0;padding:4px;border-radius:10px}
+body .workspace .cadence-nav button{min-height:32px;padding:7px 12px;border-radius:7px;font-size:11px}
+
+body .workspace :is(.section-heading,.heading,.catalog-heading){gap:14px;margin-bottom:16px}
+body .workspace :is(.section-heading,.heading,.catalog-heading) h1{font-size:27px;line-height:1.18;letter-spacing:-.85px}
+body .workspace :is(.section-heading,.heading,.catalog-heading)>div>p{font-size:12px;line-height:1.55;margin-top:7px}
+body .workspace .eyebrow{font-size:8px;letter-spacing:1.7px;margin-bottom:7px}
+body .workspace :is(.primary,.secondary){padding:9px 13px;border-radius:9px;min-height:36px}
+
+body .workspace :is(.table-card,.queue-choice-card,.lm-card,.overview-shortcuts,.overview-queues,.wa-box,.ai-card,.sv-card,.health-card){
+  border-radius:var(--compact-radius);
+  box-shadow:0 2px 8px #203a2505;
+}
+body .workspace :is(.overview-metrics>button,.setup-cards>button,.agent-summary>div,.stats article,.lab-stats article){
+  border-radius:var(--compact-radius);
+  box-shadow:none;
+}
+body .workspace .table-toolbar{padding:14px 16px}
+body .workspace .table-toolbar h3{font-size:13px}
+body .workspace th{padding:11px 14px;font-size:9px}
+body .workspace td{padding:12px 14px;font-size:11px;line-height:1.5}
+body .workspace table :is(.primary,.secondary){min-height:32px;padding:7px 11px;font-size:10px}
+body .workspace .stats{gap:10px;margin:14px 0 18px}
+body .workspace .stats article{padding:15px 17px}
+body .workspace .stats strong{font-size:27px;margin-top:7px}
+body .workspace .stats article>small{margin-top:3px}
+body .workspace .stat-line{margin-top:12px}
+
+body .workspace :is(.overview-hero,.journeys-hero,.agent-hero){
+  min-height:0;
+  border-radius:16px;
+  padding:18px 21px;
+  margin-bottom:14px;
+  box-shadow:0 6px 18px #1634240c;
+}
+body .workspace :is(.overview-hero,.journeys-hero,.agent-hero) h1{font-size:28px!important;line-height:1.15;margin:7px 0}
+body .workspace :is(.overview-hero,.journeys-hero,.agent-hero) p{font-size:11px!important;line-height:1.5;margin:5px 0}
+body .workspace .overview-hero:after,body .workspace .journeys-hero:after{opacity:.65;transform:scale(.75)}
+body .workspace .overview-heading{margin:17px 0 10px}
+body .workspace-overview h2{font-size:16px}
+body .workspace .overview-metrics{gap:10px}
+body .workspace .overview-metrics>button{padding:14px;gap:11px;border-radius:12px}
+body .workspace .overview-metrics strong{font-size:25px;margin-bottom:3px}
+body .workspace .overview-icon{width:36px;height:36px;border-radius:10px}
+body .workspace .setup-section{margin-top:19px}
+body .workspace .setup-cards{gap:10px}
+body .workspace .setup-cards>button{padding:16px;border-radius:12px}
+body .workspace .setup-cards h3{font-size:14px;margin:14px 0 0}
+body .workspace .setup-cards p{margin:7px 0 12px;line-height:1.55}
+body .workspace .overview-bottom{gap:12px;margin-top:18px}
+body .workspace :is(.overview-shortcuts,.overview-queues){padding:17px}
+body .workspace .overview-shortcuts>button{padding:12px 7px}
+body .workspace .overview-queue{padding:10px 11px;margin-top:7px}
+
+body .workspace .agent-summary{gap:10px;margin:12px 0}
+body .workspace .agent-summary>div{padding:13px 15px;gap:4px 11px}
+body .workspace .agent-summary strong{font-size:18px}
+body .workspace .agent-summary span{font-size:10px}
+body .workspace .agent-summary svg{padding:6px}
+body .workspace .agent-idle{min-height:230px;padding:25px 22px}
+body .workspace .agent-idle .idle-icon{width:54px;height:54px;border-radius:17px;margin-bottom:13px}
+body .workspace .agent-idle .idle-icon svg{width:29px;height:29px}
+body .workspace .agent-idle h2{font-size:21px}
+body .workspace .agent-idle>p{line-height:1.55;margin-bottom:16px}
+body .workspace .agent-idle .idle-actions{max-width:650px;gap:10px;margin-top:17px}
+body .workspace .idle-actions .idle-action{padding:13px;border-radius:11px;grid-template-columns:34px 1fr 16px;gap:10px}
+body .workspace .agent-footer{margin:14px 0}
+
+body .workspace :is(.lab-banner,.wa-heading,.health-heading,.operations-heading){padding:16px 18px;border-radius:12px}
+body .workspace :is(.lab-tabs,.wa-tabs,.queue-config-tabs){margin-top:14px}
+body .workspace :is(.lab-box,.calling-box,.campaign-card,.queue-box){border-radius:12px}
+body .workspace :is(.filters,.report-filters){gap:9px;margin:12px 0;padding:12px}
+body .workspace :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea){min-height:38px;padding:8px 10px;border-radius:8px}
+body .workspace label{gap:6px;margin-bottom:13px}
+
+body .ds-dialog{border-radius:18px}
+body .ds-header{padding:17px 20px}
+body .ds-header h2{font-size:21px}
+body .ds-content{padding:19px 20px}
+body .ds-footer{padding:13px 20px}
+body .ds-section,body .ds-dialog .ds-content .queue-config fieldset{border-radius:12px}
+
+@media (max-width:1180px) and (min-width:761px){
+  :root{--compact-nav:176px}
+  body .workspace .discai-wordmark{font-size:21px}
+  body .workspace .content{padding-inline:18px}
+  body .workspace .topbar{padding-inline:18px}
+}
+
+@media (max-width:760px){
+  body .workspace .main-nav{display:none}
+  body .workspace .main-area{margin-left:0;width:100%}
+  body .workspace .topbar{position:sticky;height:auto;min-height:56px;padding:8px 12px;gap:8px}
+  body .workspace .topbar:has(#agent-toolbar:not(:empty)){height:64px;min-height:64px;flex-wrap:nowrap}
+  body .workspace .topbar:has(#agent-toolbar:not(:empty)) .platform-access{display:none}
+  body .workspace .topbar:has(#agent-toolbar:not(:empty)) .topbar-tools{width:auto;min-width:0;margin-left:auto;flex:0 1 auto;flex-wrap:nowrap}
+  body .workspace .topbar:has(#agent-toolbar:not(:empty)) #agent-toolbar{width:auto;flex:0 0 auto}
+  body .workspace .content{padding:14px 12px 24px}
+  body .workspace .cadence-nav{margin:8px 12px 0}
+  body .workspace :is(.section-heading,.heading,.catalog-heading){margin-bottom:13px;align-items:flex-start}
+  body .workspace :is(.section-heading,.heading,.catalog-heading) h1{font-size:24px}
+  body .workspace :is(.overview-hero,.journeys-hero,.agent-hero){padding:17px;border-radius:14px}
+  body .workspace :is(.overview-hero,.journeys-hero,.agent-hero) h1{font-size:25px!important}
+  body .workspace .overview-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+  body .workspace .overview-metrics>button{padding:12px 10px;gap:8px}
+  body .workspace .overview-metrics strong{font-size:22px}
+  body .workspace .overview-icon{width:32px;height:32px}
+  body .workspace .setup-cards,body .workspace .overview-bottom{grid-template-columns:1fr}
+  body .workspace .table-toolbar{padding:12px}
+  body .workspace th,body .workspace td{padding:10px 12px}
+  body .workspace .agent-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+  body .workspace .agent-summary>div{padding:11px 9px}
+  body .workspace .agent-idle{padding:20px 15px}
+  body .ds-header,body .ds-content{padding:16px}
+  body .ds-footer{padding:12px 16px}
+}
+
+@media (max-width:420px){
+  body .workspace .overview-metrics,body .workspace .agent-summary{grid-template-columns:1fr}
+  body .workspace .overview-metrics>button,body .workspace .agent-summary>div{flex-direction:row;align-items:center}
+}
