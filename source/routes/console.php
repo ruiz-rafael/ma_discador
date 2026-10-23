@@ -29,3 +29,6 @@ Schedule::call(function(){if(!config('discai.portal'))app(\App\Services\CadenceE
 // Provider reads run independently so approval latency cannot block voice scheduling.
 Schedule::command('voice:whatsapp:sync-templates')->everyTenMinutes()
     ->name('whatsapp-template-approvals')->withoutOverlapping(60)->runInBackground();
+
+Schedule::command('voice:whatsapp:sync-messages')->everyMinute()
+    ->name('whatsapp-message-reconciliation')->withoutOverlapping(5)->runInBackground();

@@ -25,6 +25,15 @@ class WhatsAppTemplates
 return $values;
     }
 
+    public function renderBody(string $body, array $values): string
+    {
+        $this->variables($body, $values);
+
+        return preg_replace_callback('/\{\{([1-9][0-9]?)\}\}/', static function (array $match) use ($values): string {
+            return (string) $values[$match[1]];
+        }, $body);
+    }
+
     private function validate(array $d): array
     {
         $d = Validator::make($d, ['name' => ['required', 'regex:/^[a-z][a-z0-9_]{2,99}$/D'], 'language' => 'required|in:pt_BR,en,es', 'category' => 'required|in:MARKETING,UTILITY', 'body' => 'required|string|max:1024', 'variables' => 'present|array|max:10',

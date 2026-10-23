@@ -42,6 +42,13 @@ class ConversationInboxTest extends TestCase {
   $this->postJson('/api/voice/conversations/'.$id.'/read')->assertOk();$this->getJson('/api/voice/conversations?status=closed')->assertJsonPath('rows.total',0)->assertJsonPath('senders.0.counts.total',1)->assertJsonPath('senders.0.counts.unread',0);$this->actingAs($this->user)->getJson('/api/voice/conversations?sender_id='.$other)->assertOk()->assertJsonPath('rows.total',0)->assertJsonCount(2,'senders');Http::assertNothingSent();
  }
 
+ public function test_template_body_is_reconstructed_for_history_and_thread_preview():void {
+  $conversation=$this->conversation();$template=(string)Str::uuid();DB::table('wa_templates')->insert(['id'=>$template,'workspace_id'=>1,'name'=>'historico_qa','language'=>'pt_BR','category'=>'UTILITY','body'=>'Olá, {{1}}. Esta é a mensagem completa.','variables'=>'{"1":"Marina"}','buttons'=>'[]','created_at'=>now(),'updated_at'=>now()]);
+  $message=(string)Str::uuid();DB::table('wa_messages')->insert(['id'=>$message,'workspace_id'=>1,'sender_id'=>$this->sender,'contact_id'=>$this->contact,'conversation_id'=>$conversation,'template_id'=>$template,'direction'=>'outbound','provider'=>'twilio','idempotency_key'=>$message,'request_hash'=>hash('sha256',$message),'account_sid'=>'AC'.str_repeat('a',32),'from_number'=>'+5511000000000','to_number'=>'+5511999990000','status'=>'read','variables'=>'{"1":"Marina"}','body'=>null,'created_at'=>now()->addSecond(),'updated_at'=>now()]);DB::table('wa_conversations')->where('id',$conversation)->update(['last_message_at'=>now()->addSecond()]);
+  $this->getJson('/api/voice/conversations/'.$conversation)->assertOk()->assertJsonPath('messages.data.0.body','Olá, Marina. Esta é a mensagem completa.');
+  $this->getJson('/api/voice/conversations')->assertOk()->assertJsonPath('rows.data.0.contact_name','Pessoa QA')->assertJsonPath('rows.data.0.last_message_preview','Olá, Marina. Esta é a mensagem completa.');
+ }
+
  protected function tearDown():void {if($this->speechRoot)\Illuminate\Support\Facades\File::deleteDirectory($this->speechRoot);parent::tearDown();}
  private function audioAsset():string {
   $this->speechRoot??=sys_get_temp_dir().'/ma-inbox-audio-'.Str::uuid();config(['speech_test.root'=>$this->speechRoot]);$id=(string)Str::uuid();

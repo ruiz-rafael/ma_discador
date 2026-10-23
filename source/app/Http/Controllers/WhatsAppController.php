@@ -110,7 +110,7 @@ class WhatsAppController extends Controller
 
     public function reconcileMessage(Request $r, string $id)
     {
-        $d = $r->validate(['message_sid' => ['required', 'regex:/^SM[0-9a-fA-F]{32}$/D']]);
+        $d = $r->validate(['message_sid' => ['required', 'regex:/^(?:SM|MM)[0-9a-fA-F]{32}$/D']]);
 
         return app(WhatsAppMessages::class)->reconcile($this->workspace($r),$id,$d['message_sid']);
     }

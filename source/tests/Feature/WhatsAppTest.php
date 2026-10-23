@@ -157,6 +157,21 @@ return Http::response(['sid' => 'SM'.str_repeat('5', 32), 'account_sid' => $this
         $d['variables'] = ['1' => 'Bia'];
         $this->postJson('/api/voice/whatsapp/messages', $d)->assertConflict();
         $this->assertDatabaseCount('wa_messages', 1);
+        $this->assertDatabaseHas('wa_messages', ['id' => $r->json('id'), 'body' => 'Olá, Ana.']);
+    }
+
+    public function test_content_message_sid_with_mm_prefix_is_accepted(): void
+    {
+        Http::fake(function ($request) {
+            if (str_contains($request->url(), '/Senders/')) return Http::response(['sid' => 'XE'.str_repeat('3', 32), 'sender_id' => 'whatsapp:+5511999990000', 'status' => 'ONLINE']);
+            if (str_ends_with($request->url(), '/ApprovalRequests')) return Http::response(['whatsapp' => ['status' => 'approved']]);
+            if (str_ends_with($request->url(), '/Messages.json')) return Http::response(['sid' => 'MM'.str_repeat('5', 32), 'account_sid' => $this->c['account_sid'], 'status' => 'queued'], 201);
+            throw new \RuntimeException('Unexpected fake request');
+        });
+        $id = $this->postJson('/api/voice/whatsapp/messages', $this->payload())->assertOk()->assertJsonPath('status', 'queued')->json('id');
+        $this->assertDatabaseHas('wa_messages', ['id' => $id, 'provider_sid' => 'MM'.str_repeat('5', 32), 'body' => 'Olá, Ana.']);
+        $this->webhook('/status/'.$id, ['MessageSid' => 'MM'.str_repeat('5', 32), 'MessageStatus' => 'read', 'ErrorCode' => ''])->assertNoContent();
+        $this->assertDatabaseHas('wa_messages', ['id' => $id, 'status' => 'read']);
     }
 
     public function test_timeout_preserves_unknown_attempt_without_resending(): void

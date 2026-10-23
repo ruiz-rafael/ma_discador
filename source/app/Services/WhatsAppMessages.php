@@ -43,8 +43,8 @@ class WhatsAppMessages
         $sender = $this->syncSender($w, $d['sender_id']);
         $template = app(WhatsAppTemplates::class)->approval($w, $d['template_id']);
         abort_unless($sender->status === 'ONLINE' && $template->approval_status === 'approved', 422, 'Remetente precisa estar ONLINE e template aprovado.');
-        app(WhatsAppTemplates::class)->variables($template->body, $d['variables']);
-        $result = DB::transaction(function () use ($w, $user, $d, $hash, $c, $sender, $template, $followup) {
+        $renderedBody = app(WhatsAppTemplates::class)->renderBody($template->body, $d['variables']);
+        $result = DB::transaction(function () use ($w, $user, $d, $hash, $c, $sender, $template, $followup, $renderedBody) {
             DB::table('voice_runtime')->where('id', 1)->lockForUpdate()->firstOrFail();
             $old = DB::table('wa_messages')->where('workspace_id', $w)->where('idempotency_key', $d['idempotency_key'])->first();
             if ($old) {
@@ -65,7 +65,7 @@ class WhatsAppMessages
             }
             abort_if(DB::table('wa_messages')->where('account_sid', $c['account_sid'])->where('direction', 'outbound')->where('created_at', '>=', now()->startOfDay())->count() >= $c['daily_limit'], 429, 'Limite diário de homologação atingido.');
             $id = (string) Str::uuid();
-            DB::table('wa_messages')->insert(['id' => $id, 'run_id'=>$followup?DB::table('voice_followups')->where('id',$followup)->value('run_id'):null, 'workspace_id' => $w, 'sender_id' => $sender->id, 'contact_id' => $contact->id, 'campaign_id' => $d['campaign_id'] ?? null, 'user_id' => $user, 'template_id' => $template->id, 'direction' => 'outbound', 'idempotency_key' => $d['idempotency_key'], 'request_hash' => $hash, 'account_sid' => $c['account_sid'], 'from_number' => $sender->number, 'to_number' => $contact->phone, 'status' => 'sending', 'variables' => json_encode((object) $d['variables']), 'interactive' => json_encode(['mode' => 'official_template', 'buttons' => app(WhatsAppTemplates::class)->messageButtons($template)]), 'consent_evidence' => $d['consent_evidence'], 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('wa_messages')->insert(['id' => $id, 'run_id'=>$followup?DB::table('voice_followups')->where('id',$followup)->value('run_id'):null, 'workspace_id' => $w, 'sender_id' => $sender->id, 'contact_id' => $contact->id, 'campaign_id' => $d['campaign_id'] ?? null, 'user_id' => $user, 'template_id' => $template->id, 'direction' => 'outbound', 'idempotency_key' => $d['idempotency_key'], 'request_hash' => $hash, 'account_sid' => $c['account_sid'], 'from_number' => $sender->number, 'to_number' => $contact->phone, 'status' => 'sending', 'variables' => json_encode((object) $d['variables']), 'body' => $renderedBody, 'interactive' => json_encode(['mode' => 'official_template', 'buttons' => app(WhatsAppTemplates::class)->messageButtons($template)]), 'consent_evidence' => $d['consent_evidence'], 'created_at' => now(), 'updated_at' => now()]);
 
             return ['row' => DB::table('wa_messages')->find($id), 'created' => true];
         });
@@ -84,7 +84,7 @@ class WhatsAppMessages
                 return DB::table('wa_messages')->find($m->id);
             }
             $r = app(TwilioWhatsAppApi::class)->request('POST', 'https://api.twilio.com/2010-04-01/Accounts/'.$c['account_sid'].'/Messages.json', ['From' => 'whatsapp:'.$m->from_number, 'To' => 'whatsapp:'.$m->to_number, 'ContentSid' => $template->content_sid, 'ContentVariables' => json_encode((object) $d['variables']), 'StatusCallback' => TwilioWhatsAppConnection::base().'/status/'.$m->id], true);
-            if (! preg_match('/^SM[0-9a-fA-F]{32}$/D', $r['sid'] ?? '') || ($r['account_sid'] ?? '') !== $c['account_sid']) {
+            if (! preg_match('/^(?:SM|MM)[0-9a-fA-F]{32}$/D', $r['sid'] ?? '') || ($r['account_sid'] ?? '') !== $c['account_sid']) {
                 throw new \RuntimeException('twilio_unknown');
             }
             $this->apply($m->id, $r['sid'], $r['status'] ?? 'accepted', null);

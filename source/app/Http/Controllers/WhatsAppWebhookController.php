@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Services\TwilioWhatsAppConnection;
+use App\Services\WhatsAppInbound;
 use App\Services\WhatsAppMessages;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Twilio\Security\RequestValidator;
 
 class WhatsAppWebhookController extends Controller
@@ -28,7 +28,7 @@ class WhatsAppWebhookController extends Controller
     public function status(Request $r, string $id)
     {
         $c = $this->verify($r, '/status/'.$id);
-        $d = $r->validate(['MessageSid' => ['required', 'regex:/^SM[0-9a-fA-F]{32}$/D'], 'MessageStatus' => 'required|string|max:32', 'ErrorCode' => 'nullable|string|max:20']);
+        $d = $r->validate(['MessageSid' => ['required', 'regex:/^(?:SM|MM)[0-9a-fA-F]{32}$/D'], 'MessageStatus' => 'required|string|max:32', 'ErrorCode' => 'nullable|string|max:20']);
         $m = DB::table('wa_messages')->where('id', $id)->where('account_sid', $c['account_sid'])->where('direction', 'outbound')->firstOrFail();
         app(WhatsAppMessages::class)->apply($m->id, $d['MessageSid'], $d['MessageStatus'], $d['ErrorCode'] ?? null);
 
@@ -38,33 +38,8 @@ class WhatsAppWebhookController extends Controller
     public function inbound(Request $r)
     {
         $c = $this->verify($r, '/inbound');
-        $d = $r->validate(['MessageSid' => ['required', 'regex:/^SM[0-9a-fA-F]{32}$/D'], 'From' => ['required', 'regex:/^whatsapp:\+[1-9][0-9]{7,14}$/D'], 'To' => ['required', 'regex:/^whatsapp:\+[1-9][0-9]{7,14}$/D'], 'Body' => 'nullable|string|max:4096', 'OptOutType' => 'nullable|string|max:20', 'ButtonPayload' => 'nullable|string|max:200', 'ButtonText' => 'nullable|string|max:100', 'OriginalRepliedMessageSid' => ['nullable', 'regex:/^SM[0-9a-fA-F]{32}$/D'], 'ReferralSourceId'=>'nullable|string|max:200','ReferralSourceUrl'=>'nullable|string|max:2000','ReferralHeadline'=>'nullable|string|max:500','ReferralCtwaClid'=>'nullable|string|max:500']);
-        DB::transaction(function () use ($d, $c) {
-            DB::table('voice_runtime')->where('id', 1)->lockForUpdate()->firstOrFail();
-            if (DB::table('wa_messages')->where('provider_sid', $d['MessageSid'])->exists()) {
-                return;
-            }
-            $to = substr($d['To'], 9);
-            $from = substr($d['From'], 9);
-            $sender = DB::table('wa_senders')->where('number', $to)->where('account_sid', $c['account_sid'])->firstOrFail();
-            $contact = DB::table('voice_contacts')->where('workspace_id', $sender->workspace_id)->where('phone', $from)->first();
-            $interactive = null;
-            if (!empty($d['ButtonPayload']) || !empty($d['ButtonText'])) {
-                $original = !empty($d['OriginalRepliedMessageSid']) ? DB::table('wa_messages')->where('workspace_id', $sender->workspace_id)->where('sender_id', $sender->id)->where('direction', 'outbound')->where('to_number', $from)->where('provider_sid', $d['OriginalRepliedMessageSid'])->first() : null;
-                $interactive = ['kind' => 'button_reply', 'id' => $d['ButtonPayload'] ?? '', 'label' => $d['ButtonText'] ?? $d['Body'] ?? '', 'context_id' => $d['OriginalRepliedMessageSid'] ?? null, 'matched_message_id' => $original?->id];
-            }
-            $id = (string) Str::uuid();
-            DB::table('wa_messages')->insert(['id' => $id, 'workspace_id' => $sender->workspace_id, 'sender_id' => $sender->id, 'contact_id' => $contact?->id, 'direction' => 'inbound', 'idempotency_key' => 'inbound:'.$d['MessageSid'], 'request_hash' => hash('sha256', $d['MessageSid']), 'account_sid' => $c['account_sid'], 'provider_sid' => $d['MessageSid'], 'from_number' => $from, 'to_number' => $to, 'status' => 'received', 'body' => $d['Body'] ?? $d['ButtonText'] ?? '', 'interactive' => $interactive ? json_encode($interactive) : null, 'created_at' => now(), 'updated_at' => now()]);
-            app(\App\Services\JourneyReplyAttribution::class)->record($id);
-            app(\App\Services\ConversationInbox::class)->record($id,array_filter(['source'=>!empty($d['ReferralSourceId'])?'click_to_whatsapp':null,'source_id'=>$d['ReferralSourceId']??null,'source_url'=>$d['ReferralSourceUrl']??null,'headline'=>$d['ReferralHeadline']??null,'ctwa_clid'=>$d['ReferralCtwaClid']??null]));
-            if ($contact) {
-                $stop = ($d['OptOutType'] ?? '') === 'STOP' || ($d['ButtonPayload'] ?? '') === 'discai_opt_out' || in_array(mb_strtoupper(trim($d['Body'] ?? $d['ButtonText'] ?? '')), ['STOP', 'SAIR', 'PARAR', 'CANCELAR', 'NÃO RECEBER OFERTAS']);
-                $contacts = $stop ? DB::table('voice_contacts')->where('workspace_id', $sender->workspace_id)->where('phone', $from)->pluck('id')->all() : [$contact->id];
-                DB::table('voice_contacts')->whereIn('id', $contacts)->update([$stop ? 'suppressed_at' : 'replied_at' => now(), 'updated_at' => now()]);
-                DB::table('voice_followups')->where('workspace_id', $sender->workspace_id)->whereIn('contact_id', $contacts)->whereIn('status', ['pending', 'blocked'])->update(['status' => 'cancelled', 'reason' => $stop ? 'Opt-out recebido por WhatsApp.' : 'Resposta recebida por WhatsApp.', 'updated_at' => now()]);
-                DB::table('voice_actions')->where('workspace_id', $sender->workspace_id)->whereIn('contact_id', $contacts)->where('status', 'pending')->update(['status' => 'cancelled', 'reason' => $stop ? 'Opt-out recebido por WhatsApp.' : 'Resposta recebida por WhatsApp.', 'updated_at' => now()]);
-            }
-        });
+        $d = $r->validate(['MessageSid' => ['required', 'regex:/^SM[0-9a-fA-F]{32}$/D'], 'From' => ['required', 'regex:/^whatsapp:\+[1-9][0-9]{7,14}$/D'], 'To' => ['required', 'regex:/^whatsapp:\+[1-9][0-9]{7,14}$/D'], 'Body' => 'nullable|string|max:4096', 'OptOutType' => 'nullable|string|max:20', 'ButtonPayload' => 'nullable|string|max:200', 'ButtonText' => 'nullable|string|max:100', 'OriginalRepliedMessageSid' => ['nullable', 'regex:/^(?:SM|MM)[0-9a-fA-F]{32}$/D'], 'ReferralSourceId'=>'nullable|string|max:200','ReferralSourceUrl'=>'nullable|string|max:2000','ReferralHeadline'=>'nullable|string|max:500','ReferralCtwaClid'=>'nullable|string|max:500']);
+        app(WhatsAppInbound::class)->record($d, $c);
 
         return response('<Response/>',200)->header('Content-Type','application/xml');
     }

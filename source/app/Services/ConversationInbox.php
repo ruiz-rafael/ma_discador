@@ -3,15 +3,15 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 class ConversationInbox {
- public function record(string $id,array $attribution=[]):?string {
-  return DB::transaction(function()use($id,$attribution){DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();$m=DB::table('wa_messages')->find($id);if(!$m)return null;if($m->conversation_id)return $m->conversation_id;
+ public function record(string $id,array $attribution=[],bool $automate=true):?string {
+  return DB::transaction(function()use($id,$attribution,$automate){DB::table('voice_runtime')->where('id',1)->lockForUpdate()->firstOrFail();$m=DB::table('wa_messages')->find($id);if(!$m)return null;if($m->conversation_id)return $m->conversation_id;
    $phone=$m->direction==='inbound'?$m->from_number:$m->to_number;
    $c=DB::table('wa_conversations')->where('workspace_id',$m->workspace_id)->where('sender_id',$m->sender_id)->where('phone',$phone)->first();
    if(!$c){$cid=(string)Str::uuid();$route=DB::table('wa_inbox_routes')->where('workspace_id',$m->workspace_id)->where('sender_id',$m->sender_id)->first();DB::table('wa_conversations')->insert(['id'=>$cid,'workspace_id'=>$m->workspace_id,'sender_id'=>$m->sender_id,'contact_id'=>$m->contact_id,'phone'=>$phone,'queue_id'=>$route?->queue_id,'status'=>'open','created_at'=>$m->created_at,'updated_at'=>now()]);$c=DB::table('wa_conversations')->find($cid);}
    $v=['updated_at'=>now(),'contact_id'=>$m->contact_id??$c->contact_id];if(!$c->queue_id&&!$c->assigned_user_id){$route=DB::table('wa_inbox_routes')->where('workspace_id',$m->workspace_id)->where('sender_id',$m->sender_id)->first();if($route)$v['queue_id']=$route->queue_id;}if(!$c->last_message_at || $m->created_at>$c->last_message_at)$v['last_message_at']=$m->created_at;
    if($m->direction==='inbound'&&(!$c->last_inbound_at||$m->created_at>$c->last_inbound_at)){$v['last_inbound_at']=$m->created_at;$v['status']='open';if($c->status==='closed')$v['revision']=$c->revision+1;}
    if($attribution)$v['attribution']=json_encode(array_intersect_key($attribution,array_flip(['source','source_id','source_url','headline','ctwa_clid','ad_id','campaign_id','form_id','lead_id'])));
-   DB::table('wa_conversations')->where('id',$c->id)->update($v);DB::table('wa_messages')->where('id',$id)->update(['conversation_id'=>$c->id]);if($m->direction==='inbound'){if(!app(AiWhatsApp::class)->reserve($m,$c->id))$this->distribute($c->id);app(IntegrationEvents::class)->emit($m->workspace_id,'message.received',$id,'message:'.$id,['conversation_id'=>$c->id,'button_id'=>$m->button_id,'button_label'=>$m->button_label,'source_created_at'=>$m->created_at]);}return $c->id;
+   DB::table('wa_conversations')->where('id',$c->id)->update($v);DB::table('wa_messages')->where('id',$id)->update(['conversation_id'=>$c->id]);if($m->direction==='inbound'){if(!$automate||!app(AiWhatsApp::class)->reserve($m,$c->id))$this->distribute($c->id);app(IntegrationEvents::class)->emit($m->workspace_id,'message.received',$id,'message:'.$id,['conversation_id'=>$c->id,'button_id'=>$m->button_id,'button_label'=>$m->button_label,'source_created_at'=>$m->created_at]);}return $c->id;
   });
  }
  public function distribute(string $id):void {
@@ -57,7 +57,7 @@ class ConversationInbox {
    $this->assertSend($w,$u,$id);
   }catch(\Throwable $e){DB::table('wa_messages')->where('id',$m->id)->update(['status'=>'cancelled','updated_at'=>now()]);throw $e;}
   try{if($m->provider==='qr'){$payload=['id'=>$m->id,'number'=>$m->from_number,'to'=>$m->to_number,'text'=>$m->body];if($m->interactive)$payload['interactive']=json_decode($m->interactive,true);if($m->speech_asset_id){abort_unless($session['capabilities']['audio']??false,422,'Atualize o conector QR para enviar áudio.');$payload['audio']=['base64'=>base64_encode(file_get_contents(app(SpeechStudio::class)->file($w,$m->speech_asset_id,'ogg')))];}$res=app(WhatsAppQr::class)->request('POST','/sessions/'.$m->sender_id.'/messages',$payload);app(WhatsAppQr::class)->apply($m->id,$res);}
-   else {$res=app(TwilioWhatsAppApi::class)->request('POST','https://api.twilio.com/2010-04-01/Accounts/'.$m->account_sid.'/Messages.json',['From'=>'whatsapp:'.$m->from_number,'To'=>'whatsapp:'.$m->to_number,...($m->speech_asset_id?['MediaUrl'=>app(SpeechStudio::class)->deliveryUrl($w,$m->speech_asset_id,'ogg')]:['Body'=>$m->body]),'StatusCallback'=>TwilioWhatsAppConnection::base().'/status/'.$m->id],true);abort_unless(($res['account_sid']??'')===$m->account_sid&&preg_match('/^SM[a-fA-F0-9]{32}$/D',$res['sid']??''),502);app(WhatsAppMessages::class)->apply($m->id,$res['sid'],$res['status']??'accepted',null);}
+   else {$res=app(TwilioWhatsAppApi::class)->request('POST','https://api.twilio.com/2010-04-01/Accounts/'.$m->account_sid.'/Messages.json',['From'=>'whatsapp:'.$m->from_number,'To'=>'whatsapp:'.$m->to_number,...($m->speech_asset_id?['MediaUrl'=>app(SpeechStudio::class)->deliveryUrl($w,$m->speech_asset_id,'ogg')]:['Body'=>$m->body]),'StatusCallback'=>TwilioWhatsAppConnection::base().'/status/'.$m->id],true);abort_unless(($res['account_sid']??'')===$m->account_sid&&preg_match('/^(?:SM|MM)[a-fA-F0-9]{32}$/D',$res['sid']??''),502);app(WhatsAppMessages::class)->apply($m->id,$res['sid'],$res['status']??'accepted',null);}
   }catch(\Throwable $e){DB::table('wa_messages')->where('id',$m->id)->where('status','sending')->update(['status'=>str_starts_with($e->getMessage(),'twilio_rejected_')?'failed':'unknown','updated_at'=>now()]);}
   return DB::table('wa_messages')->find($m->id);
  }
