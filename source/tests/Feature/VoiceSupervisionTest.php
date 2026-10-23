@@ -49,6 +49,9 @@ class VoiceSupervisionTest extends TestCase
         $d=$this->getJson('/api/voice/supervision')->assertOk()->json();
         $this->assertEquals(7,$d['summary']['records']);$this->assertEquals(6,$d['summary']['attempts']);$this->assertEquals(4,$d['summary']['connected']);
         $this->assertEquals(1,$d['summary']['humans']);$this->assertEquals(1,$d['summary']['machines']);$this->assertSame(1,$d['live_total']);
+        $this->assertSame(6,$d['queues'][0]['performance']['attempts']);$this->assertSame(1,$d['queues'][0]['performance']['humans']);
+        $this->assertSame(1,$d['queues'][0]['performance']['machines']);$this->assertSame(1,$d['queues'][0]['performance']['no_answer']);
+        $this->assertSame(['total'=>1,'dialing'=>1,'connected'=>0],$d['queues'][0]['live']);
         $this->getJson('/api/voice/supervision/calls?result=machine')->assertOk()->assertJsonPath('calls.total',1)->assertJsonPath('calls.data.0.id',$machine)->assertJsonMissingPath('calls.data.0.grant_hash');
         $this->getJson('/api/voice/supervision/calls?attempted=1')->assertOk()->assertJsonPath('calls.total',6);
         Http::assertNothingSent();
@@ -86,7 +89,8 @@ class VoiceSupervisionTest extends TestCase
         $this->callRow(['user_id'=>$manual->id,'campaign_id'=>null,'status'=>'answered','answered_at'=>now()->subSeconds(40),'ended_at'=>null,'capacity_released_at'=>null]);
         $d=$this->getJson('/api/voice/supervision?queue_id='.$this->queue)->assertOk()->json();
         $this->assertSame(['idle'=>1,'manual'=>1,'paused'=>1,'wrapup'=>1,'offline'=>1],$d['agent_counts']);
-        $this->assertSame(1,$d['queues'][0]['available']);$this->assertSame(2,$d['queues'][0]['busy']);
+        $this->assertSame(4,$d['queues'][0]['online']);$this->assertSame(1,$d['queues'][0]['available']);$this->assertSame(2,$d['queues'][0]['busy']);
+        $this->assertSame(['talking'=>1,'dialing'=>0,'wrapup'=>1,'paused'=>1,'offline'=>1,'not_selected'=>0],$d['queues'][0]['agent_states']);
         $this->assertCount(5,$d['agents']);
     }
     public function test_inbound_offer_occupies_agent_even_before_call_has_owner(): void

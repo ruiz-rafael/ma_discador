@@ -5,7 +5,7 @@ Acesso: menu **Operação → Supervisão ao vivo**, para administrador e superv
 ## Visões
 
 - **Equipe:** uma linha por usuário habilitado, estado operacional exclusivo, filas atribuídas, telefone em atendimento e tempo no estado. Busca por nome e filtros de estado.
-- **Filas:** presença selecionada, ocupação, números, cadências vinculadas, horário e canais de entrada/saída. A pausa de cada canal exige confirmação e revisão atual; não encerra chamadas existentes nem muda a permissão de discagem manual.
+- **Filas:** capacidade atribuída, agentes online/disponíveis, em conversa, preparando chamada, em pós-atendimento, pausados e offline; chamadas discando/conectadas; tentativas e resultados do período; números, cadências, horário e canais de entrada/saída. Há acesso direto aos analistas, às chamadas, ao diagnóstico e à configuração da fila. A pausa de cada canal exige confirmação e revisão atual; não encerra chamadas existentes nem muda a permissão de discagem manual.
 - **Cadências:** status, tentativas no período e acesso à configuração existente.
 - **Chamadas e resultados:** entrada e saída, contato, telefone, origem, agente, fila, cadência, horários, resultado da telefonia, classificação AMD e tabulação. Pesquisa, filtros e paginação de 25 registros. Detalhes em modal com fechamento explícito.
 
@@ -22,7 +22,13 @@ Atualização a cada 10 segundos enquanto a aba estiver visível, desativável. 
 - Disponível: presença recente, sem ocupação/pós-atendimento e com fila selecionada. Os controles de áudio, autorização, limites e horários continuam sendo avaliados pelo distribuidor antes de qualquer chamada.
 - Tempos de estado anteriores à implantação, sem registro confiável, aparecem como “—”. Heartbeats não reiniciam o relógio de pausa.
 
-Os status “Caixa postal pré/pós-atendimento” de outros produtos não são reproduzidos sem evento que justifique essa distinção. Este painel não implementa discagem preditiva nem amplia simultaneidade.
+Os status “Caixa postal pré/pós-atendimento” de outros produtos não são reproduzidos sem evento que justifique essa distinção. O modo atual é progressivo: uma chamada por atendente disponível. O painel não implementa discagem preditiva nem amplia simultaneidade.
+
+## Privacidade durante a discagem
+
+Na distribuição automática, **Minha operação** mantém nome e telefone ocultos enquanto a chamada está sendo preparada ou discando. O contato aparece quando a telefonia informa atendimento e a conversa é entregue ao atendente. Ligações manuais continuam mostrando o destino escolhido pelo próprio atendente. Essa proteção de interface não altera a reserva, a telefonia ou a capacidade da fila.
+
+Na discagem preditiva futura, a plataforma deverá originar e acompanhar múltiplas tentativas no servidor, reconhecer atendimento, aplicar ritmo e limites de abandono, cancelar pernas excedentes e só então distribuir a conversa. Ocultar o contato no navegador, isoladamente, não transforma a discagem progressiva em preditiva.
 
 ## Operação e segurança
 

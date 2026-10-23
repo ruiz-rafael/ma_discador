@@ -113,12 +113,31 @@ class VoiceSupervision
         $campaigns=DB::table('voice_campaigns')->where('workspace_id',$w)->get(['id','name','status']);
         $campaignTotals=(clone $base)->whereNotNull('campaign_id')->selectRaw('campaign_id, COUNT(*) as total, SUM(attempted) as attempts')->groupBy('campaign_id')->get()->keyBy('campaign_id');
         $live=$this->query($w,array_intersect_key($f,array_flip(['queue_id','campaign_id'])),false)->whereNull('capacity_released_at');
-        $queueRows=$scopeQueues->map(function($q)use($team,$w){
-            $assigned=$team->filter(fn($a)=>in_array($q->id,$a['selected_queue_ids'],true));
+        $queuePerformance=(clone $base)->whereNotNull('queue_id')->selectRaw("queue_id,
+            COALESCE(SUM(attempted),0) as attempts,
+            COALESCE(SUM(CASE WHEN result='human' THEN 1 ELSE 0 END),0) as humans,
+            COALESCE(SUM(CASE WHEN result='machine' THEN 1 ELSE 0 END),0) as machines,
+            COALESCE(SUM(CASE WHEN result='no_answer' THEN 1 ELSE 0 END),0) as no_answer,
+            COALESCE(SUM(CASE WHEN result='abandoned' THEN 1 ELSE 0 END),0) as abandoned")
+            ->groupBy('queue_id')->get()->keyBy('queue_id');
+        $queueLive=(clone $live)->whereNotNull('queue_id')->selectRaw("queue_id, COUNT(*) as total,
+            COALESCE(SUM(CASE WHEN result IN ('reserved','dialing') THEN 1 ELSE 0 END),0) as dialing,
+            COALESCE(SUM(CASE WHEN answered_at IS NOT NULL OR status='answered' THEN 1 ELSE 0 END),0) as connected")
+            ->groupBy('queue_id')->get()->keyBy('queue_id');
+        $queueRows=$scopeQueues->map(function($q)use($team,$w,$queuePerformance,$queueLive){
+            $members=$team->filter(fn($a)=>$a['queues']->contains(fn($assigned)=>$assigned['id']===$q->id));
+            $selected=$members->filter(fn($a)=>in_array($q->id,$a['selected_queue_ids'],true));
+            $performance=$queuePerformance->get($q->id);$liveNow=$queueLive->get($q->id);
             return ['id'=>$q->id,'name'=>$q->name,'status'=>$q->status,'inbound_enabled'=>(bool)$q->inbound_enabled,'direction'=>$q->direction,'revision'=>$q->revision,
                 'voice_number'=>$q->voice_number,'mode'=>$q->mode,'method'=>$q->calling_method,'campaign_ids'=>$q->campaign_ids,
-                'assigned'=>count($q->agent_ids),'available'=>$assigned->where('state','idle')->count(),
-                'busy'=>$assigned->whereIn('state',['connected','manual','dialing','reserved','review','tabulation','wrapup','machine'])->count(),
+                'assigned'=>count($q->agent_ids),'online'=>$selected->where('connected',true)->count(),'available'=>$selected->where('state','idle')->count(),
+                'busy'=>$selected->whereIn('state',['connected','manual','dialing','reserved','review','tabulation','wrapup','machine'])->count(),
+                'agent_states'=>['talking'=>$selected->whereIn('state',['connected','manual'])->count(),'dialing'=>$selected->whereIn('state',['dialing','reserved'])->count(),
+                    'wrapup'=>$selected->whereIn('state',['wrapup','tabulation'])->count(),'paused'=>$members->where('state','paused')->count(),'offline'=>$members->where('state','offline')->count(),
+                    'not_selected'=>$members->filter(fn($a)=>$a['connected']&&!in_array($q->id,$a['selected_queue_ids'],true))->count()],
+                'live'=>['total'=>(int)($liveNow?->total??0),'dialing'=>(int)($liveNow?->dialing??0),'connected'=>(int)($liveNow?->connected??0)],
+                'performance'=>['attempts'=>(int)($performance?->attempts??0),'humans'=>(int)($performance?->humans??0),'machines'=>(int)($performance?->machines??0),
+                    'no_answer'=>(int)($performance?->no_answer??0),'abandoned'=>(int)($performance?->abandoned??0)],
                 'schedule_open'=>QueueOperationSettings::open($q)];
         })->values();
         return ['generated_at'=>now()->toIso8601String(),'timezone'=>'America/Sao_Paulo','filters'=>$f,
